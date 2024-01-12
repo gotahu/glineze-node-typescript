@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2020", // Node.js v16 は ECMAScript 2020 をサポート
+    "module": "commonjs", // Node.js のモジュールシステム
+    "lib": ["es2020"], // ECMAScript 2020 機能の使用を許可
+    "outDir": "./dist", // コンパイルされたファイルの出力先
+    "rootDir": "./src", // ソースファイルのルートディレクトリ
+    "strict": true, // 厳格な型チェックを有効化
+    "esModuleInterop": true, // CommonJS と ES モジュール間の互換性
+    "forceConsistentCasingInFileNames": true, // ファイル名の大文字小文字の一貫性を強制
+    "skipLibCheck": true, // 型定義ファイルのチェックをスキップ
+    "resolveJsonModule": true // JSON モジュールのインポートを許可
+  },
+  "include": ["src/**/*"], // コンパイル対象のファイルパターン
+  "exclude": ["node_modules", "dist"] // 除外するファイルパターン
+}
