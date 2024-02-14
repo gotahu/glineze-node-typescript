@@ -23,6 +23,12 @@ export async function handleMessageCreate(message: Message) {
     return;
   }
 
+  // BOT には反応しない
+  if (message.author.bot) {
+    console.log('ignore BOT');
+    return;
+  }
+
   // クライアントやBOTから送信されたメッセージではなく、システムメッセージの場合
   if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
     console.log(`system message, type: ${message.type}`);
@@ -88,7 +94,7 @@ export async function handleMessageCreate(message: Message) {
 }
 
 export async function handleThreadChannelMessage(message: Message) {
-  // その他の処理...
+  // その他の処理
   // ボタンを作成
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId('delete').setLabel('消去する').setStyle(ButtonStyle.Danger),
