@@ -1,5 +1,6 @@
 import {
   BaseInteraction,
+  ChannelType,
   Message,
   MessageReaction,
   PartialMessage,
@@ -14,6 +15,8 @@ import {
   retrieveNotificationMessages,
   deleteNotificationMessage,
 } from '../notion/notion-interaction';
+
+import { prepareDiscordMessageToLINENotify } from '../line/lineNotify';
 
 /**
  * 指定されたスレッドチャンネルから、特定のメンバーを除いたすべてのメンバーを削除します。
@@ -67,6 +70,7 @@ export const handleInteractionCreate = async (interaction: BaseInteraction) => {
         break;
       } else {
         console.log('');
+        break;
       }
 
     case 'ignore':
@@ -82,13 +86,50 @@ export async function handleReactionAdd(
   reaction: MessageReaction | PartialMessageReaction,
   user: User | PartialUser
 ) {
+  // リアクションがBOTによるものである場合は無視
+  if (user.bot) return;
+
   // デバッグ用に出力する
   console.log(reaction);
   console.log(
     `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} をリアクションしました`
   );
 
+  const reactedMessage = reaction.message.partial
+    ? await fetchPartialMessage(reaction.message)
+    : (reaction.message as Message);
+
+  if (!reactedMessage) {
+    console.error('メッセージオブジェクトが存在しませんでした。');
+    return;
+  }
+
+  // DM には反応しない
+  if (reactedMessage.channel.type === ChannelType.DM) {
+    console.log('ignore DM');
+    return;
+  }
+
   const reactedMessageId = reaction.message.id;
+
+  if (reaction.emoji.name === '✅') {
+    const reactedUsers = await reaction.users.fetch();
+
+    // メッセージにBOTのリアクションがついていたら
+    if (reactedUsers.has(reaction.client.user.id)) {
+      // メッセージ作成者によるリアクションでなければ、削除してスルーする
+      if (user.id !== reactedMessage.author.id) {
+        return;
+      }
+
+      // リアクションをすべて削除する
+      reaction.remove();
+
+      prepareDiscordMessageToLINENotify(reactedMessage, false);
+
+      return;
+    }
+  }
 
   // Notion データベースで通知対象になっていないか検索しておく
   const notificationMessages = await retrieveNotificationMessages(reactedMessageId);
@@ -123,16 +164,6 @@ export async function handleReactionAdd(
     !isAlreadyNotificationMessage
   ) {
     console.log('リアクションされたメッセージは通知対象ではありませんでした。');
-    return;
-  }
-
-  const reactedMessage = reaction.message.partial
-    ? await fetchPartialMessage(reaction.message)
-    : reaction.message;
-
-  if (!reactedMessage) {
-    notificationUser.send(':warning: エラー：メッセージオブジェクトが存在しませんでした。');
-    console.error('メッセージオブジェクトが存在しませんでした。');
     return;
   }
 

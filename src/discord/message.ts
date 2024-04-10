@@ -8,7 +8,7 @@ import {
   MessageType,
   TextChannel,
 } from 'discord.js';
-import { LINENotifyPayload, postToLINENotify } from '../line/lineNotify';
+import { prepareDiscordMessageToLINENotify } from '../line/lineNotify';
 import { retrieveLatestPracticeStrings } from '../notion/notion-practice';
 import { getConfigurationValue } from '../notion/notion-client';
 import { retrieveLINEAndDiscordPairs } from '../notion/notion-interaction';
@@ -46,51 +46,28 @@ export async function handleMessageCreate(message: Message) {
     return;
   }
 
-  // 文章を取得
-  let messageText = message.cleanContent;
+  const channelId =
+    message.channel.isThread() && message.channel.parent
+      ? message.channel.parent.id
+      : message.channelId;
+
+  // LINEとDiscordのペアを取得
+  const pairs = await retrieveLINEAndDiscordPairs();
+  // 対象のDiscordチャンネルに対応するペアを検索
+  const pair = pairs.find((v) => v.discord_channel_id == channelId);
+
+  // ペアが見つかった場合
+  if (pair) {
+    message.react('✅');
+  }
 
   // メンバーやチャンネルが取得できない場合
   if (!message.member || !message.channel) {
     console.log('error: message member or channel cannot be detected');
     return;
   }
-  // メッセージタイトルの初期定義
-  var messageTitle = `#${message.channel.name}\n${message.member.displayName}:`;
 
-  // スレッドのメッセージだった場合
-  if (message.channel.isThread() && message.channel.parent) {
-    // 親チャンネルの名前を取得
-    const parentChannel = message.channel.parent.name;
-    // タイトルを「親チャンネル > スレッド名」の形にする
-    messageTitle = `#${parentChannel} > ${message.channel.name}\n${message.member.displayName}：`;
-  }
-
-  const lineNotifyPayload = {
-    username: message.member.displayName,
-    channelid:
-      message.channel.isThread() && message.channel.parent
-        ? message.channel.parent.id
-        : message.channelId,
-    groupname: message.channel.name,
-    message: messageTitle + '\n' + messageText,
-    avatarURL: message.author.displayAvatarURL({ extension: 'png' }),
-    hasImage: false,
-  } as LINENotifyPayload;
-
-  // 添付ファイルを取得
-  const file = message.attachments.first();
-
-  // 画像ファイルがあるとき
-  if (file && file.height && file.width) {
-    lineNotifyPayload.hasImage = true;
-    lineNotifyPayload.imageURL = file.url;
-    lineNotifyPayload.previewURL = file.proxyURL;
-    lineNotifyPayload.message = `${messageTitle} 写真\n${message.cleanContent}`;
-  }
-
-  console.log(lineNotifyPayload);
-
-  postToLINENotify(lineNotifyPayload);
+  prepareDiscordMessageToLINENotify(message, true);
 }
 
 export async function handleThreadChannelMessage(message: Message) {
