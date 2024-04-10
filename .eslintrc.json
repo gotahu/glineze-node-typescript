@@ -1,19 +1,15 @@
 {
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:@typescript-eslint/recommended-requiring-type-checking",
-    "prettier",
-    "prettier/@typescript-eslint"
-  ],
-  "plugins": ["@typescript-eslint"],
+  "env": {
+    "es2021": true,
+    "node": true
+  },
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "sourceType": "module",
-    "project": "./tsconfig.json"
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+    //"project": "./tsconfig.json"
   },
-  "env": { "browser": true, "node": true, "es6": true },
-  "rules": {
-    // 個別に設定するESLintルールを記述
-  }
+  "plugins": ["@typescript-eslint"],
+  "rules": {}
 }

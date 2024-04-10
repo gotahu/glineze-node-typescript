@@ -1,16 +1,35 @@
 {
-  // IntelliSense を使用して利用可能な属性を学べます。
-  // 既存の属性の説明をホバーして表示します。
-  // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Start debug",
+      "type": "pwa-node", // 利用するデバッガの種類をVSCodeに伝える。"node"でも良いが、"pwa-node"の方が新しいデバッガのためこちらを利用(progressive web apps とは関係ない)
+      "request": "launch", // デバッガ起動時に、対象プログラム("program")を起動する
+      "runtimeArgs": ["--nolazy", "-r", "ts-node/register"], // ts-nodeを読み込みます(nolazyは無くても動きます。V8エンジンにスクリプト解析を延滞させないためのオプション(指定しないとブレークポイントスキップする可能性があるため))
+      "args": ["${workspaceFolder}/src/app.ts", "--transpile-only"], // デバッグを開始するファイルを指定する。「${file}」はアクティブなファイルのフルパス(開いているファイルをデバッグする)
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+      }
+    },
+    {
+      "type": "pwa-node",
+      "request": "attach",
+      "name": "実行中のnodeプログラムにアタッチしてデバッグ",
+      "processId": "${command:PickProcess}"
+    },
+    {
       "type": "node",
+      "name": "Debug Jest script",
       "request": "launch",
-      "name": "プログラムの起動",
-      "skipFiles": ["<node_internals>/**"],
-      "program": "${file}",
-      "outFiles": ["${workspaceFolder}/**/*.js"]
+      "runtimeArgs": [
+        "--inspect-brk",
+        "${workspaceRoot}/node_modules/jest/bin/jest.js",
+        "--runInBand"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "port": 9229
     }
   ]
 }
