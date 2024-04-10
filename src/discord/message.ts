@@ -59,6 +59,15 @@ export async function handleMessageCreate(message: Message) {
   // ペアが見つかった場合
   if (pair) {
     message.react('✅');
+    console.log('reaction added');
+
+    const reactionTimeSeconds = await getConfigurationValue('reaction_time_seconds');
+    const timeoutSeconds = reactionTimeSeconds ? parseInt(reactionTimeSeconds) : 300;
+
+    setTimeout(() => {
+      message.reactions.cache.get('✅')?.remove();
+      console.log('reaction removed after timeout');
+    }, timeoutSeconds * 1000);
   }
 
   // メンバーやチャンネルが取得できない場合
