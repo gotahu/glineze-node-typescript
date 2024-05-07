@@ -13,6 +13,8 @@ import { retrieveLatestPracticeStrings } from '../notion/notion-practice';
 import { getConfigurationValue } from '../notion/notion-client';
 import { retrieveLINEAndDiscordPairs } from '../notion/notion-interaction';
 
+import axios from 'axios';
+
 export async function handleMessageCreate(message: Message) {
   // ログを出力
   console.log(message);
@@ -33,6 +35,20 @@ export async function handleMessageCreate(message: Message) {
   if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
     console.log(`system message, type: ${message.type}`);
     return;
+  }
+
+  if (message.content.includes('GLOBALIP')) {
+    axios
+      .get('https://api.ipify.org?format=json')
+      .then((response) => {
+        const ip = response.data.ip;
+
+        message.reply(ip);
+        return;
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+      });
   }
 
   // 「スレッド」チャンネルで誤爆があった場合
