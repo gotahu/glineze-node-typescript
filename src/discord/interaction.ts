@@ -131,6 +131,15 @@ export async function handleReactionAdd(
     }
   }
 
+  // 拡声器のリアクションの場合、強制的にメッセージを送信する
+  if (reaction.emoji.name === '📢') {
+    // リアクションを削除する
+    reaction.remove();
+
+    // メッセージを送る
+    prepareDiscordMessageToLINENotify(reactedMessage, false);
+  }
+
   // Notion データベースで通知対象になっていないか検索しておく
   const notificationMessages = await retrieveNotificationMessages(reactedMessageId);
 
