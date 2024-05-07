@@ -75,15 +75,17 @@ async function prepareDiscordMessageToLINENotify(message: Message, isVoid: boole
   const parentChannel =
     message.channel.isThread() && message.channel.parent ? message.channel.parent.name : '';
 
+  const messageMember = message.member.partial ? await message.member.fetch() : message.member;
+
   // メッセージタイトルを定義
   // スレッドチャンネルの場合は親チャンネル名を追加
   const messageTitle = `#${parentChannel ? parentChannel + ' > ' : ''}${message.channel.name}\n${
-    message.member.displayName
+    messageMember.displayName
   }:`;
 
   // payload を作成
   const lineNotifyPayload = {
-    username: message.member.displayName,
+    username: messageMember.displayName,
     channelid:
       message.channel.isThread() && message.channel.parent
         ? message.channel.parent.id
