@@ -81,7 +81,7 @@ async function prepareDiscordMessageToLINENotify(message: Message, isVoid: boole
   // スレッドチャンネルの場合は親チャンネル名を追加
   const messageTitle = `#${parentChannel ? parentChannel + ' > ' : ''}${message.channel.name}\n${
     messageMember.displayName
-  }:`;
+  }：`;
 
   // payload を作成
   const lineNotifyPayload = {
@@ -103,6 +103,7 @@ async function prepareDiscordMessageToLINENotify(message: Message, isVoid: boole
   }
 
   let index = 1;
+  const total = message.attachments.size;
   // 添付ファイルがある場合
   message.attachments.forEach((attachment) => {
     console.log(attachment);
@@ -114,8 +115,18 @@ async function prepareDiscordMessageToLINENotify(message: Message, isVoid: boole
         hasImage: true,
         imageURL: attachment.url,
         previewURL: attachment.url,
-        message: `${messageTitle} 画像 ${index}枚目\n${message.cleanContent}`,
+        message: `${messageTitle}`,
       };
+
+      if (total > 1) {
+        payloadWithImage.message += `画像 ${index}/${total} 枚目\n`;
+
+        if (index === 1) {
+          payloadWithImage.message += `\n${message.cleanContent}`;
+        }
+      } else {
+        payloadWithImage.message += `画像\n\n${message.cleanContent}`;
+      }
 
       index++;
 
