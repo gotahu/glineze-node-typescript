@@ -3,20 +3,21 @@ import { replaceEnglishDayWithJapanese } from '../utils';
 import { getConfigurationValue, notionClient, retrieveNotionPage } from './notion-client';
 
 /**
- * 明日の日付に関する練習情報をNotionデータベースから取得します。
+ * 指定された日数後の日付に関する練習情報をNotionデータベースから取得します。
  * 指定されたデータベースIDを使用してNotionデータベースをクエリし、
- * 明日の日付に関連する練習情報を取得します。
+ * 指定された日数後の日付に関連する練習情報を取得します。
  *
- * @returns 明日の練習情報が含まれるオブジェクトを返すPromise。
+ * @param {number} daysFromToday 今日からの相対的な日数。
+ * @returns 指定された日数後の練習情報が含まれるオブジェクトを返すPromise。
  * @throws {Error} データベースIDが見つからない場合にエラーを投げます。
  */
-const retrieveLatestPractice = async () => {
-  // 今日の日付を取得し、明日の日付に設定します。
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+const retrievePracticeForRelativeDay = async (daysFromToday: number) => {
+  // 今日の日付を取得し、指定された日数後の日付に設定します。
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + daysFromToday);
 
-  // 明日の日付をYYYY-MM-DD形式にフォーマットします。
-  const formattedDate = tomorrow
+  // 指定された日付をYYYY-MM-DD形式にフォーマットします。
+  const formattedDate = targetDate
     .toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -31,7 +32,7 @@ const retrieveLatestPractice = async () => {
     throw new Error('practice_databaseid is not found.');
   }
 
-  // Notion APIを使用してデータベースをクエリし、明日の練習情報を取得します。
+  // Notion APIを使用してデータベースをクエリし、指定された日付の練習情報を取得します。
   const response = await notionClient.databases.query({
     database_id,
     filter: {
@@ -46,19 +47,22 @@ const retrieveLatestPractice = async () => {
 };
 
 /**
- * 最新の練習情報を取得し、その内容をテキストの配列として返します。
+ * 指定された日数後の日付に関する練習情報を取得し、その内容をテキストの配列として返します。
  * Notion APIを使用して練習情報を取得し、各練習に関する連絡事項を配列に格納します。
  *
- * @returns {Promise<string[]>} 練習連絡事項のテキストを含む配列を返すPromise。
+ * @param {number} daysFromToday 今日からの相対的な日数。
+ * @returns {Promise<string[]>} 指定された日数後の練習連絡事項のテキストを含む配列を返すPromise。
  */
-export const retrieveLatestPracticeStrings = async (): Promise<string[]> => {
+export const retrievePracticeStringsForRelativeDay = async (
+  daysFromToday: number
+): Promise<string[]> => {
   try {
-    // 最新の練習情報を取得します。
-    const practices = await retrieveLatestPractice();
+    // 指定された日数後の練習情報を取得します。
+    const practices = await retrievePracticeForRelativeDay(daysFromToday);
 
     // 練習情報がない場合、空の配列を返して処理を終了します。
     if (!practices.results || practices.results.length === 0) {
-      console.log('明日は練習がない模様です。');
+      console.log('指定された日には練習がない模様です。');
       return [];
     }
 
