@@ -9,7 +9,7 @@ import {
   TextChannel,
 } from 'discord.js';
 import { prepareDiscordMessageToLINENotify } from '../line/lineNotify';
-import { retrieveLatestPracticeStrings } from '../notion/notion-practice';
+import { retrievePracticeStringsForRelativeDay } from '../notion/notion-practice';
 import { getConfigurationValue } from '../notion/notion-client';
 import { retrieveLINEAndDiscordPairs } from '../notion/notion-interaction';
 
@@ -143,33 +143,65 @@ export async function sendLINEMessageToDiscord(
 
 export async function notifyLatestPractices(client: Client) {
   try {
-    // 次の日の練習お知らせ用
-    const latestPractices = await retrieveLatestPracticeStrings();
+    const latestPractices = await retrievePracticeStringsForRelativeDay(1);
     if (latestPractices.length === 0) {
       return;
     }
 
-    // 送信先のチャンネルid
-    const channelid = await getConfigurationValue('practice_remind_channelid');
-    const threadid = await getConfigurationValue('practice_remind_threadid');
+    await sendPracticesToThread(
+      client,
+      latestPractices,
+      'practice_remind_channelid',
+      'practice_remind_threadid'
+    );
+  } catch (err) {
+    console.error(err);
+  }
+}
 
-    if (channelid && threadid) {
-      // チャンネルを取得
-      const channel = await client.channels.fetch(channelid);
+export async function remindAKanPractice(client: Client) {
+  try {
+    const latestPractices = await retrievePracticeStringsForRelativeDay(14);
+    if (latestPractices.length === 0) {
+      return;
+    }
 
-      // チャンネルが存在し、テキストチャンネルだった場合
-      if (channel && channel instanceof TextChannel) {
-        // スレッドを取得
-        const thread = await channel.threads.fetch(threadid);
-        if (thread) {
-          // 練習ごとに送信
-          for (const practice of latestPractices) {
-            thread.send(practice).then(console.log).catch(console.error);
-          }
+    const isAKanPractice = latestPractices.some((practice) => practice.includes('A館'));
+    if (!isAKanPractice) {
+      console.log('A館の練習はありません');
+      return;
+    }
+
+    await sendPracticesToThread(
+      client,
+      latestPractices,
+      'AKan_remind_channelid',
+      'AKan_remind_threadid'
+    );
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function sendPracticesToThread(
+  client: Client,
+  practices: string[],
+  channelIdKey: string,
+  threadIdKey: string
+) {
+  const channelid = await getConfigurationValue(channelIdKey);
+  const threadid = await getConfigurationValue(threadIdKey);
+
+  if (channelid && threadid) {
+    const channel = await client.channels.fetch(channelid);
+
+    if (channel && channel instanceof TextChannel) {
+      const thread = await channel.threads.fetch(threadid);
+      if (thread) {
+        for (const practice of practices) {
+          thread.send(practice).then(console.log).catch(console.error);
         }
       }
     }
-  } catch (err) {
-    console.error(err);
   }
 }

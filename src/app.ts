@@ -4,7 +4,11 @@ dotenv.config();
 import { discordClient } from './discord/client';
 import express from 'express';
 import bodyParser from 'body-parser';
-import { notifyLatestPractices, sendLINEMessageToDiscord } from './discord/message';
+import {
+  notifyLatestPractices,
+  sendLINEMessageToDiscord,
+  remindAKanPractice,
+} from './discord/message';
 
 /*
   HTTP サーバ（express）をセットアップ
@@ -58,6 +62,9 @@ webServer.post('/', async (req, res) => {
       // GAS からの明日の練習をDiscordに送るためのイベント
       console.log('GAS: noonNotify');
       notifyLatestPractices(discordClient);
+    } else if (event.type == 'AKanRemind') {
+      console.log('GAS: AKanRemind');
+      remindAKanPractice(discordClient);
     } else if (event.type == 'message' && event.groupid && event.name && event.message) {
       // LINE グループからのメッセージをDiscordに送る
       console.log('LINE: line message to discord channel');
