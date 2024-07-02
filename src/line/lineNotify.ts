@@ -15,7 +15,7 @@ export async function prepareDiscordMessageToLINENotify(message: Message, isVoid
 
   const messageTitle = `#${parentChannel ? parentChannel + ' > ' : ''}${message.channel.name}\n${
     messageMember.displayName
-  }:`;
+  }：`;
 
   const lineNotifyPayload: LINENotifyPayload = {
     username: messageMember.displayName,
@@ -35,6 +35,7 @@ export async function prepareDiscordMessageToLINENotify(message: Message, isVoid
   }
 
   let index = 1;
+  
   message.attachments.forEach((attachment) => {
     logger.info(JSON.stringify(attachment));
     if (!attachment) return;
@@ -45,8 +46,18 @@ export async function prepareDiscordMessageToLINENotify(message: Message, isVoid
         hasImage: true,
         imageURL: attachment.url,
         previewURL: attachment.url,
-        message: `${messageTitle} 画像 ${index}枚目\n${message.cleanContent}`,
+        message: `${messageTitle}`,
       };
+
+      if (total > 1) {
+        payloadWithImage.message += `画像 ${index}/${total} 枚目\n`;
+
+        if (index === 1) {
+          payloadWithImage.message += `\n${message.cleanContent}`;
+        }
+      } else {
+        payloadWithImage.message += `画像\n\n${message.cleanContent}`;
+      }
 
       index++;
 
