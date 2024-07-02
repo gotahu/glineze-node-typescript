@@ -1,85 +1,68 @@
-// 必要なライブラリをインポート
-import dotenv from 'dotenv';
-dotenv.config();
-import { discordClient } from './discord/client';
 import express from 'express';
 import bodyParser from 'body-parser';
+import { config } from './config/config';
+import { discordClient } from './discord/client';
 import {
   notifyLatestPractices,
   sendLINEMessageToDiscord,
   remindAKanPractice,
 } from './discord/message';
+import { GASEvent } from './types/types';
+import { logger } from './utils/logger';
+import { handleError } from './utils/errorHandler';
 
-/*
-  HTTP サーバ（express）をセットアップ
-*/
 const webServer = express();
 
-// urlencodedとjsonは別々に初期化する
-webServer.use(
-  bodyParser.urlencoded({
-    extended: true,
-  })
-);
+webServer.use(bodyParser.urlencoded({ extended: true }));
 webServer.use(bodyParser.json());
 
-// サーバを起動
-webServer.listen(3000);
-console.log('webserver(express) is online');
+webServer.listen(config.server.port);
+logger.info(`webserver(express) is online on port ${config.server.port}`);
 
-// post受付
 webServer.post('/', async (req, res) => {
-  // リクエストボディを出力
-  console.log(req.body);
+  try {
+    logger.info(JSON.stringify(req.body));
 
-  // POST データ以外は破棄
-  if (!req.body) {
-    console.log('no post data');
-    res.end();
-    return;
-  }
-
-  if (!req.body.events) {
-    console.log('no events array');
-  }
-
-  // 配列を取得
-  const events = req.body.events;
-
-  if (!events) {
-    console.log('no events');
-    res.end();
-    return;
-  }
-
-  events.forEach(async (event: GASEvent) => {
-    if (event.type == 'wake') {
-      // GAS からの定期起動監視イベント
-      console.log('GAS: 定期起動監視スクリプト受信');
+    if (!req.body || !req.body.events) {
+      logger.warn('No post data or events array');
       res.end();
       return;
-    } else if (event.type == 'noonNotify') {
-      // GAS からの明日の練習をDiscordに送るためのイベント
-      console.log('GAS: noonNotify');
-      notifyLatestPractices(discordClient);
-    } else if (event.type == 'AKanRemind') {
-      console.log('GAS: AKanRemind');
-      remindAKanPractice(discordClient);
-    } else if (event.type == 'message' && event.groupid && event.name && event.message) {
-      // LINE グループからのメッセージをDiscordに送る
-      console.log('LINE: line message to discord channel');
-      sendLINEMessageToDiscord(discordClient, event.groupid, event.name, event.message);
-    } else if (event.type == 'join' || event.type == 'leave') {
-      console.log('line: join or leave');
-      console.log(event);
     }
-  });
-  res.end();
-});
 
-type GASEvent = {
-  type: string;
-  groupid?: string;
-  name?: string;
-  message?: string;
-};
+    const events: GASEvent[] = req.body.events;
+
+    for (const event of events) {
+      switch (event.type) {
+        case 'wake':
+          logger.info('GAS: 定期起動監視スクリプト受信');
+          break;
+        case 'noonNotify':
+          logger.info('GAS: noonNotify');
+          await notifyLatestPractices(discordClient);
+          break;
+        case 'AKanRemind':
+          logger.info('GAS: AKanRemind');
+          await remindAKanPractice(discordClient);
+          break;
+        case 'message':
+          if (event.groupid && event.name && event.message) {
+            logger.info('LINE: line message to discord channel');
+            await sendLINEMessageToDiscord(discordClient, event.groupid, event.name, event.message);
+          }
+          break;
+        case 'join':
+        case 'leave':
+          logger.info(`LINE: ${event.type}`);
+          logger.info(JSON.stringify(event));
+          break;
+        default:
+          logger.warn(`Unknown event type: ${event.type}`);
+      }
+    }
+
+    res.end();
+  } catch (error) {
+    handleError(error);
+    res.status(500).end();
+  }
+});

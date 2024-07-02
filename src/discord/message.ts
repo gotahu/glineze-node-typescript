@@ -9,49 +9,45 @@ import {
   TextChannel,
 } from 'discord.js';
 import { prepareDiscordMessageToLINENotify } from '../line/lineNotify';
-import { retrievePracticeStringsForRelativeDay } from '../notion/notion-practice';
-import { getConfigurationValue } from '../notion/notion-client';
+import {
+  retrievePracticeStringsForRelativeDay,
+  retrievePracticeForRelativeDay,
+} from '../notion/notion-practice';
+import { getConfigurationValue } from '../services/notionService';
 import { retrieveLINEAndDiscordPairs } from '../notion/notion-interaction';
-
+import { CONSTANTS } from '../config/constants';
+import { logger } from '../utils/logger';
 import axios from 'axios';
 
 export async function handleMessageCreate(message: Message) {
-  // ログを出力
-  console.log(message);
+  logger.info(JSON.stringify(message));
 
-  // DM には反応しない
   if (message.channel.type === ChannelType.DM) {
-    console.log('ignore DM');
+    logger.info('ignore DM');
     return;
   }
 
-  // BOT には反応しない
   if (message.author.bot) {
-    console.log('ignore BOT');
+    logger.info('ignore BOT');
     return;
   }
 
-  // クライアントやBOTから送信されたメッセージではなく、システムメッセージの場合
   if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
-    console.log(`system message, type: ${message.type}`);
+    logger.info(`system message, type: ${message.type}`);
     return;
   }
 
   if (message.content.includes('GLOBALIP')) {
-    axios
-      .get('https://api.ipify.org?format=json')
-      .then((response) => {
-        const ip = response.data.ip;
-
-        message.reply(ip);
-        return;
-      })
-      .catch((error) => {
-        console.error('Error:', error);
-      });
+    try {
+      const response = await axios.get('https://api.ipify.org?format=json');
+      const ip = response.data.ip;
+      message.reply(ip);
+    } catch (error) {
+      logger.error('Error fetching IP: ' + error);
+    }
+    return;
   }
 
-  // 「スレッド」チャンネルで誤爆があった場合
   if (
     message.channel.isThread() &&
     message.channel.parent &&
@@ -67,28 +63,26 @@ export async function handleMessageCreate(message: Message) {
       ? message.channel.parent.id
       : message.channelId;
 
-  // LINEとDiscordのペアを取得
   const pairs = await retrieveLINEAndDiscordPairs();
-  // 対象のDiscordチャンネルに対応するペアを検索
   const pair = pairs.find((v) => v.discord_channel_id == channelId);
 
-  // ペアが見つかった場合
   if (pair) {
     message.react('✅');
-    console.log('reaction added');
+    logger.info('reaction added');
 
     const reactionTimeSeconds = await getConfigurationValue('reaction_time_seconds');
-    const timeoutSeconds = reactionTimeSeconds ? parseInt(reactionTimeSeconds) : 300;
+    const timeoutSeconds = reactionTimeSeconds
+      ? parseInt(reactionTimeSeconds)
+      : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;
 
     setTimeout(() => {
       message.reactions.cache.get('✅')?.remove();
-      console.log('reaction removed after timeout');
+      logger.info('reaction removed after timeout');
     }, timeoutSeconds * 1000);
   }
 
-  // メンバーやチャンネルが取得できない場合
   if (!message.member || !message.channel) {
-    console.log('error: message member or channel cannot be detected');
+    logger.error('error: message member or channel cannot be detected');
     return;
   }
 
@@ -96,20 +90,15 @@ export async function handleMessageCreate(message: Message) {
 }
 
 export async function handleThreadChannelMessage(message: Message) {
-  // その他の処理
-  // ボタンを作成
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId('delete').setLabel('消去する').setStyle(ButtonStyle.Danger),
-
     new ButtonBuilder().setCustomId('ignore').setLabel('無視する').setStyle(ButtonStyle.Secondary)
   );
 
-  // ボタンを含むメッセージを送信
   message.reply({
     content:
       'スレッドチャンネルで全員にメンションを行いました。\nBOTはこのイベントを取り消すことはできません。\n\nもしこれが意図した動作ではない場合、スレッドの作成者・ボタンを押すあなた・BOTの3者を残し、他の人を一旦スレッドから削除します。\nその後、再度意図する人をメンションし直してください。',
     components: [row],
-    // TODO:ephemeral の設定がうまくいかない
   });
 }
 
@@ -121,19 +110,16 @@ export async function sendLINEMessageToDiscord(
 ) {
   const pairs = await retrieveLINEAndDiscordPairs();
 
-  // 適切なDiscordチャンネルを検索
   const discordChannelId =
     lineGroupId === 'undefined'
       ? '1037911984399724634'
       : pairs.find((v) => v.line_group_id == lineGroupId)?.discord_channel_id;
 
-  // Discordチャンネルが見つからない場合
   if (!discordChannelId) {
-    console.log('error: discord channel not found');
+    logger.error('error: discord channel not found');
     return;
   }
 
-  // メッセージを送信
   const channel = await client.channels.fetch(discordChannelId);
 
   if (channel && channel instanceof TextChannel) {
@@ -155,31 +141,27 @@ export async function notifyLatestPractices(client: Client) {
       'practice_remind_threadid'
     );
   } catch (err) {
-    console.error(err);
+    logger.error('Error in notifyLatestPractices: ' + err);
   }
 }
 
 export async function remindAKanPractice(client: Client) {
   try {
-    const latestPractices = await retrievePracticeStringsForRelativeDay(14);
-    if (latestPractices.length === 0) {
+    const latestPractices = await retrievePracticeForRelativeDay(14);
+    if (!latestPractices.results || latestPractices.results.length === 0) {
       return;
     }
 
-    const isAKanPractice = latestPractices.some((practice) => practice.includes('A館'));
-    if (!isAKanPractice) {
-      console.log('A館の練習はありません');
-      return;
-    }
+    latestPractices.results.forEach((practice) => logger.info(JSON.stringify(practice)));
 
     await sendPracticesToThread(
       client,
-      latestPractices,
+      ['AKanの練習が2週間後にあります。'],
       'AKan_remind_channelid',
       'AKan_remind_threadid'
     );
   } catch (err) {
-    console.error(err);
+    logger.error('Error in remindAKanPractice: ' + err);
   }
 }
 
@@ -199,7 +181,10 @@ async function sendPracticesToThread(
       const thread = await channel.threads.fetch(threadid);
       if (thread) {
         for (const practice of practices) {
-          thread.send(practice).then(console.log).catch(console.error);
+          thread
+            .send(practice)
+            .then(() => logger.info('Practice sent'))
+            .catch(logger.error);
         }
       }
     }

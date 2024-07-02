@@ -1,3 +1,14 @@
+export function formatDate(date: Date): string {
+  return date
+    .toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    .split('/')
+    .join('-');
+}
+
 /**
  * 英語の曜日を含む文字列中の曜日を日本語に置き換えます。
  * 英語の曜日表記（Sun, Mon, Tue, ...）が括弧内にある場合、
