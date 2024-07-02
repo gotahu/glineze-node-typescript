@@ -17,12 +17,8 @@ import {
 } from '../notion/notion-interaction';
 
 import { prepareDiscordMessageToLINENotify } from '../line/lineNotify';
+import { logger } from '../utils/logger';
 
-/**
- * 指定されたスレッドチャンネルから、特定のメンバーを除いたすべてのメンバーを削除します。
- * @param {ThreadChannel} threadChannel - 操作対象のスレッドチャンネル
- * @param {string[]} excludeMemberIds - 削除から除外するメンバーのID配列
- */
 async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberIds: string[]) {
   try {
     const members = await threadChannel.members.fetch();
@@ -32,28 +28,23 @@ async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberId
 
     await Promise.all(removalPromises);
   } catch (error) {
-    console.error('Failed to remove members:', error);
-    throw error; // エラーを呼び出し元に伝播させる
+    logger.error('Failed to remove members:' + error);
+    throw error;
   }
 }
 
 export const handleInteractionCreate = async (interaction: BaseInteraction) => {
-  // インタラクションがボタンかどうかを確認
   if (!interaction.isButton()) return;
 
-  // ボタンのカスタムIDに基づいて処理を分岐
   switch (interaction.customId) {
     case 'delete':
-      // スレッドのチャンネルであることを確認
       if (interaction.message.channel instanceof ThreadChannel) {
-        // スレッドのオーナーIDを取得
         const ownerId = interaction.message.channel.ownerId;
 
         if (ownerId) {
           const interactionMakerId = interaction.user.id;
           const botId = interaction.client.user.id;
 
-          // スレッドの現在のメンバーを取得
           const excludeMemberIds = [ownerId, interactionMakerId, botId];
           await removeMembersExcept(interaction.message.channel, excludeMemberIds);
           await interaction.reply({
@@ -61,20 +52,15 @@ export const handleInteractionCreate = async (interaction: BaseInteraction) => {
             ephemeral: true,
           });
         } else {
-          // スレッドでない場合の処理（オプション）
           await interaction.reply({
             content: 'この操作はスレッド内でのみ有効です。',
             ephemeral: true,
           });
         }
-        break;
-      } else {
-        console.log('');
-        break;
       }
+      break;
 
     case 'ignore':
-      // 「無視する」ボタンを押した場合、BOTから送信されたメッセージを削除
       if (interaction.message.deletable) {
         await interaction.message.delete();
       }
@@ -86,12 +72,10 @@ export async function handleReactionAdd(
   reaction: MessageReaction | PartialMessageReaction,
   user: User | PartialUser
 ) {
-  // リアクションがBOTによるものである場合は無視
   if (user.bot) return;
 
-  // デバッグ用に出力する
-  console.log(reaction);
-  console.log(
+  logger.info(JSON.stringify(reaction));
+  logger.info(
     `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} をリアクションしました`
   );
 
@@ -100,13 +84,12 @@ export async function handleReactionAdd(
     : (reaction.message as Message);
 
   if (!reactedMessage) {
-    console.error('メッセージオブジェクトが存在しませんでした。');
+    logger.error('メッセージオブジェクトが存在しませんでした。');
     return;
   }
 
-  // DM には反応しない
   if (reactedMessage.channel.type === ChannelType.DM) {
-    console.log('ignore DM');
+    logger.info('ignore DM');
     return;
   }
 
@@ -115,14 +98,11 @@ export async function handleReactionAdd(
   if (reaction.emoji.name === '✅') {
     const reactedUsers = await reaction.users.fetch();
 
-    // メッセージにBOTのリアクションがついていたら
     if (reactedUsers.has(reaction.client.user.id)) {
-      // メッセージ作成者によるリアクションでなければ、削除してスルーする
       if (user.id !== reactedMessage.author.id) {
         return;
       }
 
-      // リアクションをすべて削除する
       reaction.remove();
 
       prepareDiscordMessageToLINENotify(reactedMessage, false);
@@ -131,74 +111,57 @@ export async function handleReactionAdd(
     }
   }
 
-  // 拡声器のリアクションの場合、強制的にメッセージを送信する
   if (reaction.emoji.name === '📢') {
-    // リアクションを削除する
     reaction.remove();
-
-    // メッセージを送る
     prepareDiscordMessageToLINENotify(reactedMessage, false);
   }
 
-  // Notion データベースで通知対象になっていないか検索しておく
   const notificationMessages = await retrieveNotificationMessages(reactedMessageId);
-
-  // 誰に通知すればよいか、ユーザーIDを取得する
   const notificationUserId = user.id;
-
-  // メッセージを送信するため、通知対象者のDiscord User オブジェクトを取得する
   const notificationUser = reaction.client.users.cache.get(notificationUserId);
 
   if (!notificationUser) {
-    console.error('通知対象者のDiscord User オブジェクトを取得できませんでした。');
+    logger.error('通知対象者のDiscord User オブジェクトを取得できませんでした。');
     return;
   }
 
-  // そのメッセージが通知対象に設定されている場合
-  // 配列の0番目の要素のuserIdに、通知対象者のidが含まれているかどうかを確認する
-  // 0番目だけでよい理由は、メッセージIDはユニークであるため、同じメッセージIDを持つ要素は存在しないため
   const isAlreadyNotificationMessage =
     notificationMessages.length > 0
       ? notificationMessages[0].userId.includes(notificationUserId)
       : false;
 
-  console.log(`notificationMessages.length: ${notificationMessages.length}`);
-  console.log(`notificationUserId: ${notificationUserId}`);
-  console.log(`isAlreadyNotificationMessage: ${isAlreadyNotificationMessage}`);
+  logger.info(`notificationMessages.length: ${notificationMessages.length}`);
+  logger.info(`notificationUserId: ${notificationUserId}`);
+  logger.info(`isAlreadyNotificationMessage: ${isAlreadyNotificationMessage}`);
 
-  // 早期に終了する
   if (
     reaction.emoji.name !== '🔔' &&
     reaction.emoji.name !== '🔕' &&
     !isAlreadyNotificationMessage
   ) {
-    console.log('リアクションされたメッセージは通知対象ではありませんでした。');
+    logger.info('リアクションされたメッセージは通知対象ではありませんでした。');
     return;
   }
 
-  // メッセージのURLを取得する
   const messageUrl = reactedMessage.url;
 
-  // メッセージにベルのリアクションがつけられたら、そのメッセージを通知対象のメッセージとする
   if (reaction.emoji.name === '🔔') {
-    // ベルのリアクションを削除する
     reaction.remove();
 
-    // すでに通知対象である場合は、エラーメッセージを吐く
     if (isAlreadyNotificationMessage) {
-      console.log(`messageId: ${reactedMessageId} はすでに通知対象に指定されています`);
+      logger.info(`messageId: ${reactedMessageId} はすでに通知対象に指定されています`);
       notificationUser.send(
         generateMessage('warning', `エラー： ${messageUrl} はすでに通知対象に設定されています。`)
       );
     } else {
       try {
         await addNotificationMessage(reactedMessageId, notificationUserId);
-        console.log(`messageId: ${reactedMessageId} を通知対象のメッセージとしました`);
+        logger.info(`messageId: ${reactedMessageId} を通知対象のメッセージとしました`);
         notificationUser.send(
           generateMessage('white_check_mark', `${messageUrl} を通知対象に設定しました`)
         );
       } catch (error) {
-        console.error(
+        logger.error(
           `messageId: ${reactedMessageId} を通知対象のメッセージとできませんでした ${error}`
         );
         notificationUser.send(
@@ -210,20 +173,18 @@ export async function handleReactionAdd(
       }
     }
   } else if (reaction.emoji.name === '🔕') {
-    // ベルのリアクションを削除する
     reaction.remove();
 
     if (!isAlreadyNotificationMessage) {
-      console.error(`messageId: ${reactedMessageId} は通知対象ではありません。`);
+      logger.error(`messageId: ${reactedMessageId} は通知対象ではありません。`);
       notificationUser.send(
         generateMessage('warning', `エラー： ${messageUrl} はそもそも通知対象になっていません。`)
       );
     } else {
-      // 通知対象であった場合、通知対象から削除する
       try {
         await deleteNotificationMessage(reactedMessageId, notificationUserId);
 
-        console.log(`messageId: ${reactedMessageId} を通知対象から削除しました`);
+        logger.info(`messageId: ${reactedMessageId} を通知対象から削除しました`);
         notificationUser.send(
           generateMessage(
             'person_gesturing_ok_tone1',
@@ -231,9 +192,7 @@ export async function handleReactionAdd(
           )
         );
       } catch (error) {
-        console.error(
-          `messageId: ${reactedMessageId} の通知対象からの削除に失敗しました, ${error}`
-        );
+        logger.error(`messageId: ${reactedMessageId} の通知対象からの削除に失敗しました, ${error}`);
         notificationUser.send(
           generateMessage(
             'warning',
@@ -243,24 +202,20 @@ export async function handleReactionAdd(
       }
     }
   } else {
-    // 通知対象のメッセージであった場合、通知対象者に通知を送信する
-    // ユーザー名を取得する
-    const userDisplayName = user.displayName;
-    // 通知対象者に通知を送信する
     notificationMessages[0].userId.forEach(async (userId) => {
       try {
         const user = await reaction.client.users.fetch(userId);
         user.send(
           generateMessage(
             'bell',
-            `${messageUrl} に（${userDisplayName}）さんがリアクション（${reaction.emoji.name}）しました。`
+            `${messageUrl} に（${reaction.message.author.username}）さんがリアクション（${reaction.emoji.name}）しました。`
           )
         );
-        console.log(
+        logger.info(
           `通知対象者に通知を送信しました。userId: ${userId}, mesaggeId: ${reactedMessageId}`
         );
       } catch (error) {
-        console.error(
+        logger.error(
           `通知対象者に通知を送信できませんでした。userId: ${userId}, mesaggeId: ${reactedMessageId}`
         );
       }
@@ -274,7 +229,7 @@ async function fetchPartialMessage(message: PartialMessage): Promise<Message | u
       const fullMessage = await message.fetch();
       return fullMessage;
     } catch (error) {
-      console.error(`Failed to fetch the message: ${message.id}`, error);
+      logger.error(`Failed to fetch the message: ${message.id}, ${error}`);
       return undefined;
     }
   } else {
