@@ -5,6 +5,23 @@ export type LINEDiscordPairInfo = {
   line_notify_key: string;
 };
 
+export type ShukinReply = {
+  status: 'success' | 'error';
+  message: string;
+};
+
+export type ShukinInfo = {
+  shukinName: string;
+  shukinAmount: string;
+  shukinStatus: string;
+};
+
+export type NotionDiscordPairInfo = {
+  name: string;
+  notionPageId: string;
+  discordUserId: string;
+};
+
 export type NotificationMessage = {
   messageId: string;
   userId: string[];

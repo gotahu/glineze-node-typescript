@@ -6,6 +6,7 @@ export const retrieveLINEAndDiscordPairs = async (): Promise<LINEDiscordPairInfo
   const pairsDatabaseId = await getConfigurationValue('discord_and_line_pairs_databaseid');
 
   if (!pairsDatabaseId) {
+    logger.error('discord_and_line_pairs_databaseid is not found.');
     throw new Error('discord_and_line_pairs_databaseid is not found.');
   }
 

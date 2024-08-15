@@ -18,17 +18,47 @@ import { retrieveLINEAndDiscordPairs } from '../notion/notion-interaction';
 import { CONSTANTS } from '../config/constants';
 import { logger } from '../utils/logger';
 import axios from 'axios';
+import { retrieveShukinStatus } from '../notion/notion-list';
+import { postToLINENotifyWithText } from '../services/lineNotifyService';
+import { config } from '../config/config';
 
 export async function handleMessageCreate(message: Message) {
-  logger.info(JSON.stringify(message));
-
-  if (message.channel.type === ChannelType.DM) {
-    logger.info('ignore DM');
-    return;
-  }
+  console.debug(message);
 
   if (message.author.bot) {
     logger.info('ignore BOT');
+    return;
+  }
+
+  if (message.channel.type === ChannelType.DM) {
+    logger.info('message from direct message channel');
+
+    const messageContent = message.content;
+
+    const authorId = message.author.id;
+    const authorName = message.author.displayName;
+    const lineNotifyToken = config.lineNotify.voidToken;
+
+    await message.channel.sendTyping();
+
+    await postToLINENotifyWithText(
+      { message: `${authorName}\n${messageContent}` },
+      lineNotifyToken
+    );
+
+    await retrieveShukinStatus(authorId).then(async (reply) => {
+      if (reply.status === 'error') {
+        message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
+      } else {
+        message.reply(reply.message);
+      }
+
+      await postToLINENotifyWithText(
+        { message: `BOT >> ${authorName}\n${reply.message}` },
+        lineNotifyToken
+      );
+    });
+
     return;
   }
 

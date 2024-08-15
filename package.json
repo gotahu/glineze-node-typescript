@@ -33,11 +33,11 @@
     "webpack-node-externals": "^3.0.0"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.14",
-    "axios": "^1.6.3",
+    "@notionhq/client": "^2.2.15",
+    "axios": "^1.7.4",
     "body-parser": "^1.20.2",
     "date-fns": "^3.0.6",
-    "discord.js": "^14.14.1",
+    "discord.js": "^14.15.3",
     "dotenv": "^16.3.1",
     "express": "^4.18.2"
   }

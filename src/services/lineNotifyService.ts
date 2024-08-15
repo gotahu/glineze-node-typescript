@@ -13,6 +13,25 @@ export async function postToLINENotify(
     ? config.lineNotify.voidToken
     : await getLineNotifyToken(payload.channelid);
 
+  const postData = {
+    message: payload.message,
+    imageFullsize: payload.imageURL,
+    imageThumbnail: payload.previewURL,
+  };
+
+  await postToLINENotifyWithText(postData, lineNotifyToken);
+}
+
+type LINENotifyPostData = {
+  message: string;
+  imageFullsize?: string;
+  imageThumbnail?: string;
+};
+
+export async function postToLINENotifyWithText(
+  postData: LINENotifyPostData,
+  lineNotifyToken: string
+): Promise<void> {
   const request = axios.create({
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -20,12 +39,6 @@ export async function postToLINENotify(
     },
     responseType: 'json',
   });
-
-  const postData = {
-    message: payload.message,
-    imageFullsize: payload.imageURL,
-    imageThumbnail: payload.previewURL,
-  };
 
   try {
     const res = await request.post(CONSTANTS.LINE_NOTIFY_API, postData);
