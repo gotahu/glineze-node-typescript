@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger';
 import { NotionService } from '../services/notionService';
-import { DiscordService } from '../services/discordService';
+import { DiscordService } from '../services/discord/discordService';
 
 export async function announcePractice(
   notion: NotionService,

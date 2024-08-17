@@ -1,4 +1,4 @@
-import { DiscordService } from '../services/discordService';
+import { DiscordService } from '../services/discord/discordService';
 
 const LOGGER_CHANNEL_ID = '1273731421663395973';
 

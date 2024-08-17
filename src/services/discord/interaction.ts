@@ -14,11 +14,11 @@ import {
   addNotificationMessage,
   retrieveNotificationMessages,
   deleteNotificationMessage,
-} from '../notion/notion-interaction';
+} from '../../notion/notion-interaction';
 
-import { logger } from '../utils/logger';
-import { NotionService } from '../services/notionService';
-import { LINENotifyService } from '../services/lineNotifyService';
+import { logger } from '../../utils/logger';
+import { NotionService } from '../../services/notionService';
+import { LINENotifyService } from '../../services/lineNotifyService';
 
 async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberIds: string[]) {
   try {

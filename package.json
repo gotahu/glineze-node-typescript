@@ -33,6 +33,7 @@
     "webpack-node-externals": "^3.0.0"
   },
   "dependencies": {
+    "@ngrok/ngrok": "^1.4.1",
     "@notionhq/client": "^2.2.15",
     "axios": "^1.7.4",
     "body-parser": "^1.20.2",

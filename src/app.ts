@@ -1,7 +1,7 @@
 import { GASEvent } from './types/types';
 import { logger } from './utils/logger';
 import { handleError } from './utils/errorHandler';
-import { DiscordService } from './services/discordService';
+import { DiscordService } from './services/discord/discordService';
 import { WebServer } from './services/webServer';
 import { NotionService } from './services/notionService';
 import { LINENotifyService } from './services/lineNotifyService';

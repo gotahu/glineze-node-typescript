@@ -6,12 +6,12 @@ import {
   Message,
   MessageType,
 } from 'discord.js';
-import { CONSTANTS } from '../config/constants';
-import { logger } from '../utils/logger';
+import { CONSTANTS } from '../../config/constants';
+import { logger } from '../../utils/logger';
 import axios from 'axios';
-import { config } from '../config/config';
-import { NotionService } from '../services/notionService';
-import { LINENotifyService } from '../services/lineNotifyService';
+import { config } from '../../config/config';
+import { NotionService } from '../notionService';
+import { LINENotifyService } from '../lineNotifyService';
 
 /**
  * メッセージを処理する
