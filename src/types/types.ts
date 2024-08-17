@@ -39,17 +39,6 @@ export type NotificationMessage = {
   userId: string[];
 };
 
-export type LINENotifyPayload = {
-  username: string;
-  channelid: string;
-  groupname: string;
-  message: string;
-  avatarURL: string;
-  imageURL?: string;
-  previewURL?: string;
-  hasImage: boolean;
-};
-
 export type GASEvent = {
   type: string;
   groupid?: string;
