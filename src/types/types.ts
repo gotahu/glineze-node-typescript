@@ -16,10 +16,22 @@ export type ShukinInfo = {
   shukinStatus: string;
 };
 
-export type NotionDiscordPairInfo = {
+export type Practice = {
+  title: string;
+  date: Date;
+  time: string;
+  place: string;
+  timetable: string;
+  announceText: string;
+};
+
+export type GlanzeMember = {
   name: string;
   notionPageId: string;
   discordUserId: string;
+  generation: string;
+  part4: string;
+  part8: string;
 };
 
 export type NotificationMessage = {

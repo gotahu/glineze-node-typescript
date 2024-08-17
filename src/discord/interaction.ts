@@ -16,8 +16,9 @@ import {
   deleteNotificationMessage,
 } from '../notion/notion-interaction';
 
-import { prepareDiscordMessageToLINENotify } from '../line/lineNotify';
 import { logger } from '../utils/logger';
+import { NotionService } from '../services/notionService';
+import { LINENotifyService } from '../services/lineNotifyService';
 
 async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberIds: string[]) {
   try {
@@ -70,7 +71,9 @@ export const handleInteractionCreate = async (interaction: BaseInteraction) => {
 
 export async function handleReactionAdd(
   reaction: MessageReaction | PartialMessageReaction,
-  user: User | PartialUser
+  user: User | PartialUser,
+  notion: NotionService,
+  lineNotify: LINENotifyService
 ) {
   if (user.bot) return;
 
@@ -99,24 +102,31 @@ export async function handleReactionAdd(
     const reactedUsers = await reaction.users.fetch();
 
     if (reactedUsers.has(reaction.client.user.id)) {
+      // メッセージの送信者以外のユーザーがリアクションをつけた場合は無視する
       if (user.id !== reactedMessage.author.id) {
         return;
       }
 
+      // リアクションを削除する
       reaction.remove();
 
-      prepareDiscordMessageToLINENotify(reactedMessage, false);
+      // 通知する
+      lineNotify.postTextToLINENotifyFromDiscordMessage(notion, reactedMessage, false);
 
       return;
     }
   }
 
+  // 強制的に通知する
   if (reaction.emoji.name === '📢') {
+    // リアクションを削除する
     reaction.remove();
-    prepareDiscordMessageToLINENotify(reactedMessage, false);
+    // 通知する
+    lineNotify.postTextToLINENotifyFromDiscordMessage(notion, reactedMessage, false);
+    return;
   }
 
-  const notificationMessages = await retrieveNotificationMessages(reactedMessageId);
+  const notificationMessages = await retrieveNotificationMessages(notion, reactedMessageId);
   const notificationUserId = user.id;
   const notificationUser = reaction.client.users.cache.get(notificationUserId);
 
@@ -155,7 +165,7 @@ export async function handleReactionAdd(
       );
     } else {
       try {
-        await addNotificationMessage(reactedMessageId, notificationUserId);
+        await addNotificationMessage(notion, reactedMessageId, notificationUserId);
         logger.info(`messageId: ${reactedMessageId} を通知対象のメッセージとしました`);
         notificationUser.send(
           generateMessage('white_check_mark', `${messageUrl} を通知対象に設定しました`)
@@ -182,7 +192,7 @@ export async function handleReactionAdd(
       );
     } else {
       try {
-        await deleteNotificationMessage(reactedMessageId, notificationUserId);
+        await deleteNotificationMessage(notion, reactedMessageId, notificationUserId);
 
         logger.info(`messageId: ${reactedMessageId} を通知対象から削除しました`);
         notificationUser.send(
@@ -230,11 +240,12 @@ async function fetchPartialMessage(message: PartialMessage): Promise<Message | u
       return fullMessage;
     } catch (error) {
       logger.error(`Failed to fetch the message: ${message.id}, ${error}`);
-      return undefined;
     }
   } else {
-    throw new Error('The message is not partial.');
+    logger.error(`This message is not partial: ${message.id}`);
   }
+
+  return undefined;
 }
 
 const generateMessage = (prefix: string, message: string) => {

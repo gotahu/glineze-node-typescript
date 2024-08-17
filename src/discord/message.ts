@@ -3,70 +3,48 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
-  Client,
   Message,
   MessageType,
-  TextChannel,
 } from 'discord.js';
-import { prepareDiscordMessageToLINENotify } from '../line/lineNotify';
-import {
-  retrievePracticeStringsForRelativeDay,
-  retrievePracticeForRelativeDay,
-} from '../notion/notion-practice';
-import { getConfigurationValue } from '../services/notionService';
-import { retrieveLINEAndDiscordPairs } from '../notion/notion-interaction';
 import { CONSTANTS } from '../config/constants';
 import { logger } from '../utils/logger';
 import axios from 'axios';
-import { retrieveShukinStatus } from '../notion/notion-list';
-import { postToLINENotifyWithText } from '../services/lineNotifyService';
 import { config } from '../config/config';
+import { NotionService } from '../services/notionService';
+import { LINENotifyService } from '../services/lineNotifyService';
 
-export async function handleMessageCreate(message: Message) {
+/**
+ * メッセージを処理する
+ * @param message
+ * @returns
+ */
+export async function handleMessageCreate(
+  message: Message,
+  notion: NotionService,
+  lineNotify: LINENotifyService
+) {
   console.debug(message);
 
-  if (message.author.bot) {
-    logger.info('ignore BOT');
-    return;
+  if (message.author.bot) return;
+
+  // テストサーバーでのメッセージの場合
+  if (message.guild && message.guild.id === '1258189444888924324') {
+    //
   }
 
+  // DMチャンネルからのメッセージの場合
   if (message.channel.type === ChannelType.DM) {
-    logger.info('message from direct message channel');
-
-    const messageContent = message.content;
-
-    const authorId = message.author.id;
-    const authorName = message.author.displayName;
-    const lineNotifyToken = config.lineNotify.voidToken;
-
-    await message.channel.sendTyping();
-
-    await postToLINENotifyWithText(
-      { message: `${authorName}\n${messageContent}` },
-      lineNotifyToken
-    );
-
-    await retrieveShukinStatus(authorId).then(async (reply) => {
-      if (reply.status === 'error') {
-        message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
-      } else {
-        message.reply(reply.message);
-      }
-
-      await postToLINENotifyWithText(
-        { message: `BOT >> ${authorName}\n${reply.message}` },
-        lineNotifyToken
-      );
-    });
-
+    await handleDMMessage(message, notion, lineNotify);
     return;
   }
 
+  // システムメッセージの場合
   if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
     logger.info(`system message, type: ${message.type}`);
     return;
   }
 
+  // メッセージにGLOBALIPが含まれている場合
   if (message.content.includes('GLOBALIP')) {
     try {
       const response = await axios.get('https://api.ipify.org?format=json');
@@ -78,29 +56,43 @@ export async function handleMessageCreate(message: Message) {
     return;
   }
 
+  // スレッドチャンネルで全員にメンションがある場合
   if (
     message.channel.isThread() &&
     message.channel.parent &&
     message.channel.parent.name.includes('スレッド') &&
     message.mentions.roles.some((role) => role.name.includes('全員'))
   ) {
-    handleThreadChannelMessage(message);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('delete').setLabel('消去する').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('ignore').setLabel('無視する').setStyle(ButtonStyle.Secondary)
+    );
+
+    message.reply({
+      content:
+        'スレッドチャンネルで全員にメンションを行いました。\nBOTはこのイベントを取り消すことはできません。\n\nもしこれが意図した動作ではない場合、スレッドの作成者・ボタンを押すあなた・BOTの3者を残し、他の人を一旦スレッドから削除します。\nその後、再度意図する人をメンションし直してください。',
+      components: [row],
+    });
     return;
   }
 
+  // それ以外の場合（通常のチャンネルやスレッドでのメッセージ）
   const channelId =
     message.channel.isThread() && message.channel.parent
       ? message.channel.parent.id
       : message.channelId;
 
-  const pairs = await retrieveLINEAndDiscordPairs();
+  // LINE に送信するかどうかを判定
+  // ペアを取得
+  const pairs = await notion.getLINEDiscordPairs();
   const pair = pairs.find((v) => v.discord_channel_id == channelId);
 
+  // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
   if (pair) {
     message.react('✅');
     logger.info('reaction added');
 
-    const reactionTimeSeconds = await getConfigurationValue('reaction_time_seconds');
+    const reactionTimeSeconds = await notion.getConfigValue('reaction_time_seconds');
     const timeoutSeconds = reactionTimeSeconds
       ? parseInt(reactionTimeSeconds)
       : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;
@@ -116,107 +108,54 @@ export async function handleMessageCreate(message: Message) {
     return;
   }
 
-  prepareDiscordMessageToLINENotify(message, true);
+  lineNotify.postTextToLINENotifyFromDiscordMessage(notion, message, true);
 }
 
-export async function handleThreadChannelMessage(message: Message) {
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('delete').setLabel('消去する').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('ignore').setLabel('無視する').setStyle(ButtonStyle.Secondary)
+/**
+ * DMチャンネルからのメッセージを処理する
+ * 現時点では、集金状況を取得して返信する
+ * @param message
+ */
+async function handleDMMessage(
+  message: Message,
+  notion: NotionService,
+  lineNotify: LINENotifyService
+) {
+  logger.info('message from direct message channel');
+
+  const messageContent = message.content;
+  const authorId = message.author.id;
+  const authorName = message.author.displayName;
+
+  // 「メッセージを送信中」を表示
+  message.channel.sendTyping();
+
+  await lineNotify.postTextToLINENotify(
+    config.lineNotify.voidToken,
+    `${authorName}\n${messageContent}`
   );
 
-  message.reply({
-    content:
-      'スレッドチャンネルで全員にメンションを行いました。\nBOTはこのイベントを取り消すことはできません。\n\nもしこれが意図した動作ではない場合、スレッドの作成者・ボタンを押すあなた・BOTの3者を残し、他の人を一旦スレッドから削除します。\nその後、再度意図する人をメンションし直してください。',
-    components: [row],
-  });
-}
-
-export async function sendLINEMessageToDiscord(
-  client: Client,
-  lineGroupId: string,
-  messageSender: string,
-  messageContent: string
-) {
-  const pairs = await retrieveLINEAndDiscordPairs();
-
-  const discordChannelId =
-    lineGroupId === 'undefined'
-      ? '1037911984399724634'
-      : pairs.find((v) => v.line_group_id == lineGroupId)?.discord_channel_id;
-
-  if (!discordChannelId) {
-    logger.error('error: discord channel not found');
-    return;
-  }
-
-  const channel = await client.channels.fetch(discordChannelId);
-
-  if (channel && channel instanceof TextChannel) {
-    channel.send(`${messageSender}：\n${messageContent}`);
-  }
-}
-
-export async function notifyLatestPractices(client: Client) {
+  // Notion から集金状況を取得
   try {
-    const latestPractices = await retrievePracticeStringsForRelativeDay(1);
-    if (latestPractices.length === 0) {
+    const glanzeMember = await notion.retrieveGlanzeMember(authorId);
+
+    // 団員名簿から情報を取得できなかった場合
+    if (!glanzeMember) {
+      message.reply(
+        '### エラーが発生しました。\n- エラー内容：団員名簿からあなたの情報を見つけることができませんでした。準備が整っていない可能性があるので、管理者に問い合わせてください。'
+      );
       return;
     }
 
-    await sendPracticesToThread(
-      client,
-      latestPractices,
-      'practice_remind_channelid',
-      'practice_remind_threadid'
-    );
-  } catch (err) {
-    logger.error('Error in notifyLatestPractices: ' + err);
-  }
-}
+    const reply = await notion.retrieveShukinStatus(glanzeMember);
 
-export async function remindAKanPractice(client: Client) {
-  try {
-    const latestPractices = await retrievePracticeForRelativeDay(14);
-    if (!latestPractices.results || latestPractices.results.length === 0) {
-      return;
+    if (reply.status === 'error') {
+      message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
+    } else {
+      message.reply(reply.message);
     }
-
-    latestPractices.results.forEach((practice) => logger.info(JSON.stringify(practice)));
-
-    await sendPracticesToThread(
-      client,
-      ['AKanの練習が2週間後にあります。'],
-      'AKan_remind_channelid',
-      'AKan_remind_threadid'
-    );
-  } catch (err) {
-    logger.error('Error in remindAKanPractice: ' + err);
-  }
-}
-
-async function sendPracticesToThread(
-  client: Client,
-  practices: string[],
-  channelIdKey: string,
-  threadIdKey: string
-) {
-  const channelid = await getConfigurationValue(channelIdKey);
-  const threadid = await getConfigurationValue(threadIdKey);
-
-  if (channelid && threadid) {
-    const channel = await client.channels.fetch(channelid);
-
-    if (channel && channel instanceof TextChannel) {
-      const thread = await channel.threads.fetch(threadid);
-      if (thread) {
-        for (const practice of practices) {
-          thread
-            .send(practice)
-            .then(() => logger.info('Practice sent'))
-            .catch(logger.error);
-        }
-      }
-    }
+  } catch (error) {
+    logger.error('Error in retrieveShukinStatus: ' + error);
+    message.reply('### エラーが発生しました。\n- エラー内容：' + error);
   }
 }

@@ -1,62 +1,19 @@
-import { getConfigurationValue, notionClient, queryAllDatabasePages } from './notion-client';
-import { LINEDiscordPairInfo, NotificationMessage } from '../types/types';
+import { NotificationMessage } from '../types/types';
 import { logger } from '../utils/logger';
-
-export const retrieveLINEAndDiscordPairs = async (): Promise<LINEDiscordPairInfo[]> => {
-  const pairsDatabaseId = await getConfigurationValue('discord_and_line_pairs_databaseid');
-
-  if (!pairsDatabaseId) {
-    logger.error('discord_and_line_pairs_databaseid is not found.');
-    throw new Error('discord_and_line_pairs_databaseid is not found.');
-  }
-
-  const query = await queryAllDatabasePages(pairsDatabaseId);
-
-  if (!query) {
-    logger.info('info: LINEとDiscordのペア情報なし');
-    return [];
-  }
-
-  const pairs = query.reduce((acc: LINEDiscordPairInfo[], page) => {
-    const pair = Object.entries(page.properties).reduce(
-      (pairAcc: Partial<LINEDiscordPairInfo>, [key, prop]) => {
-        if (prop.type === 'title' && prop.title) {
-          pairAcc['name'] = prop.title[0].plain_text;
-        } else if (prop.type === 'rich_text' && prop.rich_text && prop.rich_text.length > 0) {
-          if (
-            key === 'line_group_id' ||
-            key === 'discord_channel_id' ||
-            key === 'line_notify_key'
-          ) {
-            pairAcc[key] = prop.rich_text[0].plain_text;
-          }
-        }
-        return pairAcc;
-      },
-      {}
-    );
-
-    if (Object.keys(pair).length === 4) {
-      acc.push(pair as LINEDiscordPairInfo);
-    }
-    return acc;
-  }, []);
-
-  logger.info(`${pairs.length}組のDiscordとLINEペアを読み込みました。`);
-  return pairs;
-};
+import { NotionService } from '../services/notionService';
 
 export async function retrieveNotificationMessages(
+  notion: NotionService,
   messageId?: string
 ): Promise<NotificationMessage[]> {
-  const databaseId = await getConfigurationValue('notification_messages_databaseid');
+  const databaseId = await notion.getConfigValue('notification_messages_databaseid');
 
   if (!databaseId) {
     throw new Error('notification_messages_databaseid is not found.');
   }
 
   const filter = messageId ? { property: 'messageId', title: { equals: messageId } } : undefined;
-  const query = await queryAllDatabasePages(databaseId, filter);
+  const query = await notion.queryAllDatabasePages(databaseId, filter);
 
   if (!query) {
     logger.info('info: 通知対象メッセージなし');
@@ -83,14 +40,18 @@ export async function retrieveNotificationMessages(
   }, []);
 }
 
-export async function addNotificationMessage(messageId: string, userId: string) {
-  const databaseId = await getConfigurationValue('notification_messages_databaseid');
+export async function addNotificationMessage(
+  notion: NotionService,
+  messageId: string,
+  userId: string
+) {
+  const databaseId = await notion.getConfigValue('notification_messages_databaseid');
 
   if (!databaseId) {
     throw new Error('notification_messages_databaseid is not found.');
   }
 
-  await notionClient.pages.create({
+  await notion.client.pages.create({
     parent: {
       database_id: databaseId,
     },
@@ -119,14 +80,18 @@ export async function addNotificationMessage(messageId: string, userId: string) 
   });
 }
 
-export async function deleteNotificationMessage(messageId: string, userId: string) {
-  const databaseId = await getConfigurationValue('notification_messages_databaseid');
+export async function deleteNotificationMessage(
+  notion: NotionService,
+  messageId: string,
+  userId: string
+) {
+  const databaseId = await notion.getConfigValue('notification_messages_databaseid');
 
   if (!databaseId) {
     throw new Error('notification_messages_databaseid is not found.');
   }
 
-  const searchResult = await notionClient.databases.query({
+  const searchResult = await notion.client.databases.query({
     database_id: databaseId,
     filter: {
       and: [
@@ -152,7 +117,7 @@ export async function deleteNotificationMessage(messageId: string, userId: strin
     );
   }
 
-  await notionClient.pages.update({
+  await notion.client.pages.update({
     page_id: searchResult.results[0].id,
     archived: true,
   });
