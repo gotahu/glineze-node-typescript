@@ -1,7 +1,5 @@
 import { Client } from '@notionhq/client';
 import { config } from '../config/config';
-import { AppError } from '../utils/errorHandler';
-
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { logger } from '../utils/logger';
 import {
@@ -147,7 +145,7 @@ export class NotionService {
 
       return this.getStringPropertyValue(page, 'value', 'rich_text');
     } catch (error) {
-      throw new AppError(`Failed to fetch the configuration value for key: ${key}`, 500);
+      throw new Error(`Failed to fetch the configuration value for key: ${key}`);
     }
   }
 
