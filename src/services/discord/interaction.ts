@@ -77,10 +77,13 @@ export async function handleReactionAdd(
 ) {
   if (user.bot) return;
 
-  logger.info(JSON.stringify(reaction));
-  logger.info(
-    `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} をリアクションしました`
-  );
+  console.log(reaction);
+
+  reaction.message.fetch().then((message) => {
+    logger.info(
+      `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} を ${message.cleanContent} に対してリアクションしました`
+    );
+  });
 
   const reactedMessage = reaction.message.partial
     ? await fetchPartialMessage(reaction.message)
@@ -137,18 +140,8 @@ export async function handleReactionAdd(
       ? notificationMessages[0].userId.includes(notificationUserId)
       : false;
 
-  logger.info(`notificationMessages.length: ${notificationMessages.length}`);
-  logger.info(`notificationUserId: ${notificationUserId}`);
-  logger.info(`isAlreadyNotificationMessage: ${isAlreadyNotificationMessage}`);
-
-  if (
-    reaction.emoji.name !== '🔔' &&
-    reaction.emoji.name !== '🔕' &&
-    !isAlreadyNotificationMessage
-  ) {
-    logger.info('リアクションされたメッセージは通知対象ではありませんでした。');
+  if (reaction.emoji.name !== '🔔' && reaction.emoji.name !== '🔕' && !isAlreadyNotificationMessage)
     return;
-  }
 
   const messageUrl = reactedMessage.url;
 

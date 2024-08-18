@@ -6,26 +6,34 @@ import { config } from '../config/config';
 import { NotionService } from './notionService';
 
 export class LINENotifyService {
-  private async postToLINENotify(lineNotifyToken: string, message: string, imageURL: string) {
-    const request = axios.create({
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: 'Bearer ' + lineNotifyToken,
-      },
-      responseType: 'json',
-    });
-
-    const postData = {
-      message: message,
-      imageFullSize: imageURL,
-    };
-
+  private async postToLINENotify(
+    lineNotifyToken: string,
+    message: string,
+    imageURL: string
+  ): Promise<void> {
     try {
-      const res = await request.post(CONSTANTS.LINE_NOTIFY_API, postData);
-      logger.info(JSON.stringify(res.data));
+      const res = await axios.post(
+        CONSTANTS.LINE_NOTIFY_API,
+        new URLSearchParams({
+          message: message,
+          imageThumbnail: imageURL,
+          imageFullsize: imageURL,
+        }).toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: 'Bearer ' + lineNotifyToken,
+          },
+          responseType: 'json',
+        }
+      );
+      console.log(res.data);
     } catch (error) {
       logger.error('Error occurred in LINE Notify API');
-      if (error instanceof Error) {
+      if (error instanceof axios.AxiosError && error.response) {
+        logger.error(`Error status: ${error.response.status}`);
+        logger.error(`Error data: ${JSON.stringify(error.response.data)}`);
+      } else if (error instanceof Error) {
         logger.error(error.message);
       }
     }
@@ -105,7 +113,7 @@ export class LINENotifyService {
 
     let index = 1;
     for (const attachment of discordMessage.attachments.values()) {
-      logger.info(JSON.stringify(attachment));
+      console.log(attachment);
 
       if (!attachment) return;
 
