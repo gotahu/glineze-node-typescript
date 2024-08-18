@@ -112,8 +112,6 @@ export async function handleReactionAdd(
 
       // 通知する
       lineNotify.postTextToLINENotifyFromDiscordMessage(notion, reactedMessage, false);
-
-      return;
     }
   }
 
@@ -123,7 +121,6 @@ export async function handleReactionAdd(
     reaction.remove();
     // 通知する
     lineNotify.postTextToLINENotifyFromDiscordMessage(notion, reactedMessage, false);
-    return;
   }
 
   const notificationMessages = await retrieveNotificationMessages(notion, reactedMessageId);
@@ -212,7 +209,7 @@ export async function handleReactionAdd(
       }
     }
   } else {
-    notificationMessages[0].userId.forEach(async (userId) => {
+    for (const userId of notificationMessages[0].userId) {
       try {
         const user = await reaction.client.users.fetch(userId);
         user.send(
@@ -229,7 +226,7 @@ export async function handleReactionAdd(
           `通知対象者に通知を送信できませんでした。userId: ${userId}, mesaggeId: ${reactedMessageId}`
         );
       }
-    });
+    }
   }
 }
 

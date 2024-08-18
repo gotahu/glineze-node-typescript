@@ -6,12 +6,7 @@ import { config } from '../config/config';
 import { NotionService } from './notionService';
 
 export class LINENotifyService {
-  private async postToLINENotify(
-    lineNotifyToken: string,
-    message: string,
-    imageURL: string,
-    previewURL: string
-  ) {
+  private async postToLINENotify(lineNotifyToken: string, message: string, imageURL: string) {
     const request = axios.create({
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -23,7 +18,6 @@ export class LINENotifyService {
     const postData = {
       message: message,
       imageFullSize: imageURL,
-      imageThumbnail: previewURL,
     };
 
     try {
@@ -38,7 +32,7 @@ export class LINENotifyService {
   }
 
   public async postTextToLINENotify(lineNotifyToken: string, message: string) {
-    await this.postToLINENotify(lineNotifyToken, message, '', '');
+    await this.postToLINENotify(lineNotifyToken, message, '');
   }
 
   public async postTextWithImageToLINENotify(
@@ -46,7 +40,7 @@ export class LINENotifyService {
     message: string,
     imageUrl: string
   ) {
-    await this.postToLINENotify(lineNotifyToken, message, imageUrl, imageUrl);
+    await this.postToLINENotify(lineNotifyToken, message, imageUrl);
   }
 
   public async postTextToLINENotifyFromDiscordMessage(
@@ -132,24 +126,3 @@ export class LINENotifyService {
     }
   }
 }
-
-// async function getLINENotifyToken(channelId: string): Promise<string> {
-//   try {
-//     // LINEとDiscordのペアを取得
-//     const pairs = await retrieveLINEAndDiscordPairs();
-
-//     // 対象のDiscordチャンネルに対応するペアを検索
-//     const pair = pairs.find((v) => v.discord_channel_id === channelId);
-
-//     if (pair) {
-//       logger.info(`LINE Notify token found for channel ID: ${channelId}`);
-//       return pair.line_notify_key;
-//     } else {
-//       logger.warn(`No LINE Notify token found for channel ID: ${channelId}, using default token`);
-//       return config.lineNotify.voidToken;
-//     }
-//   } catch (error) {
-//     logger.error(`Error retrieving LINE Notify token: ${error}`);
-//     return config.lineNotify.voidToken;
-//   }
-// }

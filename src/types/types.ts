@@ -23,6 +23,7 @@ export type Practice = {
   place: string;
   timetable: string;
   announceText: string;
+  id: string;
 };
 
 export type GlanzeMember = {

@@ -80,10 +80,12 @@ export class DiscordService {
     threadId?: string
   ) {
     try {
-      const channel = await client.channels.fetch(channelId);
+      const channel = client.channels.cache.get(channelId);
+      console.log(channel);
 
       if (channel instanceof TextChannel) {
         const target = threadId ? await channel.threads.fetch(threadId) : channel;
+        console.log(channel);
 
         if (target) {
           if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
@@ -110,12 +112,7 @@ export class DiscordService {
    * @param channelId
    * @param threadId 任意
    */
-  public async sendStringsToChannel(
-    client: Client,
-    strings: string[],
-    channelId: string,
-    threadId?: string
-  ) {
+  public async sendStringsToChannel(strings: string[], channelId: string, threadId?: string) {
     for (const str of strings) {
       await this.sendContentToChannel(this.client, str, channelId, threadId);
     }
@@ -128,13 +125,8 @@ export class DiscordService {
    * @param channelId
    * @param threadId 任意
    */
-  public async sendEmbedsToChannel(
-    client: Client,
-    embeds: EmbedBuilder[],
-    channelId: string,
-    threadId?: string
-  ) {
-    await this.sendContentToChannel(client, embeds, channelId, threadId);
+  public async sendEmbedsToChannel(embeds: EmbedBuilder[], channelId: string, threadId?: string) {
+    await this.sendContentToChannel(this.client, embeds, channelId, threadId);
   }
 
   /**
@@ -159,6 +151,6 @@ export class DiscordService {
     }
 
     // Discord に送信
-    await this.sendStringsToChannel(this.client, [message], discordChannelId);
+    await this.sendStringsToChannel([message], discordChannelId);
   }
 }

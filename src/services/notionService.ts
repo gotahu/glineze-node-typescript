@@ -16,11 +16,54 @@ import { replaceEnglishDayWithJapanese } from '../utils';
 export class NotionService {
   public client: Client;
   private cache: LINEDiscordPairInfo[] | null = null;
+  private config: Map<string, string> = new Map();
 
+  private static readonly ERROR_MESSAGES = {
+    DB_ID_NOT_FOUND:
+      '集金DBのIDがconfigに適切に設定されていない可能性があります。マネジに連絡してください。',
+    NO_DATA_FOUND:
+      'Notion上の集金DBにあなたのデータが見つかりませんでした。整備が完了していない可能性があります。マネジに連絡してください。',
+  };
+
+  private static readonly STATUS_NOTES = [
+    '（受取済）（振込済）の場合、パトマネさんが受け取ったあと、会計さんが確認中です。',
+    '（受取確認済）（振込確認済）の場合、会計さんの確認まで全て終了しています。',
+  ];
   constructor() {
     this.client = new Client({
       auth: config.notion.token,
     });
+
+    this.initializeConfig();
+  }
+
+  private async initializeConfig(): Promise<void> {
+    try {
+      const configDatabase = await this.queryAllDatabasePages(
+        config.notion.configurationDatabaseId
+      );
+
+      for (const page of configDatabase) {
+        const key = this.getStringPropertyValue(page, 'key', 'title');
+        const value = this.getStringPropertyValue(page, 'value', 'rich_text');
+
+        this.config.set(key, value);
+        logger.info(`Configuration key: ${key} value: ${value}`);
+      }
+    } catch (error) {
+      logger.error(`Failed to initialize configuration on NotionService: ${error}`);
+      throw new Error('Failed to initialize NotionService due to missing configuration');
+    }
+  }
+
+  public getConfig(key: string): string {
+    const value = this.config.get(key);
+
+    if (!value) {
+      throw new Error(`Configuration key not found: ${key}`);
+    }
+
+    return value;
   }
 
   // LINEDiscordPairs を キャッシュから取得する
@@ -37,44 +80,45 @@ export class NotionService {
 
   // Notion から LINEDiscordPairs を取得する
   private async retireveLINEDiscordPairs(): Promise<LINEDiscordPairInfo[]> {
-    const pairsDatabaseId = await this.getConfigValue('discord_and_line_pairs_databaseid');
+    try {
+      const pairsDatabaseId = this.getConfig('discord_and_line_pairs_databaseid');
 
-    if (!pairsDatabaseId) {
+      const query = await this.client.databases.query({
+        database_id: pairsDatabaseId,
+      });
+
+      if (!query) {
+        logger.error('Discord と LINE のペア情報を Notion データベースから取得できませんでした');
+        return [];
+      }
+
+      logger.info(`Discord と LINE のペア情報を${query.results.length}件取得しました`);
+
+      if (!query.results) {
+        return [];
+      }
+
+      const results = query.results.filter(
+        (result): result is PageObjectResponse => result.object === 'page'
+      ) as PageObjectResponse[];
+
+      // Notion ページから LINEDiscordPairInfo を作成
+      const pairs = results.map((page) => {
+        const pair: LINEDiscordPairInfo = {
+          name: this.getStringPropertyValue(page, '名前', 'title'),
+          line_group_id: this.getStringPropertyValue(page, 'line_group_id', 'rich_text'),
+          discord_channel_id: this.getStringPropertyValue(page, 'discord_channel_id', 'rich_text'),
+          line_notify_key: this.getStringPropertyValue(page, 'line_notify_key', 'rich_text'),
+        };
+
+        return pair;
+      });
+
+      return pairs;
+    } catch (error) {
+      logger.error(`Failed to retrieve LINEDiscordPairs: ${error}`);
       return [];
     }
-
-    const query = await this.client.databases.query({
-      database_id: pairsDatabaseId,
-    });
-
-    if (!query) {
-      logger.error('Discord と LINE のペア情報を Notion データベースから取得できませんでした');
-      return [];
-    }
-
-    logger.info(`Discord と LINE のペア情報を${query.results.length}件取得しました`);
-
-    if (!query.results) {
-      return [];
-    }
-
-    const results = query.results.filter(
-      (result): result is PageObjectResponse => result.object === 'page'
-    ) as PageObjectResponse[];
-
-    // Notion ページから LINEDiscordPairInfo を作成
-    const pairs = results.map((page) => {
-      const pair: LINEDiscordPairInfo = {
-        name: this.getStringPropertyValue(page, '名前', 'title'),
-        line_group_id: this.getStringPropertyValue(page, 'line_group_id', 'rich_text'),
-        discord_channel_id: this.getStringPropertyValue(page, 'discord_channel_id', 'rich_text'),
-        line_notify_key: this.getStringPropertyValue(page, 'line_notify_key', 'rich_text'),
-      };
-
-      return pair;
-    });
-
-    return pairs;
   }
 
   /**
@@ -82,7 +126,7 @@ export class NotionService {
    * @param key string
    * @returns string | undefined
    */
-  public async getConfigValue(key: string): Promise<string | undefined> {
+  private async getConfigValue(key: string): Promise<string | undefined> {
     try {
       const response = await this.client.databases.query({
         database_id: config.notion.configurationDatabaseId,
@@ -108,19 +152,17 @@ export class NotionService {
   }
 
   /**
-   * Notion のページ内のプロパティーから値を取得する
-   * @param page Notion ページ
-   * @param key データベースのプロパティ名
+   * Notion のページ内のプロパティーから文字列を取得する
+   * @param {PageObjectResponse} page Notion ページ
+   * @param {string} key データベースのプロパティ名
    * @param type データベースのプロパティのタイプ
-   * @returns string | undefined
+   * @returns {string | undefined}
    */
   public getStringPropertyValue(
     page: PageObjectResponse,
     key: string,
     type: 'title' | 'select' | 'multi_select' | 'rich_text' | 'status' | 'url' | 'formula'
   ): string | undefined {
-    logger.info('getStringPropertyValue: key: ' + key + ', type: ' + type);
-
     for (const [propKey, prop] of Object.entries(page.properties)) {
       if (propKey === key && prop.type === type) {
         if (prop.type === 'title' && prop.title) {
@@ -157,7 +199,31 @@ export class NotionService {
       }
     }
 
+    logger.error(`Notionページ ${page.id} に ${key} プロパティは存在しません`);
     return '';
+  }
+
+  /**
+   * Notion のページ内のプロパティーから数値を取得する
+   * @param page
+   * @param key
+   * @param type
+   * @returns {number | undefined}
+   */
+  public getNumberPropertyValue(
+    page: PageObjectResponse,
+    key: string,
+    type: 'number'
+  ): number | undefined {
+    for (const [propKey, prop] of Object.entries(page.properties)) {
+      if (propKey === key && prop.type === type) {
+        if (prop.type === 'number' && prop.number) {
+          return prop.number;
+        }
+      }
+    }
+
+    return undefined;
   }
 
   public async getRelationPropertyValue(
@@ -225,123 +291,124 @@ export class NotionService {
   }
 
   public async retrieveGlanzeMember(discordId: string): Promise<GlanzeMember | undefined> {
-    const databaseId = await this.getConfigValue('discord_and_notion_pairs_databaseid');
+    try {
+      const databaseId = this.getConfig('discord_and_notion_pairs_databaseid');
 
-    if (!databaseId) {
-      logger.error('Discord と Notion を紐付けるデータベースの ID が取得できませんでした');
-      return undefined;
-    }
-
-    const query = await this.client.databases.query({
-      database_id: databaseId,
-      filter: {
-        property: 'Discord',
-        rich_text: {
-          equals: discordId,
+      const query = await this.client.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: 'Discord',
+          rich_text: {
+            equals: discordId,
+          },
         },
-      },
-    });
+      });
 
-    if (!query || query.results.length === 0) {
-      logger.error(
-        `DiscordId: ${discordId} に対して、Discord と Notion のペア情報を正しく取得できませんでした。`
-      );
+      if (!query || query.results.length === 0) {
+        logger.error(
+          `DiscordId: ${discordId} に対して、Discord と Notion のペア情報を正しく取得できませんでした。`
+        );
+        return undefined;
+      }
+
+      const result = query.results[0] as PageObjectResponse;
+
+      const pair: GlanzeMember = {
+        notionPageId: result.id,
+        discordUserId: discordId,
+        name: this.getStringPropertyValue(result, '名前', 'title'),
+        generation: this.getStringPropertyValue(result, '期', 'select'),
+        part4: this.getStringPropertyValue(result, '4パート', 'select'),
+        part8: this.getStringPropertyValue(result, '8パート', 'select'),
+      };
+
+      console.debug(pair);
+
+      return pair;
+    } catch (error) {
+      logger.error(`Failed to retrieve GlanzeMember: ${error}`);
       return undefined;
     }
-
-    const result = query.results[0] as PageObjectResponse;
-
-    const pair: GlanzeMember = {
-      notionPageId: result.id,
-      discordUserId: discordId,
-      name: this.getStringPropertyValue(result, '名前', 'title'),
-      generation: this.getStringPropertyValue(result, '期', 'select'),
-      part4: this.getStringPropertyValue(result, '4パート', 'select'),
-      part8: this.getStringPropertyValue(result, '8パート', 'select'),
-    };
-
-    console.debug(pair);
-
-    return pair;
   }
 
   public async retrieveShukinStatus(member: GlanzeMember): Promise<ShukinReply> {
-    const shukinDatabaseId = await this.getConfigValue('shukin_databaseid');
+    try {
+      const shukinDatabaseId = this.getConfig('shukin_databaseid');
+      const queryResult = await this.queryShukinDatabase(shukinDatabaseId, member.notionPageId);
 
-    if (!shukinDatabaseId) {
-      logger.error('集金DBのIDがconfigから見つかりませんでした');
+      const shukinList = this.extractShukinInfo(queryResult);
+      const replyMessage = this.formatReplyMessage(member.name, shukinList);
 
       return {
-        status: 'error',
-        message:
-          '集金DBのIDがconfigに適切に設定されていない可能性があります。マネジに連絡してください。',
+        status: 'success',
+        message: replyMessage,
       };
+    } catch (error) {
+      logger.error(`Error in retrieveShukinStatus: ${error}`);
+      return this.createErrorReply('予期せぬエラーが発生しました。マネジに連絡してください。');
     }
+  }
 
+  private async queryShukinDatabase(
+    databaseId: string,
+    memberPageId: string
+  ): Promise<PageObjectResponse | null> {
     const query = await this.client.databases.query({
-      database_id: shukinDatabaseId,
+      database_id: databaseId,
       filter: {
-        // 集金DBの「団員」プロパティのリレーションを、団員名簿のNotionページIDでフィルター
         property: '団員',
-        relation: {
-          contains: member.notionPageId,
-        },
+        relation: { contains: memberPageId },
       },
     });
 
     if (!query || query.results.length === 0) {
-      logger.error('集金DBにデータがありません');
-      return {
-        status: 'error',
-        message:
-          'Notion上の集金DBにあなたのデータが見つかりませんでした。整備が完了していない可能性があります。マネジに連絡してください。',
-      };
+      throw new Error(NotionService.ERROR_MESSAGES.NO_DATA_FOUND);
     }
 
-    const queryResult = query.results[0] as PageObjectResponse;
-    console.debug(queryResult);
+    return query.results[0] as PageObjectResponse;
+  }
 
-    const shukinList = [] as ShukinInfo[];
+  private extractShukinInfo(queryResult: PageObjectResponse): ShukinInfo[] {
+    const shukinList: ShukinInfo[] = [];
 
     Object.entries(queryResult.properties).forEach(([key, prop]) => {
-      // プロパティのタイプが number かつ、集金額が入っている場合
-      // 0円または空白の場合は集金対象外となっている、と考え、標示しない
       if (prop.type === 'number' && prop.number) {
-        console.debug('number', prop.number);
-        const statusProperty = queryResult.properties[key + 'ステータス'];
-        console.log(key + 'ステータス', statusProperty);
+        const statusProperty = queryResult.properties[`${key}ステータス`];
         if (statusProperty.type === 'status' && statusProperty.status) {
           shukinList.push({
             shukinName: key,
-            shukinAmount: prop.number + '円',
+            shukinAmount: `${prop.number}円`,
             shukinStatus: statusProperty.status.name,
           });
         }
       }
     });
 
-    let replyMessage = `${member.name} さんの集金状況をお知らせします。\n### 集金状況`;
+    return shukinList;
+  }
 
-    replyMessage += shukinList.map((v) => {
-      return `\n- ${v.shukinName}：${v.shukinAmount}（${v.shukinStatus}）`;
-    });
+  private formatReplyMessage(memberName: string, shukinList: ShukinInfo[]): string {
+    let replyMessage = `${memberName} さんの集金状況をお知らせします。\n### 集金状況`;
 
     if (shukinList.length === 0) {
       replyMessage += '\n- 集金対象がありません。';
+    } else {
+      replyMessage += shukinList
+        .map((v) => `\n- ${v.shukinName}：${v.shukinAmount}（${v.shukinStatus}）`)
+        .join('');
     }
 
-    replyMessage +=
-      '\n### 注意事項\n- （受取済）（振込済）の場合、パトマネさんが受け取ったあと、会計さんが確認中です。';
-    replyMessage +=
-      '\n- （受取確認済）（振込確認済）の場合、会計さんの確認まで全て終了しています。';
+    replyMessage += '\n### 注意事項';
+    replyMessage += NotionService.STATUS_NOTES.map((note) => `\n- ${note}`).join('');
 
-    return {
-      status: 'success',
-      message: replyMessage,
-    };
+    return replyMessage;
   }
 
-  public async retirevePracticesForRelativeDay(daysFromToday: number): Promise<Practice[]> {
+  private createErrorReply(message: string): ShukinReply {
+    return { status: 'error', message };
+  }
+
+  public async retrievePracticesForRelativeDay(daysFromToday: number): Promise<Practice[]> {
     // 対象日を取得
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysFromToday);
@@ -358,57 +425,63 @@ export class NotionService {
 
     logger.info(`retirevePracticeForRelativeDay: formattedDate: ${formattedDate}`);
 
-    const databaseId = await this.getConfigValue('practice_databaseid');
-    if (!databaseId) {
-      throw new AppError('practice_databaseid is not found.', 500);
-    }
+    try {
+      const databaseId = this.getConfig('practice_databaseid');
 
-    // Notion から練習情報を取得
-    const response = await this.client.databases.query({
-      database_id: databaseId,
-      filter: {
-        property: '日付',
-        date: {
-          equals: formattedDate,
+      // Notion から練習情報を取得
+      const response = await this.client.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: '日付',
+          date: {
+            equals: formattedDate,
+          },
         },
-      },
-    });
+      });
 
-    // ページを取得（型推論をつける）
-    const results = response.results.filter(
-      (result): result is PageObjectResponse => result.object === 'page'
-    ) as PageObjectResponse[];
+      // ページを取得（型推論をつける）
+      const results = response.results.filter(
+        (result): result is PageObjectResponse => result.object === 'page'
+      ) as PageObjectResponse[];
 
-    // 練習情報を整形する
-    const practices = [] as Practice[];
-    for (const practice of results) {
-      const notionPage = await this.retrieveNotionPage(practice.id);
+      // 練習情報を整形する
+      const practices = [] as Practice[];
+      for (const practice of results) {
+        const practicePage = await this.retrieveNotionPage(practice.id);
 
-      // Practice 型に変換
-      const practiceInfo: Practice = {
-        title: this.getStringPropertyValue(notionPage, 'タイトル', 'title'),
-        date: targetDate,
-        time: this.getStringPropertyValue(notionPage, '時間', 'select'),
-        timetable: this.getStringPropertyValue(notionPage, '練習内容', 'rich_text'),
-        place: '',
-        announceText: '',
-      };
+        console.log(practicePage);
 
-      // 練習場所はリレーションのidから名前を取得
-      const placeRelations = await this.getRelationPropertyValue(notionPage, '練習場所');
-      if (placeRelations.length > 0) {
-        practiceInfo.place = this.getStringPropertyValue(placeRelations[0], '名前', 'title');
+        // Practice 型に変換
+        const practiceInfo: Practice = {
+          id: practicePage.id,
+          title: this.getStringPropertyValue(practicePage, 'タイトル', 'title'),
+          date: targetDate,
+          time: this.getStringPropertyValue(practicePage, '時間', 'select'),
+          timetable: this.getStringPropertyValue(practicePage, '練習内容', 'rich_text'),
+          place: '',
+          announceText: '',
+        };
+
+        // 練習場所はリレーションのidから名前を取得
+        const placeRelations = await this.getRelationPropertyValue(practicePage, '練習場所');
+        console.log(placeRelations);
+        if (placeRelations.length > 0) {
+          practiceInfo.place = this.getStringPropertyValue(placeRelations[0], 'タイトル', 'title');
+        }
+
+        // 練習連絡はformulaから取得するが、曜日を日本語に変換する
+        const announceText = this.getStringPropertyValue(practicePage, '練習連絡', 'formula');
+        if (announceText) {
+          practiceInfo.announceText = replaceEnglishDayWithJapanese(announceText);
+        }
+
+        practices.push(practiceInfo);
       }
 
-      // 練習連絡はformulaから取得するが、曜日を日本語に変換する
-      const announceText = this.getStringPropertyValue(notionPage, '練習連絡', 'formula');
-      if (announceText) {
-        practiceInfo.announceText = replaceEnglishDayWithJapanese(announceText);
-      }
-
-      practices.push(practiceInfo);
+      return practices;
+    } catch (error) {
+      logger.error(`Failed to retrieve practices for relative day: ${error}`);
+      throw new Error('Failed to retrieve practices for relative day');
     }
-
-    return practices;
   }
 }

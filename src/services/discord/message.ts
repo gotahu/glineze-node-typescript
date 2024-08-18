@@ -92,7 +92,7 @@ export async function handleMessageCreate(
     message.react('✅');
     logger.info('reaction added');
 
-    const reactionTimeSeconds = await notion.getConfigValue('reaction_time_seconds');
+    const reactionTimeSeconds = notion.getConfig('reaction_time_seconds');
     const timeoutSeconds = reactionTimeSeconds
       ? parseInt(reactionTimeSeconds)
       : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;

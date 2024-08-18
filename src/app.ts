@@ -5,7 +5,7 @@ import { DiscordService } from './services/discord/discordService';
 import { WebServer } from './services/webServer';
 import { NotionService } from './services/notionService';
 import { LINENotifyService } from './services/lineNotifyService';
-import { announcePractice } from './notion/practice';
+import { announcePractice, remindPracticeToBashotori } from './notion/practice';
 
 async function main() {
   const webServer = new WebServer();
@@ -23,7 +23,7 @@ async function main() {
       logger.info(JSON.stringify(req.body));
 
       if (!req.body || !req.body.events) {
-        logger.warn('No post data or events array');
+        logger.error('No post data or events array');
         res.end();
         return;
       }
@@ -37,11 +37,15 @@ async function main() {
             break;
           case 'noonNotify':
             logger.info('GAS: noonNotify');
-            await announcePractice(notionService, discordService, 1);
+            await announcePractice(notionService, discordService, 1).catch((error) => {
+              logger.error(`Error in noonNotify: ${error}`);
+            });
             break;
           case 'AKanRemind':
             logger.info('GAS: AKanRemind');
-            // await remindPractice(discordClient);
+            await remindPracticeToBashotori(notionService, discordService).catch((error) => {
+              logger.error(`Error in AKanRemind: ${error}`);
+            });
             break;
           case 'message':
             if (event.groupid && event.name && event.message) {
@@ -49,6 +53,7 @@ async function main() {
 
               const message = `${event.name}：\n${event.message}`;
               await discordService.sendLINEMessageToDiscord(event.groupid, message);
+              await discordService.sendStringsToChannel([message], '1273731421663395973');
             }
             break;
           case 'join':
@@ -57,7 +62,7 @@ async function main() {
             logger.info(JSON.stringify(event));
             break;
           default:
-            logger.warn(`Unknown event type: ${event.type}`);
+            logger.error(`Unknown event type: ${event.type}`);
         }
       }
 
