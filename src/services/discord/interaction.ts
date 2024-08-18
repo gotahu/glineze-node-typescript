@@ -23,13 +23,11 @@ import { LINENotifyService } from '../../services/lineNotifyService';
 async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberIds: string[]) {
   try {
     const members = await threadChannel.members.fetch();
-    const removalPromises = members
-      .filter((member) => !excludeMemberIds.includes(member.id))
-      .map((member) => threadChannel.members.remove(member.id));
+    const membersToRemove = members.filter((member) => !excludeMemberIds.includes(member.id));
 
-    await Promise.all(removalPromises);
+    await Promise.all(membersToRemove.map((member) => threadChannel.members.remove(member.id)));
   } catch (error) {
-    logger.error('Failed to remove members:' + error);
+    console.error('Failed to remove members:', error);
     throw error;
   }
 }
