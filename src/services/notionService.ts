@@ -451,6 +451,7 @@ export class NotionService {
 
         // Practice 型に変換
         const practiceInfo: Practice = {
+          url: practicePage.url,
           id: practicePage.id,
           title: this.getStringPropertyValue(practicePage, 'タイトル', 'title'),
           date: targetDate,

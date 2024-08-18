@@ -24,6 +24,7 @@ export type Practice = {
   timetable: string;
   announceText: string;
   id: string;
+  url: string;
 };
 
 export type GlanzeMember = {
