@@ -1,10 +1,10 @@
 import { Client, EmbedBuilder, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
 import { logger } from '../../utils/logger';
 import { handleInteractionCreate, handleReactionAdd } from './interaction';
-import { handleMessageCreate } from './message';
 import { config } from '../../config/config';
 import { NotionService } from '../notionService';
 import { LINENotifyService } from '../lineNotifyService';
+import { MessageHandler } from './messageHandler';
 
 export class DiscordService {
   public client: Client;
@@ -12,12 +12,15 @@ export class DiscordService {
 
   private notionService: NotionService;
   private lineNotifyService: LINENotifyService;
+  private messageHandler: MessageHandler;
 
   constructor(notionService: NotionService, lineNotifyService: LINENotifyService) {
     this.notionService = notionService;
     this.lineNotifyService = lineNotifyService;
 
     DiscordService.instance = this;
+
+    this.messageHandler = new MessageHandler(notionService, lineNotifyService);
 
     const options = {
       intents: [
@@ -47,7 +50,7 @@ export class DiscordService {
     });
 
     this.client.on('messageCreate', (message) => {
-      handleMessageCreate(message, this.notionService, this.lineNotifyService);
+      this.messageHandler.handleMessageCreate(message);
     });
     this.client.on('messageReactionAdd', (reaction, user) =>
       handleReactionAdd(reaction, user, this.notionService, this.lineNotifyService)
