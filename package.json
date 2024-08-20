@@ -4,10 +4,11 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "NODE_ENV=development webpack-dev-server --hot --config webpack/webpack.dev.ts",
+    "start": "NODE_ENV=production node app.js",
+    "start:dev": "NODE_ENV=development webpack-dev-server --hot --config webpack/webpack.dev.ts",
     "dev": "NODE_ENV=development nodemon src/app.ts",
     "build": "NODE_ENV=production webpack --config webpack/webpack.prod.ts",
-    "build:live": "NODE_ENV=production nodemon --watch 'src/**/*.ts' webpack --config webpack/webpack.prod.ts"
+    "build:dev": "NODE_ENV=development webpack --config webpack/webpack.dev.ts"
   },
   "author": "",
   "license": "ISC",
