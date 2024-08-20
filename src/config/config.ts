@@ -20,7 +20,7 @@ export const config = {
     secret: process.env.WEBHOOK_SECRET,
   },
   repository: {
-    path: process.env.REPOSITORY_PATH || '../../',
+    path: process.env.REPOSITORY_PATH,
     branch: process.env.BRANCH || 'refs/heads/main',
   },
   webpack: {},
