@@ -7,7 +7,7 @@ const config: Configuration = {
   entry: './src/app.ts', // エントリポイント
   output: {
     filename: 'app.js', // 出力ファイル名
-    path: path.resolve(__dirname, '../'), // 出力ディレクトリ
+    path: path.resolve(__dirname, './'), // 出力ディレクトリ
   },
   module: {
     rules: [
