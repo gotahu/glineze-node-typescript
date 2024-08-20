@@ -9,7 +9,7 @@ import {
   ShukinInfo,
   Practice,
 } from '../types/types';
-import { replaceEnglishDayWithJapanese } from '../utils';
+import { replaceEnglishDayWithJapanese } from '../utils/dateUtils';
 
 export class NotionService {
   public client: Client;
