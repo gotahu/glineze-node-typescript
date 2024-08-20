@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process';
+import { fork, ChildProcess } from 'child_process';
 import fs from 'fs';
 import { logger } from '../utils/logger';
 
@@ -16,11 +16,11 @@ export class AutoRestartService {
 
   private startServer() {
     logger.info('Starting server...');
-    this.serverProcess = spawn('node', [this.appPath], {
-      stdio: 'inherit',
+    this.serverProcess = fork(this.appPath, [], {
+      env: { ...process.env, AUTO_RESTART: 'false' },
     });
 
-    this.serverProcess.on('close', (code) => {
+    this.serverProcess.on('exit', (code) => {
       logger.info(`Server process exited with code ${code}`);
       if (!this.isRestarting) {
         this.startServer();
@@ -44,7 +44,7 @@ export class AutoRestartService {
       this.serverProcess.kill();
       // サーバープロセスが完全に終了するのを待つ
       await new Promise<void>((resolve) => {
-        this.serverProcess!.on('close', () => {
+        this.serverProcess!.on('exit', () => {
           resolve();
         });
       });
