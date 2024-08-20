@@ -67,7 +67,7 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
         const threadId = notion.getConfig('bashotori_remind_threadid');
 
         const message =
-          `## 場所取りリマインド\n@everyone\nリマインド対象の「${facilityName}」で ${daysFromToday} 日後に練習があります。\n` +
+          `## 場所取りリマインド\nリマインド対象の「${facilityName}」で ${daysFromToday} 日後に練習があります。\n` +
           `${targetPractices.map((p) => `- [${p.title}](${p.url})`).join('\n')}`;
 
         // 送信する
