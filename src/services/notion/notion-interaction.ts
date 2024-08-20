@@ -1,6 +1,6 @@
-import { NotificationMessage } from '../types/types';
-import { logger } from '../utils/logger';
-import { NotionService } from '../services/notionService';
+import { NotificationMessage } from '../../types/types';
+import { logger } from '../../utils/logger';
+import { NotionService } from '../notion/notionService';
 
 export async function retrieveNotificationMessages(
   notion: NotionService,

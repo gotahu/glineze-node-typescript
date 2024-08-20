@@ -20,11 +20,11 @@ export class WebServer {
 
   private setupRoutes(): void {
     this.app.post('/webhook', async (req, res) => {
-      // if (isDevelopment()) {
-      //   logger.info('Received webhook event, but ignored in development mode');
-      //   res.status(200).send('Success');
-      //   return;
-      // }
+      if (isDevelopment()) {
+        logger.info('Received webhook event, but ignored in development mode');
+        res.status(200).send('Success');
+        return;
+      }
 
       const signature = req.headers['x-hub-signature-256'] as string;
       if (!this.webhookService.verifySignature(JSON.stringify(req.body), signature)) {

@@ -7,7 +7,7 @@ import {
   MessageType,
 } from 'discord.js';
 import { LINENotifyService } from '../lineNotifyService';
-import { NotionService } from '../notionService';
+import { NotionService } from '../notion/notionService';
 import { config } from '../../config/config';
 import { logger } from '../../utils/logger';
 import { CONSTANTS } from '../../config/constants';

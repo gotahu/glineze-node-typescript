@@ -1,15 +1,15 @@
 import { Client } from '@notionhq/client';
-import { config } from '../config/config';
+import { config } from '../../config/config';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { logger } from '../utils/logger';
+import { logger } from '../../utils/logger';
 import {
   LINEDiscordPairInfo,
   GlanzeMember,
   ShukinReply,
   ShukinInfo,
   Practice,
-} from '../types/types';
-import { replaceEnglishDayWithJapanese } from '../utils/dateUtils';
+} from '../../types/types';
+import { replaceEnglishDayWithJapanese } from '../../utils/dateUtils';
 
 export class NotionService {
   public client: Client;

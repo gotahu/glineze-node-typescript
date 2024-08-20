@@ -3,7 +3,7 @@ import { CONSTANTS } from '../config/constants';
 import { logger } from '../utils/logger';
 import { ChannelType, Message } from 'discord.js';
 import { config } from '../config/config';
-import { NotionService } from './notionService';
+import { NotionService } from './notion/notionService';
 
 export class LINENotifyService {
   private async postToLINENotify(

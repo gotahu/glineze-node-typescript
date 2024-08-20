@@ -30,6 +30,7 @@ export class AutoRestartService {
 
   private watchAppFile() {
     fs.watch(this.appPath, (eventType) => {
+      console.log('eventType', eventType);
       if (eventType === 'change' && !this.isRestarting) {
         this.restartServer();
       }
