@@ -1,6 +1,6 @@
 import path from 'path';
 import nodeExternals from 'webpack-node-externals';
-import type { Configuration } from 'webpack';
+import { DefinePlugin, type Configuration } from 'webpack';
 
 const config: Configuration = {
   target: 'node', // Node.js 環境用に設定
@@ -22,6 +22,11 @@ const config: Configuration = {
     extensions: ['.ts', '.js'], // 解決可能な拡張子
   },
   externals: [nodeExternals()], // Node.js の組み込みモジュールをバンドルから除外
+  plugins: [
+    new DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+    }),
+  ],
 };
 
 export default config;

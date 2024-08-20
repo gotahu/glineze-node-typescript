@@ -3,6 +3,7 @@ import express, { Application } from 'express';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import { WebhookService } from './webhookService';
+import { isDevelopment } from '../utils/environment';
 
 export class WebServer {
   public app: Application;
@@ -19,6 +20,12 @@ export class WebServer {
 
   private setupRoutes(): void {
     this.app.post('/webhook', async (req, res) => {
+      if (isDevelopment()) {
+        logger.info('Received webhook event, but ignored in development mode');
+        res.status(200).send('Success');
+        return;
+      }
+
       const signature = req.headers['x-hub-signature-256'] as string;
       if (!this.webhookService.verifySignature(JSON.stringify(req.body), signature)) {
         logger.error('Invalid webhook signature');
@@ -27,6 +34,7 @@ export class WebServer {
       }
 
       try {
+        console.log(req.body.ref);
         await this.webhookService.handlePushEvent(req.body.ref);
         res.status(200).send('Success');
       } catch (error) {

@@ -21,7 +21,7 @@ export const config = {
   },
   repository: {
     path: process.env.REPOSITORY_PATH || '../../',
-    branch: process.env.BRANCH || 'main',
+    branch: process.env.BRANCH || 'refs/heads/main',
   },
   webpack: {},
 };

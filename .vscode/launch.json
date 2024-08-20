@@ -3,13 +3,14 @@
   "configurations": [
     {
       "name": "Start debug",
-      "type": "pwa-node", // 利用するデバッガの種類をVSCodeに伝える。"node"でも良いが、"pwa-node"の方が新しいデバッガのためこちらを利用(progressive web apps とは関係ない)
-      "request": "launch", // デバッガ起動時に、対象プログラム("program")を起動する
-      "runtimeArgs": ["--nolazy", "-r", "ts-node/register"], // ts-nodeを読み込みます(nolazyは無くても動きます。V8エンジンにスクリプト解析を延滞させないためのオプション(指定しないとブレークポイントスキップする可能性があるため))
-      "args": ["${workspaceFolder}/src/app.ts", "--transpile-only"], // デバッグを開始するファイルを指定する。「${file}」はアクティブなファイルのフルパス(開いているファイルをデバッグする)
+      "type": "pwa-node",
+      "request": "launch",
+      "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+      "args": ["${workspaceFolder}/src/app.ts", "--transpile-only"],
       "skipFiles": ["<node_internals>/**", "node_modules/**"],
       "env": {
-        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json",
+        "NODE_ENV": "development"
       }
     },
     {
