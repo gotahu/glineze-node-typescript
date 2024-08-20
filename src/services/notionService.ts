@@ -35,7 +35,7 @@ export class NotionService {
     this.initializeConfig();
   }
 
-  private async initializeConfig(): Promise<void> {
+  public async initializeConfig(): Promise<void> {
     try {
       const configDatabase = await this.queryAllDatabasePages(
         config.notion.configurationDatabaseId
@@ -52,6 +52,12 @@ export class NotionService {
       logger.error(`Failed to initialize configuration on NotionService: ${error}`);
       throw new Error('Failed to initialize NotionService due to missing configuration');
     }
+  }
+
+  public reloadConfig(): Promise<void> {
+    this.config.clear();
+    logger.info('config を初期化しました');
+    return this.initializeConfig();
   }
 
   public getConfig(key: string): string {

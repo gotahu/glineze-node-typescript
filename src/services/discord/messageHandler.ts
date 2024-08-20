@@ -44,6 +44,20 @@ export class MessageHandler {
       `${authorName}\n${messageContent}`
     );
 
+    if (messageContent === 'リロード') {
+      try {
+        await this.notion.reloadConfig();
+        message.reply('リロードしました。');
+        return;
+      } catch (error) {
+        message.reply('リロードに失敗しました。管理者に連絡してください。');
+        logger.error(
+          `${authorName} が config をリロードしようとしましたが、エラーが発生しました。`
+        );
+        return;
+      }
+    }
+
     // Notion から集金状況を取得
     try {
       const glanzeMember = await this.notion.retrieveGlanzeMember(authorId);
