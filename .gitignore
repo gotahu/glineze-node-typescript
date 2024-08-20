@@ -134,5 +134,4 @@ bundle/*
 
 # npm
 package-lock.json
-webpack/bundle/*
-webpack/bundle*
+app.js
