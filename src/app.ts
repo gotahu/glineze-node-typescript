@@ -9,12 +9,11 @@ import path from 'path';
 import { AutoRestartService } from './services/autoRestartService';
 
 async function main() {
-  if (process.env.NODE_ENV === 'production') {
-    console.log('Starting in production mode');
+  if (process.env.NODE_ENV === 'production' && process.env.AUTO_RESTART !== 'false') {
     const autoRestartService = new AutoRestartService(path.join(__dirname, 'app.js'));
     autoRestartService.start();
   } else {
-    console.log('Starting in development mode');
+    // 開発環境または自動再起動が無効の場合は直接サーバーを起動
     startServer();
   }
 }
