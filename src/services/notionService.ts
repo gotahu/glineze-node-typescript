@@ -35,7 +35,7 @@ export class NotionService {
     this.initializeConfig();
   }
 
-  public async initializeConfig(): Promise<void> {
+  private async initializeConfig(): Promise<void> {
     try {
       const configDatabase = await this.queryAllDatabasePages(
         config.notion.configurationDatabaseId

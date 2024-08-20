@@ -5,8 +5,21 @@ import { WebServer } from './services/webServer';
 import { NotionService } from './services/notionService';
 import { LINENotifyService } from './services/lineNotifyService';
 import { announcePractice, remindPracticeToBashotori } from './notion/practice';
+import path from 'path';
+import { AutoRestartService } from './services/autoRestartService';
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Starting in production mode');
+    const autoRestartService = new AutoRestartService(path.join(__dirname, 'app.js'));
+    autoRestartService.start();
+  } else {
+    console.log('Starting in development mode');
+    startServer();
+  }
+}
+
+function startServer() {
   const webServer = new WebServer();
   const notionService = new NotionService();
   const lineNotifyService = new LINENotifyService();
@@ -15,7 +28,6 @@ async function main() {
   // 各サービスの起動
   webServer.start();
   discordService.start();
-
   // API
   webServer.app.post('/', async (req, res) => {
     try {
