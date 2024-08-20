@@ -16,6 +16,14 @@ export const config = {
   server: {
     port: 3000,
   },
+  webhook: {
+    secret: process.env.WEBHOOK_SECRET,
+  },
+  repository: {
+    path: process.env.REPOSITORY_PATH || '../../',
+    branch: process.env.BRANCH || 'main',
+  },
+  webpack: {},
 };
 
 if (!config.discord.botToken) {
@@ -29,3 +37,11 @@ if (!config.notion.token) {
 if (!config.notion.configurationDatabaseId) {
   throw new Error('NOTION_CONFIGURATION_DATABASEID is not defined');
 }
+
+if (!config.webhook.secret) {
+  throw new Error('WEBHOOK_SECRET is not defined');
+}
+
+import('../../webpack/webpack.prod').then((webpackConfig) => {
+  config.webpack = webpackConfig.default || webpackConfig;
+});

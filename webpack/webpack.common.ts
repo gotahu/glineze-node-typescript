@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-const path = require('path');
-const nodeExternals = require('webpack-node-externals');
+import path from 'path';
+import nodeExternals from 'webpack-node-externals';
+import type { Configuration } from 'webpack';
 
-module.exports = {
+const config: Configuration = {
   target: 'node', // Node.js 環境用に設定
   entry: './src/app.ts', // エントリポイント
   output: {
@@ -23,3 +23,5 @@ module.exports = {
   },
   externals: [nodeExternals()], // Node.js の組み込みモジュールをバンドルから除外
 };
+
+export default config;

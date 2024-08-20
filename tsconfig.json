@@ -8,5 +8,5 @@
     "esModuleInterop": true,
     "moduleResolution": "Node"
   },
-  "include": ["./src/**/*"]
+  "include": ["./src/**/*", "webpack/webpack.prod.ts"]
 }
