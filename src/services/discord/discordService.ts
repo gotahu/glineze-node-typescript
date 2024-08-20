@@ -1,6 +1,6 @@
 import { Client, EmbedBuilder, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
 import { logger } from '../../utils/logger';
-import { handleInteractionCreate, handleReactionAdd } from './interaction';
+import { handleInteractionCreate, handleReactionAdd } from './discordInteraction';
 import { config } from '../../config/config';
 import { NotionService } from '../notionService';
 import { LINENotifyService } from '../lineNotifyService';
