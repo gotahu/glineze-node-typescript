@@ -133,6 +133,10 @@ class AppServer {
   }
 
   private watchAppFile() {
+    if (isDevelopment()) {
+      return;
+    }
+
     const appPath = path.join(__dirname, 'app.ts');
     watch(appPath, (eventType) => {
       if (eventType === 'change' && !this.isRestarting) {

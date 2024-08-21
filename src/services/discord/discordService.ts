@@ -84,11 +84,9 @@ export class DiscordService {
   ) {
     try {
       const channel = client.channels.cache.get(channelId);
-      console.log(channel);
 
       if (channel instanceof TextChannel) {
         const target = threadId ? await channel.threads.fetch(threadId) : channel;
-        console.log(channel);
 
         if (target) {
           if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
@@ -139,16 +137,33 @@ export class DiscordService {
    * @returns void
    */
   public async sendLINEMessageToDiscord(lineGroupId: string, message: string) {
+    // lineGroupId が undefined の場合、既定のチャンネルIDを使用
+    if (lineGroupId === 'undefined') {
+      await this.sendStringsToChannel([message], '1037911984399724634');
+      return;
+    }
+
     const lineDiscordPairs = await this.notionService.getLINEDiscordPairs();
 
-    const discordChannelId =
-      lineGroupId === 'undefined'
-        ? '1037911984399724634'
-        : lineDiscordPairs.find((v) => v.line_group_id == lineGroupId)?.discord_channel_id;
+    // 対応するDiscordチャンネルIDを見つける
+    let discordChannelId = '';
+    for (const pair of lineDiscordPairs) {
+      if (pair.line_group_id === lineGroupId) {
+        // priorityがtrueならそれを優先
+        if (pair.priority) {
+          discordChannelId = pair.discord_channel_id;
+          break;
+        }
+        // priorityがtrueでなければ、最初に見つかったものを使用
+        if (!discordChannelId) {
+          discordChannelId = pair.discord_channel_id;
+        }
+      }
+    }
 
     if (!discordChannelId) {
       logger.error(
-        `error: LINE BOTがメッセージを受信しましたが、対応するDiscordチャンネルが見つかりませんでした\nmessage: ${message}`
+        `error: LINE BOTがメッセージを受信しましたが、対応するDiscordチャンネルが見つかりませんでした\nlineGroupId: ${lineGroupId}\nmessage: ${message}`
       );
       return;
     }

@@ -91,7 +91,6 @@ async function handleEvent(
         logger.info('LINE: line message to discord channel');
         const message = `${event.name}：\n${event.message}`;
         await discordService.sendLINEMessageToDiscord(event.groupid, message);
-        await discordService.sendStringsToChannel([message], '1273731421663395973');
       }
       break;
     case 'join':

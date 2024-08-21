@@ -113,6 +113,7 @@ export class NotionService {
           line_group_id: this.getStringPropertyValue(page, 'line_group_id', 'rich_text'),
           discord_channel_id: this.getStringPropertyValue(page, 'discord_channel_id', 'rich_text'),
           line_notify_key: this.getStringPropertyValue(page, 'line_notify_key', 'rich_text'),
+          priority: this.getBooleanPropertyValue(page, 'priority', 'checkbox'),
         };
 
         return pair;
@@ -152,6 +153,23 @@ export class NotionService {
       return this.getStringPropertyValue(page, 'value', 'rich_text');
     } catch (error) {
       throw new Error(`Failed to fetch the configuration value for key: ${key}`);
+    }
+  }
+
+  /**
+   * Notion のページ内プロパティーから真偽値を取得する
+   * @param {PageObjectResponse} page Notion ページ
+   * @param {string} key データベースのプロパティ名
+   * @param {string} type データベースのプロパティのタイプ
+   * @returns {boolean}
+   */
+  public getBooleanPropertyValue(page: PageObjectResponse, key: string, type: 'checkbox'): boolean {
+    for (const [propKey, prop] of Object.entries(page.properties)) {
+      if (propKey === key && prop.type === type) {
+        if (prop.type === 'checkbox' && prop.checkbox) {
+          return prop.checkbox;
+        }
+      }
     }
   }
 
