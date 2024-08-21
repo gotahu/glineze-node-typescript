@@ -1,58 +1,47 @@
-import { GASEvent } from './types/types';
+import express from 'express';
 import { logger } from './utils/logger';
 import { DiscordService } from './services/discord/discordService';
-import { WebServer } from './services/webServer';
 import { NotionService } from './services/notion/notionService';
 import { LINENotifyService } from './services/lineNotifyService';
 import { announcePractice, remindPracticeToBashotori } from './services/notion/practice';
-import path from 'path';
-import { AutoRestartService } from './services/autoRestartService';
-import { Request, Response } from 'express';
+import { GASEvent } from './types/types';
+import { config } from './config/config';
+
+const app = express();
+app.use(express.json());
 
 async function main() {
   logger.info(`Starting application in ${process.env.NODE_ENV} mode`);
-  logger.info(`AUTO_RESTART is set to: ${process.env.AUTO_RESTART}`);
 
-  if (process.env.NODE_ENV === 'production' && process.env.AUTO_RESTART !== 'false') {
-    const autoRestartService = new AutoRestartService(path.join(__dirname, 'app.js'));
-    autoRestartService.start();
-  } else {
-    await startServer();
-  }
-}
-
-async function startServer() {
   try {
     const services = await initializeServices();
     setupAPIEndpoints(services);
-    logger.info('Server started successfully');
+    startServer();
+    logger.info('App started successfully');
   } catch (error) {
-    logger.error(`Failed to start server: ${error}`);
+    logger.error(`Failed to start app: ${error}`);
     process.exit(1);
   }
 }
 
 async function initializeServices() {
-  const webServer = new WebServer();
   const notionService = new NotionService();
   const lineNotifyService = new LINENotifyService();
   const discordService = new DiscordService(notionService, lineNotifyService);
 
-  await webServer.start();
-  await discordService.start();
+  discordService.start();
 
-  return { webServer, notionService, lineNotifyService, discordService };
+  return { notionService, lineNotifyService, discordService };
 }
 
 function setupAPIEndpoints(services: {
-  webServer: WebServer;
   notionService: NotionService;
   lineNotifyService: LINENotifyService;
   discordService: DiscordService;
 }) {
-  const { webServer, notionService, discordService } = services;
+  const { notionService, discordService } = services;
 
-  webServer.app.post('/', async (req: Request, res: Response) => {
+  app.post('/', async (req, res) => {
     try {
       logger.info(JSON.stringify(req.body));
 
@@ -113,6 +102,13 @@ async function handleEvent(
     default:
       logger.error(`Unknown event type: ${event.type}`);
   }
+}
+
+function startServer() {
+  const port = config.app.port;
+  app.listen(port, () => {
+    logger.info(`App is running on port ${port}`);
+  });
 }
 
 main().catch((error) => {

@@ -3,7 +3,13 @@ import { config } from '../config/config';
 import crypto from 'crypto';
 import { logger } from '../utils/logger';
 import webpack from 'webpack';
+import path from 'path';
+import fs from 'fs';
+import { isDevelopment } from '../utils/environment';
 
+// webpack の設定をインポート
+import webpackDevConfig from '../../webpack/webpack.dev';
+import webpackProdConfig from '../../webpack/webpack.prod';
 export class WebhookService {
   private git: SimpleGit;
 
@@ -24,10 +30,36 @@ export class WebhookService {
       await this.pullChanges();
       await this.runBuild();
 
-      logger.info('Build finished');
+      // app.js の変更を確認
+      const appJsPath = path.join(__dirname, '../../app.js');
+      const hasChanged = await this.checkFileChanged(appJsPath);
+
+      if (hasChanged) {
+        logger.info('app.js has changed. The server will restart automatically.');
+      } else {
+        logger.info('No changes detected in app.js. No restart needed.');
+      }
+
+      logger.info('Build and check finished');
     } else {
       logger.info(`Received push event for branch ${branch}, but ignored`);
     }
+  }
+
+  private async checkFileChanged(filePath: string): Promise<boolean> {
+    const oldHash = await this.getFileHash(filePath);
+    const newHash = await this.getFileHash(filePath);
+    return oldHash !== newHash;
+  }
+
+  private async getFileHash(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash('md5');
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (err) => reject(err));
+      stream.on('data', (chunk) => hash.update(chunk));
+      stream.on('end', () => resolve(hash.digest('hex')));
+    });
   }
 
   private async pullChanges(): Promise<void> {
@@ -42,7 +74,10 @@ export class WebhookService {
 
   private async runBuild(): Promise<void> {
     return new Promise((resolve, reject) => {
-      webpack(config.webpack, (err, stats) => {
+      // 環境に応じた webpack 設定を選択
+      const webpackConfig = isDevelopment() ? webpackDevConfig : webpackProdConfig;
+
+      webpack(webpackConfig, (err, stats) => {
         if (err || stats.hasErrors()) {
           logger.error('Error in webpack build: ' + err);
           reject(new Error('Webpack build failed'));
