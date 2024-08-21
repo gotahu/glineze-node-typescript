@@ -3,6 +3,7 @@ export type LINEDiscordPairInfo = {
   line_group_id: string;
   discord_channel_id: string;
   line_notify_key: string;
+  priority: boolean;
 };
 
 export type ShukinReply = {

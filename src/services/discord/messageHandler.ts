@@ -14,10 +14,13 @@ import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
 
 export class MessageHandler {
-  constructor(
-    private notion: NotionService,
-    private lineNotify: LINENotifyService
-  ) {}
+  private notion: NotionService;
+  private lineNotify: LINENotifyService;
+
+  constructor(notion: NotionService, lineNotify: LINENotifyService) {
+    this.notion = notion;
+    this.lineNotify = lineNotify;
+  }
 
   public async handleMessageCreate(message: Message): Promise<void> {
     if (message.author.bot) return;
