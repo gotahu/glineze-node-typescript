@@ -45,8 +45,14 @@ export class WebServer {
   }
 
   public start(): void {
-    this.app.listen(config.webhook.port, () => {
-      logger.info('Webhook server is online on port ' + config.webhook.port);
+    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : config.webhook.port;
+    this.app.listen(port, () => {
+      logger.info('Webhook server is online on port ' + port);
     });
   }
+}
+
+if (require.main === module) {
+  const webServer = new WebServer();
+  webServer.start();
 }
