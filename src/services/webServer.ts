@@ -45,8 +45,8 @@ export class WebServer {
   }
 
   public start(): void {
-    this.app.listen(config.server.port, () => {
-      logger.info('webserver(express) is online on port ' + config.server.port);
+    this.app.listen(config.webhook.port, () => {
+      logger.info('Webhook server is online on port ' + config.webhook.port);
     });
   }
 }
