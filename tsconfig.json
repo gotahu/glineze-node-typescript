@@ -1,12 +1,19 @@
 {
   "compilerOptions": {
-    "outDir": "./dist/",
-    "sourceMap": true,
-    "noImplicitAny": true,
-    "module": "commonjs",
     "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "esModuleInterop": true,
-    "moduleResolution": "Node"
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": false
   },
-  "include": ["./src/**/*", "webpack/webpack.prod.ts"]
+  "include": ["src/**/*", "webpack/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "ts-node": {
+    "transpileOnly": true,
+    "files": true
+  }
 }
