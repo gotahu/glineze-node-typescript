@@ -47,7 +47,7 @@ function setupAPIEndpoints(services: {
 
       if (!req.body || !req.body.events) {
         logger.error('No post data or events array');
-        res.end();
+        res.status(500).end();
         return;
       }
 
@@ -92,11 +92,6 @@ async function handleEvent(
         const message = `${event.name}：\n${event.message}`;
         await discordService.sendLINEMessageToDiscord(event.groupid, message);
       }
-      break;
-    case 'join':
-    case 'leave':
-      logger.info(`LINE: ${event.type}`);
-      logger.info(JSON.stringify(event));
       break;
     default:
       logger.error(`Unknown event type: ${event.type}`);

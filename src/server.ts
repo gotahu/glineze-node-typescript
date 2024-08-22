@@ -1,48 +1,77 @@
 import { fork, ChildProcess } from 'child_process';
-import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import express from 'express';
-import { watch } from 'fs';
 import path from 'path';
 import { isDevelopment } from './utils/environment';
 import { config } from './config/config';
 import { logger } from './utils/logger';
+import { WebhookService } from './services/webhookService';
 
 class AppServer {
-  private appProcess: ChildProcess | null = null;
-  private webhookProcess: ChildProcess | null = null;
+  private appProcess: ChildProcess;
   private isRestarting = false;
   private app: express.Application;
   private server: import('http').Server | null = null;
+  private webhookService: WebhookService;
 
   constructor() {
     this.app = express();
-    if (isDevelopment()) {
-      this.watchAppFile();
-    }
+    this.app.use(express.urlencoded({ extended: true }));
+    this.webhookService = new WebhookService();
+    this.setupWebhook();
     this.setupProxy();
     this.setupProcessHandlers();
   }
 
   private setupProxy() {
-    this.app.use(
-      '/webhook',
-      createProxyMiddleware({
-        target: `http://localhost:${config.webhook.port}`,
-        changeOrigin: true,
-        onProxyReq: fixRequestBody,
-        onError: this.handleProxyError,
-      } as any)
-    );
+    const appProxy = createProxyMiddleware({
+      target: `http://localhost:${config.app.port}/`,
+      changeOrigin: true,
+      on: {
+        error: this.handleProxyError,
+      },
+    });
 
-    this.app.use(
-      '/',
-      createProxyMiddleware({
-        target: `http://localhost:${config.app.port}`,
-        changeOrigin: true,
-        onProxyReq: fixRequestBody,
-        onError: this.handleProxyError,
-      } as any)
-    );
+    // プロキシの設定を適用
+    this.app.use('/app', appProxy);
+  }
+
+  private setupWebhook() {
+    this.app.post('/webhook', async (req, res) => {
+      if (isDevelopment()) {
+        console.log(req);
+        if (req.body && req.body.token && req.body.token === config.webhook.restartToken) {
+          logger.info('Received restart token');
+          res.status(200).send('Success');
+          await this.restartChildProcesses();
+          return;
+        }
+        logger.info('Received webhook event, but ignored in development mode');
+        res.status(200).send('Success');
+        return;
+      }
+
+      const signature = req.headers['x-hub-signature-256'] as string;
+      if (!this.webhookService.verifySignature(JSON.stringify(req.body), signature)) {
+        logger.error('Invalid webhook signature');
+        res.status(403).send('Invalid signature');
+        return;
+      }
+
+      try {
+        console.log(req.body.ref);
+        const result = await this.webhookService.handlePushEvent(req.body.ref);
+
+        if (result) {
+          res.status(200).send('Success');
+          await this.restartChildProcesses();
+          return;
+        }
+      } catch (error) {
+        logger.error('Error in handlePushEvent: ' + error);
+        res.status(500).send('Error');
+      }
+    });
   }
 
   private handleProxyError(err: Error, req: express.Request, res: express.Response) {
@@ -63,7 +92,6 @@ class AppServer {
     logger.info('Graceful shutdown initiated');
     this.isRestarting = true;
     await this.stopChildProcess(this.appProcess);
-    await this.stopChildProcess(this.webhookProcess);
     if (this.server) {
       this.server.close(() => {
         logger.info('Main server closed');
@@ -83,7 +111,6 @@ class AppServer {
 
   private startChildProcesses() {
     this.startAppProcess();
-    this.startWebhookProcess();
   }
 
   private startAppProcess() {
@@ -94,16 +121,6 @@ class AppServer {
     logger.info(`Starting ${appPath}...`);
 
     this.appProcess = this.forkProcess(appPath, config.app.port);
-  }
-
-  private startWebhookProcess() {
-    const webhookPath = isDevelopment()
-      ? path.join(__dirname, 'services', 'webServer.ts')
-      : path.join(__dirname, 'src', 'services', 'webServer.js');
-
-    logger.info(`Starting ${webhookPath}...`);
-
-    this.webhookProcess = this.forkProcess(webhookPath, config.webhook.port);
   }
 
   private forkProcess(scriptPath: string, port: number): ChildProcess {
@@ -132,32 +149,24 @@ class AppServer {
     return childProcess;
   }
 
-  private watchAppFile() {
-    if (isDevelopment()) {
+  private async restartChildProcesses() {
+    // リスタート中は再度リスタートしない
+    if (this.isRestarting) {
       return;
     }
 
-    const appPath = path.join(__dirname, 'app.ts');
-    watch(appPath, (eventType) => {
-      if (eventType === 'change' && !this.isRestarting) {
-        this.restartChildProcesses();
-      }
-    });
-  }
-
-  private async restartChildProcesses() {
     this.isRestarting = true;
     logger.info('Restarting child processes...');
 
     await this.stopChildProcess(this.appProcess);
-    await this.stopChildProcess(this.webhookProcess);
 
     this.startChildProcesses();
     this.isRestarting = false;
   }
 
-  private async stopChildProcess(process: ChildProcess | null) {
+  private async stopChildProcess(process: ChildProcess) {
     if (process) {
+      console.log(process);
       process.kill();
       await new Promise<void>((resolve) => {
         process.on('exit', () => {

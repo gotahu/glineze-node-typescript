@@ -19,8 +19,8 @@ export const config = {
     port: Number(process.env.APP_PORT) || 3001,
   },
   webhook: {
-    port: Number(process.env.WEBHOOK_PORT) || 3002,
     secret: process.env.WEBHOOK_SECRET,
+    restartToken: process.env.WEBHOOK_RESTART_TOKEN,
   },
   repository: {
     path: process.env.REPOSITORY_PATH,
@@ -46,7 +46,7 @@ if (!config.webhook.secret) {
 }
 
 // Ensure all ports are different
-const ports = [config.server.port, config.app.port, config.webhook.port];
+const ports = [config.server.port, config.app.port];
 if (new Set(ports).size !== ports.length) {
   throw new Error('SERVER_PORT, APP_PORT, and WEBHOOK_PORT must all be different');
 }

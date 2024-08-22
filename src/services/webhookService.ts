@@ -3,7 +3,6 @@ import { config } from '../config/config';
 import crypto from 'crypto';
 import { logger } from '../utils/logger';
 import webpack from 'webpack';
-import path from 'path';
 import fs from 'fs';
 import { isDevelopment } from '../utils/environment';
 
@@ -23,24 +22,19 @@ export class WebhookService {
     return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
   }
 
-  public async handlePushEvent(branch: string): Promise<void> {
+  public async handlePushEvent(branch: string): Promise<boolean> {
     if (branch === config.repository.branch) {
-      logger.info(`Received push event for branch ${branch}`);
+      try {
+        logger.info(`Received push event for branch ${branch}`);
 
-      await this.pullChanges();
-      await this.runBuild();
+        await this.pullChanges();
+        await this.runBuild();
 
-      // app.js の変更を確認
-      const appJsPath = path.join(__dirname, '../../app.js');
-      const hasChanged = await this.checkFileChanged(appJsPath);
-
-      if (hasChanged) {
-        logger.info('app.js has changed. The server will restart automatically.');
-      } else {
-        logger.info('No changes detected in app.js. No restart needed.');
+        return true;
+      } catch (error) {
+        logger.error(error);
+        return false;
       }
-
-      logger.info('Build and check finished');
     } else {
       logger.info(`Received push event for branch ${branch}, but ignored`);
     }
