@@ -10,13 +10,20 @@ import { WebhookService } from './services/webhookService';
 class AppServer {
   private appProcess: ChildProcess;
   private isRestarting = false;
-  private app: express.Application;
-  private server: import('http').Server | null = null;
+  private app: express.Express;
+  private server: import('http').Server;
   private webhookService: WebhookService;
 
   constructor() {
     this.app = express();
-    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(
+      express.json({
+        verify: (req, res, buf) => {
+          // utf-8 でバッファを文字列に変換
+          req['rawBody'] = buf.toString('utf-8');
+        },
+      })
+    );
     this.webhookService = new WebhookService();
     this.setupWebhook();
     this.setupProxy();
@@ -51,19 +58,20 @@ class AppServer {
         return;
       }
 
-      const signature = req.headers['x-hub-signature-256'] as string;
-      if (!this.webhookService.verifySignature(JSON.stringify(req.body), signature)) {
-        logger.error('Invalid webhook signature');
-        res.status(403).send('Invalid signature');
-        return;
-      }
-
       try {
+        const signature = req.headers['x-hub-signature-256'] as string;
+        console.log(signature);
+        if (!this.webhookService.verifySignature(JSON.stringify(req.body), signature)) {
+          logger.error('Invalid webhook signature');
+          res.status(403).send('Invalid signature');
+          return;
+        }
+
         console.log(req.body.ref);
+        res.status(200).send('Success');
         const result = await this.webhookService.handlePushEvent(req.body.ref);
 
         if (result) {
-          res.status(200).send('Success');
           await this.restartChildProcesses();
           return;
         }

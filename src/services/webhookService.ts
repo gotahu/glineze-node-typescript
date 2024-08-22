@@ -9,6 +9,7 @@ import { isDevelopment } from '../utils/environment';
 // webpack の設定をインポート
 import webpackDevConfig from '../../webpack/webpack.dev';
 import webpackProdConfig from '../../webpack/webpack.prod';
+import { promisify } from 'util';
 export class WebhookService {
   private git: SimpleGit;
 
@@ -40,12 +41,6 @@ export class WebhookService {
     }
   }
 
-  private async checkFileChanged(filePath: string): Promise<boolean> {
-    const oldHash = await this.getFileHash(filePath);
-    const newHash = await this.getFileHash(filePath);
-    return oldHash !== newHash;
-  }
-
   private async getFileHash(filePath: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const hash = crypto.createHash('md5');
@@ -67,19 +62,28 @@ export class WebhookService {
   }
 
   private async runBuild(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // 環境に応じた webpack 設定を選択
-      const webpackConfig = isDevelopment() ? webpackDevConfig : webpackProdConfig;
+    // 環境に応じた webpack 設定を選択
+    const webpackConfig = isDevelopment() ? webpackDevConfig : webpackProdConfig;
 
-      webpack(webpackConfig, (err, stats) => {
-        if (err || stats.hasErrors()) {
-          logger.error('Error in webpack build: ' + err);
-          reject(new Error('Webpack build failed'));
-        } else {
-          logger.info(stats.toString({ colors: true }));
-          resolve();
-        }
-      });
-    });
+    // webpack のビルドを非同期に実行
+    const webpackAsync = promisify(webpack);
+
+    try {
+      const stats = await webpackAsync([webpackConfig]);
+
+      if (stats.hasErrors()) {
+        const errorDetails = stats.toString({
+          colors: true,
+          errors: true,
+        });
+        logger.error('Error in webpack build: ' + errorDetails);
+        throw new Error('Webpack build failed with errors.');
+      }
+
+      logger.info(stats.toString({ colors: true }));
+    } catch (err) {
+      logger.error('Webpack build process failed: ' + err.message);
+      throw err;
+    }
   }
 }
