@@ -7,7 +7,7 @@ import { config } from './config/config';
 import { logger } from './utils/logger';
 import { WebhookService } from './services/webhookService';
 
-class AppServer {
+export class AppServer {
   private appProcess: ChildProcess;
   private isRestarting = false;
   private app: express.Express;
@@ -16,16 +16,7 @@ class AppServer {
 
   constructor() {
     this.app = express();
-    this.app.use(
-      express.json({
-        verify: (req, res, buf) => {
-          // utf-8 でバッファを文字列に変換
-          req['rawBody'] = buf.toString('utf-8');
-        },
-      })
-    );
-    this.webhookService = new WebhookService();
-    this.setupWebhook();
+    this.webhookService = new WebhookService(this);
     this.setupProxy();
     this.setupProcessHandlers();
   }
@@ -39,47 +30,17 @@ class AppServer {
       },
     });
 
+    const webhookProxy = createProxyMiddleware({
+      target: `http://localhost:${config.webhook.port}/`,
+      changeOrigin: true,
+      on: {
+        error: this.handleProxyError,
+      },
+    });
+
     // プロキシの設定を適用
     this.app.use('/app', appProxy);
-  }
-
-  private setupWebhook() {
-    this.app.post('/webhook', async (req, res) => {
-      if (isDevelopment()) {
-        console.log(req);
-        if (req.body && req.body.token && req.body.token === config.webhook.restartToken) {
-          logger.info('Received restart token');
-          res.status(200).send('Success');
-          await this.restartChildProcesses();
-          return;
-        }
-        logger.info('Received webhook event, but ignored in development mode');
-        res.status(200).send('Success');
-        return;
-      }
-
-      try {
-        const signature = req.headers['x-hub-signature-256'] as string;
-        console.log(signature);
-        if (!this.webhookService.verifySignature(JSON.stringify(req.body), signature)) {
-          logger.error('Invalid webhook signature');
-          res.status(403).send('Invalid signature');
-          return;
-        }
-
-        console.log(req.body.ref);
-        res.status(200).send('Success');
-        const result = await this.webhookService.handlePushEvent(req.body.ref);
-
-        if (result) {
-          await this.restartChildProcesses();
-          return;
-        }
-      } catch (error) {
-        logger.error('Error in handlePushEvent: ' + error);
-        res.status(500).send('Error');
-      }
-    });
+    this.app.use('/webhook', webhookProxy);
   }
 
   private handleProxyError(err: Error, req: express.Request, res: express.Response) {
@@ -157,7 +118,7 @@ class AppServer {
     return childProcess;
   }
 
-  private async restartChildProcesses() {
+  public async restartChildProcesses() {
     // リスタート中は再度リスタートしない
     if (this.isRestarting) {
       return;

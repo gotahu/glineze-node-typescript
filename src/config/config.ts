@@ -19,6 +19,7 @@ export const config = {
     port: Number(process.env.APP_PORT) || 3001,
   },
   webhook: {
+    port: Number(process.env.WEBHOOK_PORT) || 3002,
     secret: process.env.WEBHOOK_SECRET,
     restartToken: process.env.WEBHOOK_RESTART_TOKEN,
   },

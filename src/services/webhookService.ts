@@ -3,18 +3,67 @@ import { config } from '../config/config';
 import crypto from 'crypto';
 import { logger } from '../utils/logger';
 import webpack from 'webpack';
-import fs from 'fs';
 import { isDevelopment } from '../utils/environment';
+import express from 'express';
 
 // webpack の設定をインポート
 import webpackDevConfig from '../../webpack/webpack.dev';
 import webpackProdConfig from '../../webpack/webpack.prod';
 import { promisify } from 'util';
+import { AppServer } from '../server';
 export class WebhookService {
   private git: SimpleGit;
+  private webhookServer: express.Express;
+  private appServer: AppServer;
 
-  constructor() {
+  constructor(appServer: AppServer) {
+    this.appServer = appServer;
     this.git = simpleGit(config.repository.path);
+    this.webhookServer = express();
+    this.webhookServer.use(
+      express.json({
+        verify: (req, res, buf) => {
+          req['rawBody'] = buf.toString('utf-8');
+        },
+      })
+    );
+    this.webhookServer.listen(config.webhook.port, () => {
+      logger.info(`Webhook server listening on port ${config.webhook.port}`);
+    });
+
+    this.setupWebhook();
+  }
+
+  private setupWebhook() {
+    this.webhookServer.post('/', async (req, res) => {
+      if (req.body && req.body['token'] && req.body['token'] === config.webhook.restartToken) {
+        logger.info('Received restart token');
+        res.status(200).send('Success');
+        await this.appServer.restartChildProcesses();
+        return;
+      }
+
+      try {
+        const signature = req.headers['x-hub-signature-256'] as string;
+        console.log(signature);
+        if (!this.verifySignature(JSON.stringify(req.body), signature)) {
+          logger.error('Invalid webhook signature');
+          res.status(403).send('Invalid signature');
+          return;
+        }
+
+        console.log(req.body.ref);
+        res.status(200).send('Success');
+        const result = await this.handlePushEvent(req.body.ref);
+
+        if (result) {
+          await this.appServer.restartChildProcesses();
+        }
+      } catch (error) {
+        logger.error('Error in handlePushEvent: ' + error);
+        res.status(500).send('Error');
+      }
+    });
   }
 
   public verifySignature(payload: string, signature: string): boolean {
@@ -39,16 +88,6 @@ export class WebhookService {
     } else {
       logger.info(`Received push event for branch ${branch}, but ignored`);
     }
-  }
-
-  private async getFileHash(filePath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const hash = crypto.createHash('md5');
-      const stream = fs.createReadStream(filePath);
-      stream.on('error', (err) => reject(err));
-      stream.on('data', (chunk) => hash.update(chunk));
-      stream.on('end', () => resolve(hash.digest('hex')));
-    });
   }
 
   private async pullChanges(): Promise<void> {

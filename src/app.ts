@@ -43,7 +43,7 @@ function setupAPIEndpoints(services: {
 
   app.post('/', async (req, res) => {
     try {
-      logger.info(JSON.stringify(req.body));
+      console.log(req);
 
       if (!req.body || !req.body.events) {
         logger.error('No post data or events array');
