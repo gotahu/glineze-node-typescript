@@ -138,7 +138,12 @@ export async function handleReactionAdd(
       ? notificationMessages[0].userId.includes(notificationUserId)
       : false;
 
-  if (reaction.emoji.name !== '🔔' && reaction.emoji.name !== '🔕' && !isAlreadyNotificationMessage)
+  if (
+    reaction.emoji.name !== '🔔' &&
+    reaction.emoji.name !== '🔕' &&
+    reaction.emoji.name !== '🗑️' &&
+    !isAlreadyNotificationMessage
+  )
     return;
 
   const messageUrl = reactedMessage.url;
@@ -198,6 +203,24 @@ export async function handleReactionAdd(
           )
         );
       }
+    }
+  } else if (reaction.emoji.name === '🗑️') {
+    try {
+      // メッセージIDからメッセージを取得
+      const channelId = reaction.message.channelId;
+      // チャンネルIDからチャンネルを取得
+      const channel = await reaction.client.channels.fetch(channelId);
+      if (!channel.isTextBased()) throw new Error('This channel is not a text channel.');
+
+      // メッセージIDからメッセージを取得
+      const targetMessage = await channel.messages.fetch(reactedMessageId);
+      if (targetMessage.author.id !== reaction.client.user.id) {
+        return;
+      }
+      // メッセージを削除する
+      await targetMessage.delete();
+    } catch (error) {
+      console.error('Failed to delete the message:', error);
     }
   } else {
     for (const userId of notificationMessages[0].userId) {
