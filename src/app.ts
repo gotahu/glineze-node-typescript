@@ -6,6 +6,7 @@ import { LINENotifyService } from './services/lineNotifyService';
 import { announcePractice, remindPracticeToBashotori } from './services/notion/practice';
 import { GASEvent } from './types/types';
 import { config } from './config/config';
+import { fetchKondate } from './services/notion/kondate';
 
 const app = express();
 app.use(express.json());
@@ -92,6 +93,9 @@ async function handleEvent(
         const message = `${event.name}：\n${event.message}`;
         await discordService.sendLINEMessageToDiscord(event.groupid, message);
       }
+      break;
+    case 'kondate':
+      await fetchKondate(notionService, discordService);
       break;
     default:
       logger.error(`Unknown event type: ${event.type}`);

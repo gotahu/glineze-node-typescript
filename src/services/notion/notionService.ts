@@ -226,6 +226,25 @@ export class NotionService {
   }
 
   /**
+   * Notion のページ内のプロパティーから日付を取得する
+   * @param page
+   * @param key
+   * @param type
+   * @returns
+   */
+  public getDatePropertyValue(page: PageObjectResponse, key: string): Date | undefined {
+    for (const [propKey, prop] of Object.entries(page.properties)) {
+      if (propKey === key && prop.type === 'date') {
+        if (prop.type === 'date' && prop.date) {
+          return new Date(prop.date.start);
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * Notion のページ内のプロパティーから数値を取得する
    * @param page
    * @param key
