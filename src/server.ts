@@ -38,9 +38,18 @@ export class AppServer {
       },
     });
 
+    const oshiglaProxy = createProxyMiddleware({
+      target: `http://localhost:${config.oshigla.port}/`,
+      changeOrigin: true,
+      on: {
+        error: this.handleProxyError,
+      },
+    });
+
     // プロキシの設定を適用
     this.app.use('/app', appProxy);
     this.app.use('/webhook', webhookProxy);
+    this.app.use('/oshigla', oshiglaProxy);
   }
 
   private handleProxyError(err: Error, req: express.Request, res: express.Response) {

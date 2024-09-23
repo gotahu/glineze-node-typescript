@@ -23,6 +23,9 @@ export const config = {
     secret: process.env.WEBHOOK_SECRET,
     restartToken: process.env.WEBHOOK_RESTART_TOKEN,
   },
+  oshigla: {
+    port: Number(process.env.OSHIGLA_PORT) || 3003,
+  },
   repository: {
     path: process.env.REPOSITORY_PATH,
     branch: process.env.BRANCH || 'refs/heads/main',
