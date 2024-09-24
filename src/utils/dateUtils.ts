@@ -29,3 +29,13 @@ export function replaceEnglishDayWithJapanese(str: string): string {
   // 置き換えられた文字列を返します。
   return str;
 }
+
+/**
+ * 日付文字列が有効かどうかをチェックする関数
+ * @param dateString チェックする日付文字列
+ * @returns 有効な日付文字列であればtrue、そうでなければfalse
+ */
+export function isValidDateString(dateString: string): boolean {
+  const date = new Date(dateString);
+  return !isNaN(date.getTime());
+}

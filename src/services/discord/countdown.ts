@@ -1,19 +1,30 @@
-import { differenceInDays } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { TextChannel } from 'discord.js';
 import { DiscordService } from './discordService';
 import { NotionService } from '../notion/notionService';
+import { isValidDateString } from '../../utils/dateUtils';
 
 /**
  * Discordチャンネルのトピックを更新する関数
- * @param client Discordクライアント
+ * @param discord Discordクライアント
+ * @param notion Notionサービス
  */
 async function updateChannelTopic(discord: DiscordService, notion: NotionService) {
   // Channel Topic を変更する対象のチャンネルID
   const CHANNEL_ID = notion.getConfig('discord_general_channelid');
-  const TARGET_DATE = new Date(notion.getConfig('date_of_annual_concert'));
+  const targetDateString = notion.getConfig('date_of_annual_concert');
 
-  // 今日の日付を取得
-  const today = new Date();
+  // 日付文字列の妥当性をチェック
+  if (!isValidDateString(targetDateString)) {
+    console.error('無効な日付文字列です:', targetDateString);
+    return;
+  }
+
+  // 対象日を日本時間の00:00:00に設定
+  const TARGET_DATE = startOfDay(parseISO(targetDateString));
+
+  // 今日の日付を日本時間の00:00:00に設定
+  const today = startOfDay(new Date());
 
   // 今日からターゲット日付までの日数を計算
   const daysLeft = differenceInDays(TARGET_DATE, today);
@@ -21,9 +32,19 @@ async function updateChannelTopic(discord: DiscordService, notion: NotionService
   // チャンネルを取得
   const channel = discord.client.channels.cache.get(CHANNEL_ID) as TextChannel;
   if (channel) {
+    // 日数に応じてメッセージを変更
+    let topicMessage: string;
+    if (daysLeft > 0) {
+      topicMessage = `定期演奏会まであと ${daysLeft} 日`;
+    } else if (daysLeft === 0) {
+      topicMessage = '定期演奏会は今日です！';
+    } else {
+      topicMessage = `定期演奏会は ${-daysLeft} 日前に終了しました`;
+    }
+
     // チャンネルのトピックを更新
-    await channel.setTopic(`定期演奏会まであと ${daysLeft} 日`);
-    console.log(`チャンネルのトピックを更新しました: あと ${daysLeft} 日`);
+    await channel.setTopic(topicMessage);
+    console.log(`チャンネルのトピックを更新しました: ${topicMessage}`);
   } else {
     console.error('指定されたチャンネルが見つかりませんでした。');
   }
