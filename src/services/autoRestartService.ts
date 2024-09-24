@@ -32,6 +32,7 @@ export class AutoRestartService {
     fs.watch(this.appPath, (eventType) => {
       console.log('eventType', eventType);
       if (eventType === 'change' && !this.isRestarting) {
+        logger.sendLogMessageToDiscord('App file changed. Restarting server...');
         this.restartServer();
       }
     });

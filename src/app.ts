@@ -19,6 +19,7 @@ async function main() {
     setupAPIEndpoints(services);
     startServer();
     logger.info('App started successfully');
+    logger.sendLogMessageToDiscord('App started successfully');
   } catch (error) {
     logger.error(`Failed to start app: ${error}`);
     process.exit(1);
