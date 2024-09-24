@@ -83,23 +83,24 @@ export class DiscordService {
     threadId?: string
   ) {
     try {
-      const channel = await client.channels.fetch(channelId);
+      const channel = client.channels.cache.get(channelId) as TextChannel;
 
-      if (channel instanceof TextChannel) {
-        const target = threadId ? await channel.threads.fetch(threadId) : channel;
-
-        if (target) {
-          if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
-            await target.send({ embeds: content });
-          } else if (typeof content === 'string') {
-            await target.send(content);
-          }
-          logger.info(`Content sent to ${threadId ? 'thread' : 'channel'}`);
-        } else {
-          logger.error(`${threadId ? 'Thread' : 'Channel'} not found`);
-        }
-      } else {
+      if (!channel.isTextBased) {
         logger.error('Channel is not a TextChannel');
+        return;
+      }
+
+      const target = threadId ? await channel.threads.fetch(threadId) : channel;
+
+      if (target) {
+        if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
+          await target.send({ embeds: content });
+        } else if (typeof content === 'string') {
+          await target.send(content);
+        }
+        logger.info(`Content sent to ${threadId ? 'thread' : 'channel'}`);
+      } else {
+        logger.error(`${threadId ? 'Thread' : 'Channel'} not found`);
       }
     } catch (error) {
       logger.error('Error sending content: ' + error);

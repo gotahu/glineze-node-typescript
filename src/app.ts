@@ -7,6 +7,7 @@ import { announcePractice, remindPracticeToBashotori } from './services/notion/p
 import { GASEvent } from './types/types';
 import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';
+import { updateChannelTopic } from './services/discord/countdown';
 
 const app = express();
 app.use(express.json());
@@ -19,7 +20,6 @@ async function main() {
     setupAPIEndpoints(services);
     startServer();
     logger.info('App started successfully');
-    logger.sendLogMessageToDiscord('App started successfully');
   } catch (error) {
     logger.error(`Failed to start app: ${error}`);
     process.exit(1);
@@ -75,6 +75,9 @@ async function handleEvent(
   switch (event.type) {
     case 'wake':
       logger.info('GAS: 定期起動監視スクリプト受信');
+      updateChannelTopic(discordService, notionService).catch((error) => {
+        logger.error(`Error in updating channel topic: ${error}`);
+      });
       break;
     case 'noonNotify':
       logger.info('GAS: noonNotify');
