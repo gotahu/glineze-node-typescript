@@ -214,10 +214,12 @@ export async function handleReactionAdd(
 
       // メッセージIDからメッセージを取得
       const targetMessage = await channel.messages.fetch(reactedMessageId);
+
+      // BOTが送信したメッセージでなければ無視する
       if (targetMessage.author.id !== reaction.client.user.id) {
         return;
       }
-      // メッセージを削除する
+      // BOTが送信したメッセージを削除する
       await targetMessage.delete();
     } catch (error) {
       console.error('Failed to delete the message:', error);
