@@ -16,7 +16,6 @@ export async function fetchKondate(notion: NotionService, discord: DiscordServic
   const nt = set(new Date(), { hours: 16, minutes: 50 });
 
   const now = new Date();
-  //const now = set(new Date(), { hours: 6, minutes: 35 }); // デバッグ用
   console.log(now);
 
   for (const kondate of kondates) {
