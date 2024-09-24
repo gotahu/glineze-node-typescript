@@ -10,7 +10,7 @@ import { NotionService } from '../notion/notionService';
 async function updateChannelTopic(discord: DiscordService, notion: NotionService) {
   // Channel Topic を変更する対象のチャンネルID
   const CHANNEL_ID = notion.getConfig('discord_general_channelid');
-  const TARGET_DATE = new Date(notion.getConfig('discord_general_targetdate'));
+  const TARGET_DATE = new Date(notion.getConfig('date_of_annual_concert'));
 
   // 今日の日付を取得
   const today = new Date();
