@@ -83,7 +83,7 @@ export class DiscordService {
     threadId?: string
   ) {
     try {
-      const channel = client.channels.cache.get(channelId);
+      const channel = await client.channels.fetch(channelId);
 
       if (channel instanceof TextChannel) {
         const target = threadId ? await channel.threads.fetch(threadId) : channel;
