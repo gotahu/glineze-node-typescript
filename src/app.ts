@@ -7,7 +7,7 @@ import { announcePractice, remindPracticeToBashotori } from './services/notion/p
 import { GASEvent } from './types/types';
 import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';
-import { updateChannelTopic } from './services/discord/countdown';
+import { updateBotProfile, updateChannelTopic } from './services/discord/countdown';
 
 const app = express();
 app.use(express.json());
@@ -78,6 +78,7 @@ async function handleEvent(
       updateChannelTopic(discordService, notionService).catch((error) => {
         logger.error(`Error in updating channel topic: ${error}`);
       });
+      updateBotProfile(discordService, notionService);
       break;
     case 'noonNotify':
       logger.info('GAS: noonNotify');

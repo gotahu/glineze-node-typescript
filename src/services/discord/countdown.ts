@@ -1,5 +1,5 @@
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { TextChannel } from 'discord.js';
+import { ActivityType, TextChannel } from 'discord.js';
 import { DiscordService } from './discordService';
 import { NotionService } from '../notion/notionService';
 import { isValidDateString } from '../../utils/dateUtils';
@@ -50,4 +50,31 @@ async function updateChannelTopic(discord: DiscordService, notion: NotionService
   }
 }
 
-export { updateChannelTopic };
+function updateBotProfile(discord: DiscordService, notion: NotionService) {
+  const targetDateString = notion.getConfig('date_of_annual_concert');
+  // 対象日を日本時間の00:00:00に設定
+  const TARGET_DATE = startOfDay(parseISO(targetDateString));
+
+  // 今日の日付を日本時間の00:00:00に設定
+  const today = startOfDay(new Date());
+
+  // 今日からターゲット日付までの日数を計算
+  const daysLeft = differenceInDays(TARGET_DATE, today);
+
+  // 日数に応じてメッセージを変更
+  let topicMessage: string;
+  if (daysLeft > 0) {
+    topicMessage = `47代定演まで ${daysLeft} 日`;
+  } else if (daysLeft === 0) {
+    topicMessage = '定期演奏会は今日です！';
+  } else {
+    topicMessage = `定期演奏会は ${-daysLeft} 日前に終了しました`;
+  }
+
+  // ボットのステータスを更新
+  discord.client.user.setActivity(topicMessage, { type: ActivityType.Custom });
+
+  console.log(`ボットのステータスを更新しました: ${topicMessage}`);
+}
+
+export { updateChannelTopic, updateBotProfile };
