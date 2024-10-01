@@ -12,7 +12,7 @@ import { isValidDateString } from '../../utils/dateUtils';
 async function updateChannelTopic(discord: DiscordService, notion: NotionService) {
   // Channel Topic を変更する対象のチャンネルID
   const CHANNEL_ID = notion.getConfig('discord_general_channelid');
-  const targetDateString = notion.getConfig('date_of_annual_concert');
+  const targetDateString = notion.getConfig('date_of_countdown_date');
   const targetEventName = notion.getConfig('name_of_countdown');
 
   // 日付文字列の妥当性をチェック
@@ -52,7 +52,7 @@ async function updateChannelTopic(discord: DiscordService, notion: NotionService
 }
 
 function updateBotProfile(discord: DiscordService, notion: NotionService) {
-  const targetDateString = notion.getConfig('date_of_annual_concert');
+  const targetDateString = notion.getConfig('date_of_countdown_date');
   const targetEventName = notion.getConfig('name_of_countdown');
 
   // 対象日を日本時間の00:00:00に設定
