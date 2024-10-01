@@ -135,3 +135,4 @@ bundle/*
 # npm
 package-lock.json
 app.js
+src_project_summary.txt
