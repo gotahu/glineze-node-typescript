@@ -1,5 +1,6 @@
 import {
   BaseInteraction,
+  ButtonInteraction,
   ChannelType,
   Message,
   MessageReaction,
@@ -32,9 +33,7 @@ async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberId
   }
 }
 
-export const handleInteractionCreate = async (interaction: BaseInteraction) => {
-  if (!interaction.isButton()) return;
-
+const handleButtonInteraction = async (interaction: ButtonInteraction) => {
   switch (interaction.customId) {
     case 'delete':
       if (interaction.message.channel instanceof ThreadChannel) {
@@ -64,6 +63,12 @@ export const handleInteractionCreate = async (interaction: BaseInteraction) => {
         await interaction.message.delete();
       }
       break;
+  }
+};
+
+export const handleInteractionCreate = async (interaction: BaseInteraction) => {
+  if (interaction.isButton()) {
+    await handleButtonInteraction(interaction);
   }
 };
 

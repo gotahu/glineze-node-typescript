@@ -1,10 +1,19 @@
-import { Client, EmbedBuilder, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
+import {
+  Client,
+  Collection,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  Partials,
+  TextChannel,
+} from 'discord.js';
 import { logger } from '../../utils/logger';
 import { handleInteractionCreate, handleReactionAdd } from './discordInteraction';
 import { config } from '../../config/config';
 import { NotionService } from '../notion/notionService';
 import { LINENotifyService } from '../lineNotifyService';
 import { MessageHandler } from './messageHandler';
+import handleThreadMembersUpdate from './threadMember';
 
 export class DiscordService {
   public client: Client;
@@ -26,6 +35,7 @@ export class DiscordService {
       intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.DirectMessages,
@@ -49,13 +59,15 @@ export class DiscordService {
       }
     });
 
-    this.client.on('messageCreate', (message) => {
+    this.client.on(Events.MessageCreate, (message) => {
       this.messageHandler.handleMessageCreate(message);
     });
-    this.client.on('messageReactionAdd', (reaction, user) =>
+    this.client.on(Events.MessageReactionAdd, (reaction, user) =>
       handleReactionAdd(reaction, user, this.notionService, this.lineNotifyService)
     );
-    this.client.on('interactionCreate', handleInteractionCreate);
+    this.client.on(Events.InteractionCreate, handleInteractionCreate);
+
+    this.client.on(Events.ThreadMembersUpdate, handleThreadMembersUpdate);
   }
 
   public start(): void {
