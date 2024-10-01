@@ -3,6 +3,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
+  DMChannel,
   Message,
   MessageType,
 } from 'discord.js';
@@ -40,9 +41,10 @@ export class MessageHandler {
     const messageContent = message.content;
     const authorId = message.author.id;
     const authorName = message.author.displayName;
+    const dmChannel = message.channel as DMChannel;
 
     // 「メッセージを送信中」を表示
-    message.channel.sendTyping();
+    dmChannel.sendTyping();
 
     await this.lineNotify.postTextToLINENotify(
       config.lineNotify.voidToken,
