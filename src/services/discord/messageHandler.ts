@@ -12,6 +12,8 @@ import { config } from '../../config/config';
 import { logger } from '../../utils/logger';
 import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
+import { createBreakoutRooms, randomBreakoutRooms, removeBreakoutRooms } from './breakoutRoom';
+import { handleCountReactionCommand } from './countReaction';
 
 export class MessageHandler {
   private notion: NotionService;
@@ -95,6 +97,39 @@ export class MessageHandler {
     // システムメッセージの場合
     if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
       logger.info(`system message, type: ${message.type}`);
+      return;
+    }
+
+    if (message.content.startsWith('!br')) {
+      const args = message.content.split(' ');
+      if (args.length <= 1) {
+        message.reply({ content: '引数が不足しています' });
+        return;
+      }
+      const subCommand = args[1];
+      if (subCommand === 'create') {
+        if (args.length <= 2) {
+          message.reply({ content: '引数が不足しています' });
+          return;
+        }
+        const number = parseInt(args[2]);
+        if (isNaN(number)) {
+          message.reply({ content: '引数が不正です' });
+          return;
+        }
+        await createBreakoutRooms(message.guild, number);
+        return;
+      } else if (subCommand === 'remove') {
+        await removeBreakoutRooms(message.guild);
+        return;
+      } else if (subCommand === 'random') {
+        await randomBreakoutRooms(message);
+        return;
+      }
+    }
+
+    if (message.content.startsWith('!count-reaction')) {
+      await handleCountReactionCommand(message);
       return;
     }
 
