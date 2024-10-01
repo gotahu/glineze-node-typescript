@@ -46,8 +46,10 @@ export class NotionService {
         const value = this.getStringPropertyValue(page, 'value', 'rich_text');
 
         this.config.set(key, value);
-        logger.info(`Configuration key: ${key} value: ${value}`);
       }
+
+      console.log('config を初期化しました');
+      console.log(this.config);
     } catch (error) {
       logger.error(`Failed to initialize configuration on NotionService: ${error}`);
       throw new Error('Failed to initialize NotionService due to missing configuration');
