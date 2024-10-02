@@ -13,7 +13,12 @@ import { config } from '../../config/config';
 import { logger } from '../../utils/logger';
 import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
-import { createBreakoutRooms, randomBreakoutRooms, removeBreakoutRooms } from './breakoutRoom';
+import {
+  createBreakoutRooms,
+  handleBreakoutRoomCommand,
+  randomBreakoutRooms,
+  removeBreakoutRooms,
+} from './breakoutRoom';
 import { handleCountReactionCommand } from './countReaction';
 
 export class MessageHandler {
@@ -96,6 +101,8 @@ export class MessageHandler {
       //
     }
 
+    this.lineNotify.postTextToLINENotifyFromDiscordMessage(this.notion, message, true);
+
     // システムメッセージの場合
     if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
       logger.info(`system message, type: ${message.type}`);
@@ -103,31 +110,8 @@ export class MessageHandler {
     }
 
     if (message.content.startsWith('!br')) {
-      const args = message.content.split(' ');
-      if (args.length <= 1) {
-        message.reply({ content: '引数が不足しています' });
-        return;
-      }
-      const subCommand = args[1];
-      if (subCommand === 'create') {
-        if (args.length <= 2) {
-          message.reply({ content: '引数が不足しています' });
-          return;
-        }
-        const number = parseInt(args[2]);
-        if (isNaN(number)) {
-          message.reply({ content: '引数が不正です' });
-          return;
-        }
-        await createBreakoutRooms(message.guild, number);
-        return;
-      } else if (subCommand === 'remove') {
-        await removeBreakoutRooms(message.guild);
-        return;
-      } else if (subCommand === 'random') {
-        await randomBreakoutRooms(message);
-        return;
-      }
+      await handleBreakoutRoomCommand(message);
+      return;
     }
 
     if (message.content.startsWith('!count-reaction')) {
@@ -179,7 +163,7 @@ export class MessageHandler {
     // LINE に送信するかどうかを判定
     // ペアを取得
     const pairs = await this.notion.getLINEDiscordPairs();
-    const pair = pairs.find((v) => v.discord_channel_id == channelId);
+    const pair = pairs.find((v) => v.discordChannelId == channelId);
 
     // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
     if (pair) {
@@ -196,12 +180,5 @@ export class MessageHandler {
         logger.info('reaction removed after timeout');
       }, timeoutSeconds * 1000);
     }
-
-    if (!message.member || !message.channel) {
-      logger.error('error: message member or channel cannot be detected');
-      return;
-    }
-
-    this.lineNotify.postTextToLINENotifyFromDiscordMessage(this.notion, message, true);
   }
 }
