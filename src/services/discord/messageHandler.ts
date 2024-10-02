@@ -5,7 +5,10 @@ import {
   ChannelType,
   DMChannel,
   Message,
+  MessageReaction,
   MessageType,
+  ThreadChannel,
+  User,
 } from 'discord.js';
 import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
@@ -20,6 +23,7 @@ import {
   removeBreakoutRooms,
 } from './breakoutRoom';
 import { handleCountReactionCommand } from './countReaction';
+import { handleLineDiscordCommand } from './commands/lineDiscord';
 
 export class MessageHandler {
   private notion: NotionService;
@@ -119,6 +123,11 @@ export class MessageHandler {
       return;
     }
 
+    if (message.content.startsWith('!line-discord')) {
+      await handleLineDiscordCommand(message, this.notion);
+      return;
+    }
+
     // メッセージにGLOBALIPが含まれている場合
     if (message.content.includes('GLOBALIP')) {
       try {
@@ -155,30 +164,50 @@ export class MessageHandler {
     }
 
     // それ以外の場合（通常のチャンネルやスレッドでのメッセージ）
-    const channelId =
-      message.channel.isThread() && message.channel.parent
-        ? message.channel.parent.id
-        : message.channelId;
 
     // LINE に送信するかどうかを判定
     // ペアを取得
     const pairs = await this.notion.getLINEDiscordPairs();
-    const pair = pairs.find((v) => v.discordChannelId == channelId);
+    let pair = pairs.find((v) => v.discordChannelId == message.channel.id);
+
+    // スレッドの場合、親チャンネルにペアが設定されていないか確認する
+    if (!pair && message.channel.isThread()) {
+      const channel = message.channel as ThreadChannel;
+      // 親チャンネルのIDが一致し、子スレッドを含む設定になっているペアを取得
+      pair = pairs.find((v) => v.discordChannelId == channel.parentId && v.includeThreads);
+    }
 
     // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
     if (pair) {
       message.react('✅');
       logger.info('reaction added');
 
+      const filter = (reaction: MessageReaction, user: User) => {
+        return reaction.emoji.name === '✅' && user.id === message.author.id;
+      };
+
       const reactionTimeSeconds = this.notion.getConfig('reaction_time_seconds');
       const timeoutSeconds = reactionTimeSeconds
         ? parseInt(reactionTimeSeconds)
         : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;
 
-      setTimeout(() => {
+      const collector = message.createReactionCollector({ filter, time: timeoutSeconds * 1000 });
+
+      collector.on('collect', async () => {
+        // チェックのリアクションを削除する
         message.reactions.cache.get('✅')?.remove();
-        logger.info('reaction removed after timeout');
-      }, timeoutSeconds * 1000);
+
+        // 通知する
+        this.lineNotify.postTextToLINENotifyFromDiscordMessage(this.notion, message, false);
+
+        // コレクターを停止する
+        collector.stop();
+      });
+
+      collector.on('end', async (collected) => {
+        // チェックのリアクションを削除する
+        message.reactions.cache.get('✅')?.remove();
+      });
     }
   }
 }
