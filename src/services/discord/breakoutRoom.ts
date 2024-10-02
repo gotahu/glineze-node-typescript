@@ -12,6 +12,34 @@ import {
 } from 'discord.js';
 import { logger } from '../../utils/logger';
 
+async function handleBreakoutRoomCommand(message: Message) {
+  const args = message.content.split(' ');
+  if (args.length <= 1) {
+    message.reply({ content: '引数が不足しています' });
+    return;
+  }
+  const subCommand = args[1];
+  if (subCommand === 'create') {
+    if (args.length <= 2) {
+      message.reply({ content: '引数が不足しています' });
+      return;
+    }
+    const number = parseInt(args[2]);
+    if (isNaN(number)) {
+      message.reply({ content: '引数が不正です' });
+      return;
+    }
+    await createBreakoutRooms(message.guild, number);
+    return;
+  } else if (subCommand === 'remove') {
+    await removeBreakoutRooms(message.guild);
+    return;
+  } else if (subCommand === 'random') {
+    await randomBreakoutRooms(message);
+    return;
+  }
+}
+
 async function createBreakoutRooms(guild: Guild, number: number) {
   // サーバーにブレイクアウトルームを引数で指定された数だけ作成する
   for (let i = 0; i < number; i++) {
@@ -114,4 +142,4 @@ async function getUserVoiceChannel(
   }
 }
 
-export { createBreakoutRooms, removeBreakoutRooms, randomBreakoutRooms };
+export { createBreakoutRooms, removeBreakoutRooms, randomBreakoutRooms, handleBreakoutRoomCommand };
