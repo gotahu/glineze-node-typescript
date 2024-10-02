@@ -1,9 +1,11 @@
 export type LINEDiscordPairInfo = {
   name: string;
-  line_group_id: string;
-  discord_channel_id: string;
-  line_notify_key: string;
+  lineGroupId: string;
+  discordChannelId: string;
+  discordThreadId?: string;
+  lineNotifyKey: string;
   priority: boolean;
+  includeThreads: boolean;
 };
 
 export type ShukinReply = {

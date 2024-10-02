@@ -84,12 +84,12 @@ export class LINENotifyService {
           : discordMessage.channel.id;
 
       // 対象の Discord チャンネルに対応するペアを検索
-      const pair = pairs.find((v) => v.discord_channel_id === discordChannelId);
+      const pair = pairs.find((v) => v.discordChannelId === discordChannelId);
 
       if (pair) {
         // LINE Notify トークンを代入
         logger.info('LINE Notify token found for channel ID: ' + discordChannelId);
-        token = pair.line_notify_key;
+        token = pair.lineNotifyKey;
       }
     }
 

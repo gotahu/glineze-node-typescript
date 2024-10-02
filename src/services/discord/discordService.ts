@@ -161,15 +161,15 @@ export class DiscordService {
     // 対応するDiscordチャンネルIDを見つける
     let discordChannelId = '';
     for (const pair of lineDiscordPairs) {
-      if (pair.line_group_id === lineGroupId) {
+      if (pair.lineGroupId === lineGroupId) {
         // priorityがtrueならそれを優先
         if (pair.priority) {
-          discordChannelId = pair.discord_channel_id;
+          discordChannelId = pair.discordChannelId;
           break;
         }
         // priorityがtrueでなければ、最初に見つかったものを使用
         if (!discordChannelId) {
-          discordChannelId = pair.discord_channel_id;
+          discordChannelId = pair.discordChannelId;
         }
       }
     }

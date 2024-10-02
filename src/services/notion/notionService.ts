@@ -111,11 +111,13 @@ export class NotionService {
       // Notion ページから LINEDiscordPairInfo を作成
       const pairs = results.map((page) => {
         const pair: LINEDiscordPairInfo = {
-          name: this.getStringPropertyValue(page, '名前', 'title'),
-          line_group_id: this.getStringPropertyValue(page, 'line_group_id', 'rich_text'),
-          discord_channel_id: this.getStringPropertyValue(page, 'discord_channel_id', 'rich_text'),
-          line_notify_key: this.getStringPropertyValue(page, 'line_notify_key', 'rich_text'),
+          name: this.getStringPropertyValue(page, 'name', 'title'),
+          lineGroupId: this.getStringPropertyValue(page, 'line_group_id', 'rich_text'),
+          discordChannelId: this.getStringPropertyValue(page, 'discord_channel_id', 'rich_text'),
+          discordThreadId: this.getStringPropertyValue(page, 'discord_thread_id', 'rich_text'),
+          lineNotifyKey: this.getStringPropertyValue(page, 'line_notify_key', 'rich_text'),
           priority: this.getBooleanPropertyValue(page, 'priority', 'checkbox'),
+          includeThreads: this.getBooleanPropertyValue(page, 'include_threads', 'checkbox'),
         };
 
         return pair;
@@ -125,6 +127,29 @@ export class NotionService {
     } catch (error) {
       logger.error(`Failed to retrieve LINEDiscordPairs: ${error}`);
       return [];
+    }
+  }
+
+  public async addLineDiscordPair(pair: LINEDiscordPairInfo): Promise<void> {
+    try {
+      const databaseId = this.getConfig('discord_and_line_pairs_databaseid');
+
+      const title = `Discord-${pair.discordChannelId}${pair.discordThreadId ? `-${pair.discordThreadId}` : ''}`;
+
+      await this.client.pages.create({
+        parent: { database_id: databaseId },
+        properties: {
+          discord_channel_id: { rich_text: [{ text: { content: pair.discordChannelId } }] },
+          discord_thread_id: { rich_text: [{ text: { content: pair.discordThreadId || '' } }] },
+          line_group_id: { rich_text: [{ text: { content: pair.lineGroupId } }] },
+          line_notify_key: { rich_text: [{ text: { content: pair.lineNotifyKey } }] },
+          name: { title: [{ text: { content: title } }] },
+          include_threads: { checkbox: pair.includeThreads },
+        },
+      });
+    } catch (error) {
+      logger.error(`Failed to add LineDiscordPair: ${error}`);
+      throw new Error('Failed to add LineDiscordPair');
     }
   }
 
