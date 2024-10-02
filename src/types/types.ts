@@ -2,7 +2,6 @@ export type LINEDiscordPairInfo = {
   name: string;
   lineGroupId: string;
   discordChannelId: string;
-  discordThreadId?: string;
   lineNotifyKey: string;
   priority: boolean;
   includeThreads: boolean;
