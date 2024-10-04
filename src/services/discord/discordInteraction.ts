@@ -104,23 +104,6 @@ export async function handleReactionAdd(
 
   const reactedMessageId = reaction.message.id;
 
-  // if (reaction.emoji.name === '✅') {
-  //   const reactedUsers = await reaction.users.fetch();
-
-  //   if (reactedUsers.has(reaction.client.user.id)) {
-  //     // メッセージの送信者以外のユーザーがリアクションをつけた場合は無視する
-  //     if (user.id !== reactedMessage.author.id) {
-  //       return;
-  //     }
-
-  //     // リアクションを削除する
-  //     reaction.remove();
-
-  //     // 通知する
-  //     lineNotify.postTextToLINENotifyFromDiscordMessage(notion, reactedMessage, false);
-  //   }
-  // }
-
   // 強制的に通知する
   if (reaction.emoji.name === '📢') {
     // リアクションを削除する
