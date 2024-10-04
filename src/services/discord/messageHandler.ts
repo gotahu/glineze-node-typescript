@@ -16,12 +16,7 @@ import { config } from '../../config/config';
 import { logger } from '../../utils/logger';
 import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
-import {
-  createBreakoutRooms,
-  handleBreakoutRoomCommand,
-  randomBreakoutRooms,
-  removeBreakoutRooms,
-} from './breakoutRoom';
+import { handleBreakoutRoomCommand } from './breakoutRoom';
 import { handleCountReactionCommand } from './countReaction';
 import { handleLineDiscordCommand } from './commands/lineDiscord';
 

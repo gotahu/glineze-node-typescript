@@ -14,8 +14,6 @@ async function handleThreadMembersUpdate(
   removedMembers: Collection<Snowflake, ThreadMember>,
   thread: AnyThreadChannel
 ): Promise<void> {
-  console.log(addedMembers, removedMembers, thread);
-
   // メンバーが追加された場合
   if (addedMembers.size > 0) {
     // 最新のメッセージを正しく取得するために少し待機
@@ -44,6 +42,7 @@ async function handleThreadMembersUpdate(
         await Promise.all(
           Array.from(addedMembers.values()).map((member) => thread.members.remove(member.id))
         );
+        await thread.send('メンバーの削除が完了しました。');
       });
     }
   }
