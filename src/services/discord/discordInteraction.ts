@@ -35,7 +35,7 @@ async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberId
 
 const handleButtonInteraction = async (interaction: ButtonInteraction) => {
   switch (interaction.customId) {
-    case 'delete':
+    case 'deleteThreadMembers':
       if (interaction.message.channel instanceof ThreadChannel) {
         const ownerId = interaction.message.channel.ownerId;
 

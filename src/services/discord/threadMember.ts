@@ -1,5 +1,8 @@
 import {
+  ActionRowBuilder,
   AnyThreadChannel,
+  ButtonBuilder,
+  ButtonStyle,
   Collection,
   MessageReaction,
   Snowflake,
@@ -25,7 +28,7 @@ async function handleThreadMembersUpdate(
     if (message) {
       // メッセージを送信したユーザーと同じユーザーのリアクションのみを受け付ける
       const filter = (reaction: MessageReaction, user: User) => {
-        return user.id === message.author.id;
+        return reaction.emoji.name === '😇' && user.id === message.author.id;
       };
 
       const collector = message.createReactionCollector({
@@ -39,13 +42,18 @@ async function handleThreadMembersUpdate(
         logger.info(
           'スレッドのメンバーを誤って追加したことを検知しました。ユーザーの削除を行います。'
         );
-        await Promise.all(
-          Array.from(addedMembers.values()).map((member) => thread.members.remove(member.id))
-        );
+        removeThreadMembers(thread, addedMembers);
         await thread.send('メンバーの削除が完了しました。');
       });
     }
   }
 }
 
-export default handleThreadMembersUpdate;
+async function removeThreadMembers(
+  thread: AnyThreadChannel,
+  members: Collection<Snowflake, ThreadMember>
+) {
+  await Promise.all(Array.from(members.values()).map((member) => thread.members.remove(member.id)));
+}
+
+export { handleThreadMembersUpdate, removeThreadMembers };

@@ -13,7 +13,7 @@ import { config } from '../../config/config';
 import { NotionService } from '../notion/notionService';
 import { LINENotifyService } from '../lineNotifyService';
 import { MessageHandler } from './messageHandler';
-import handleThreadMembersUpdate from './threadMember';
+import { handleThreadMembersUpdate } from './threadMember';
 
 export class DiscordService {
   public client: Client;
