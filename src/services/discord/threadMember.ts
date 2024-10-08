@@ -42,8 +42,8 @@ async function handleThreadMembersUpdate(
         logger.info(
           'スレッドのメンバーを誤って追加したことを検知しました。ユーザーの削除を行います。'
         );
-        removeThreadMembers(thread, addedMembers);
-        await thread.send('メンバーの削除が完了しました。');
+        await removeThreadMembers(thread, addedMembers);
+        thread.send('メンバーの削除が完了しました。');
       });
     }
   }
