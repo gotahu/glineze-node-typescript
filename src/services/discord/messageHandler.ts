@@ -17,7 +17,6 @@ import { logger } from '../../utils/logger';
 import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
 import { handleBreakoutRoomCommand } from './breakoutRoom';
-import { handleCountReactionCommand } from './countReaction';
 import { handleLineDiscordCommand } from './commands/lineDiscord';
 
 export class MessageHandler {
@@ -110,11 +109,6 @@ export class MessageHandler {
 
     if (message.content.startsWith('!br')) {
       await handleBreakoutRoomCommand(message);
-      return;
-    }
-
-    if (message.content.startsWith('!count-reaction')) {
-      await handleCountReactionCommand(message);
       return;
     }
 
