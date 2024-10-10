@@ -117,17 +117,18 @@ export class LINENotifyService {
 
       if (!attachment) return;
 
-      if (attachment.height && attachment.width) {
-        await this.postTextWithImageToLINENotify(
-          token,
-          `${messageTitle} 画像 ${index}枚目\n${messageText}`,
-          attachment.url
-        );
+      const isImage = attachment.height && attachment.width;
+      let sendContent =
+        `${messageTitle} ` +
+        `${isImage ? '画像' : 'ファイル'} ` +
+        `${index} ${isImage ? '枚目' : 'つ目'}` +
+        `${isImage ? '' : '\n' + attachment.url}` +
+        `${index === 1 ? '\n' + messageText : ''}`;
+
+      if (isImage) {
+        await this.postTextWithImageToLINENotify(token, sendContent, attachment.url);
       } else {
-        await this.postTextToLINENotify(
-          token,
-          `${messageTitle} ファイル ${index}つ目\n${attachment.url}\n${messageText}`
-        );
+        await this.postTextToLINENotify(token, sendContent);
       }
 
       index++;
