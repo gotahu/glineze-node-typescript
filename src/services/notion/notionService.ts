@@ -463,7 +463,7 @@ export class NotionService {
       };
     } catch (error) {
       logger.error(`Error in retrieveShukinStatus: ${error}`);
-      return this.createErrorReply('予期せぬエラーが発生しました。マネジに連絡してください。');
+      return this.createErrorReply(error);
     }
   }
 
@@ -492,12 +492,18 @@ export class NotionService {
     Object.entries(queryResult.properties).forEach(([key, prop]) => {
       if (prop.type === 'number' && prop.number) {
         const statusProperty = queryResult.properties[`${key}ステータス`];
-        if (statusProperty.type === 'status' && statusProperty.status) {
-          shukinList.push({
-            shukinName: key,
-            shukinAmount: `${prop.number}円`,
-            shukinStatus: statusProperty.status.name,
-          });
+        if (statusProperty) {
+          if (statusProperty.type === 'status' && statusProperty.status) {
+            shukinList.push({
+              shukinName: key,
+              shukinAmount: `${prop.number}円`,
+              shukinStatus: statusProperty.status.name,
+            });
+          }
+        } else {
+          throw new Error(
+            `「${key}ステータス」プロパティが見つかりません。ステータスプロパティの名前は「金額プロパティの名前＋ステータス」にする必要があります。`
+          );
         }
       }
     });
