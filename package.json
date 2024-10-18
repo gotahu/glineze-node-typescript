@@ -17,6 +17,7 @@
     "@types/eslint-config-prettier": "~6.11.3",
     "@types/express": "^5.0.0",
     "@types/node": "^22.7.4",
+    "@types/node-cron": "^3.0.11",
     "@types/webpack": "^5.28.5",
     "@types/webpack-node-externals": "^3.0.4",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
@@ -42,6 +43,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "http-proxy-middleware": "^3.0.3",
+    "node-cron": "^3.0.3",
     "simple-git": "^3.27.0"
   }
 }
