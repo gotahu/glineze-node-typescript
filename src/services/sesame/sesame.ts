@@ -50,7 +50,8 @@ async function retrieveKeyHistory(notion: NotionService): Promise<SesameAPIRespo
 
     return response.data as SesameAPIResponse[];
   } catch (error) {
-    throw new Error('Error fetching Sesame API: ' + error);
+    console.error(error);
+    throw new Error('Error retrieving Sesame history');
   }
 }
 
