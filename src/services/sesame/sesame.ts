@@ -33,21 +33,25 @@ async function retrieveKeyHistory(notion: NotionService): Promise<SesameAPIRespo
     throw new Error('Configuration not found for Sesame API');
   }
 
-  const response = await axios.get(
-    `https://app.candyhouse.co/api/sesame2/${deviceUUID}/history?page=0&lg=1`,
-    {
-      headers: {
-        'x-api-key': apiKey,
-      },
+  try {
+    const response = await axios.get(
+      `https://app.candyhouse.co/api/sesame2/${deviceUUID}/history?page=0&lg=1`,
+      {
+        headers: {
+          'x-api-key': apiKey,
+        },
+      }
+    );
+
+    // 一件も取得できないということは無いのでエラー
+    if (!response.data) {
+      throw new Error('No history data found in Sesame API');
     }
-  );
 
-  // 一件も取得できないということは無いのでエラー
-  if (!response.data) {
-    throw new Error('No history data found in Sesame API');
+    return response.data as SesameAPIResponse[];
+  } catch (error) {
+    throw new Error('Error fetching Sesame API: ' + error);
   }
-
-  return response.data as SesameAPIResponse[];
 }
 
 export { getSesameLockStatus };

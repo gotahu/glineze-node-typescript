@@ -57,7 +57,6 @@ async function updateSesameStatusVoiceChannel(
   if (voiceChannel.name !== channelName) {
     await voiceChannel.setName(channelName);
     logger.info(`ボイスチャンネルの名前を ${channelName} に変更しました`);
-    logger.sendLogMessageToDiscord(`ボイスチャンネルの名前を ${channelName} に変更しました`);
   }
 }
 
