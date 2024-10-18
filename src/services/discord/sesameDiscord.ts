@@ -21,6 +21,15 @@ function retrieveSesameStatusVoiceChannel(discordClient: Client, guildId: string
   }
 }
 
+function updateChannelPermission(voiceChannel: VoiceChannel) {
+  // ボイスチャンネルの権限を編集する処理
+  // 全員の閲覧を許可し、接続を許可しない
+  voiceChannel.permissionOverwrites.edit(voiceChannel.guild.id, {
+    ViewChannel: true,
+    Connect: false,
+  });
+}
+
 async function createSesameStatusVoiceChannel(
   discordClient: Client,
   guildId: string
@@ -51,6 +60,9 @@ async function updateSesameStatusVoiceChannel(
   if (!voiceChannel) {
     await createSesameStatusVoiceChannel(discordClient, guildId);
   }
+
+  // ボイスチャンネルの権限を編集
+  updateChannelPermission(voiceChannel);
 
   const channelName = isLocked ? '倉庫｜🔐施錠中' : '倉庫｜🔓解錠中';
 
