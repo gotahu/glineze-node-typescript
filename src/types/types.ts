@@ -7,6 +7,20 @@ export type LINEDiscordPairInfo = {
   includeThreads: boolean;
 };
 
+export type SesameAPIResponse = {
+  type: number;
+  timeStamp: number;
+  historyTag: string;
+  recordID: number;
+  parameter: string;
+};
+
+export type LockStatus = {
+  isLocked: boolean;
+  latestType: number;
+  timestamp: Date;
+};
+
 export type ShukinReply = {
   status: 'success' | 'error';
   message: string;
