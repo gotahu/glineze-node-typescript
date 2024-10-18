@@ -31,7 +31,7 @@ async function initializeServices() {
   const lineNotifyService = new LINENotifyService();
   const discordService = new DiscordService(notionService, lineNotifyService);
 
-  discordService.start();
+  await discordService.start();
 
   const token = config.lineNotify.voidToken;
   lineNotifyService.postTextToLINENotify(token, 'Discord アプリが起動しました');

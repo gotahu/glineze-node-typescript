@@ -14,6 +14,9 @@ import { NotionService } from '../notion/notionService';
 import { LINENotifyService } from '../lineNotifyService';
 import { MessageHandler } from './messageHandler';
 import { handleThreadMembersUpdate } from './threadMember';
+import cron from 'node-cron';
+import { updateSesameStatusAllVoiceChannels } from './sesameDiscord';
+import { getSesameLockStatus } from '../sesame/sesame';
 
 export class DiscordService {
   public client: Client;
@@ -70,8 +73,27 @@ export class DiscordService {
     this.client.on(Events.ThreadMembersUpdate, handleThreadMembersUpdate);
   }
 
-  public start(): void {
-    this.client.login(config.discord.botToken);
+  public async start(): Promise<void> {
+    await this.client.login(config.discord.botToken);
+
+    this.startSesameScheduler();
+  }
+
+  /**
+   * Sesame の施錠状態を定期的に取得し、Discord のボイスチャンネル名を更新する
+   */
+  private startSesameScheduler(): void {
+    logger.info('Sesame status scheduler started');
+    // 毎分実行
+    cron.schedule('* * * * *', async () => {
+      try {
+        const status = await getSesameLockStatus(this.notionService);
+        console.log(status);
+        updateSesameStatusAllVoiceChannels(this.client, status.isLocked);
+      } catch (error) {
+        logger.error('Error updating Sesame status (on schedule): ' + error);
+      }
+    });
   }
 
   public static getInstance(): DiscordService {
