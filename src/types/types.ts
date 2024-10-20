@@ -28,9 +28,9 @@ export enum SesameStatus {
 }
 
 export const StatusMessage = {
-  [SesameStatus.Locked]: '🔐施錠中',
-  [SesameStatus.Unlocked]: '🔓解錠中',
-  [SesameStatus.Error]: '😵‍💫エラー',
+  [SesameStatus.Locked]: '倉庫｜🔐施錠中',
+  [SesameStatus.Unlocked]: '倉庫｜🔓解錠中',
+  [SesameStatus.Error]: '倉庫｜🔄取得中',
 };
 
 export type ShukinReply = {
