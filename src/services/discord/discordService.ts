@@ -16,7 +16,7 @@ import { MessageHandler } from './messageHandler';
 import { handleThreadMembersUpdate } from './threadMember';
 import cron from 'node-cron';
 import { updateSesameStatusAllVoiceChannels } from './sesameDiscord';
-import { getSesameLockStatus } from '../sesame/sesame';
+import { getSesameLockInfo } from '../sesame/sesame';
 
 export class DiscordService {
   public client: Client;
@@ -87,9 +87,9 @@ export class DiscordService {
     // 毎分実行
     cron.schedule('* * * * *', async () => {
       try {
-        const status = await getSesameLockStatus(this.notionService);
-        console.log(status);
-        updateSesameStatusAllVoiceChannels(this.client, status.isLocked);
+        const lockInfo = await getSesameLockInfo(this.notionService);
+        console.log(lockInfo);
+        updateSesameStatusAllVoiceChannels(this.client, lockInfo.status);
       } catch (error) {
         logger.error('Error updating Sesame status (on schedule): ' + error);
       }

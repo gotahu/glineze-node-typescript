@@ -18,8 +18,9 @@ import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
 import { handleBreakoutRoomCommand } from './breakoutRoom';
 import { handleLineDiscordCommand } from './commands/lineDiscord';
-import { getSesameLockStatus } from '../sesame/sesame';
+import { getSesameLockInfo } from '../sesame/sesame';
 import { updateSesameStatusVoiceChannel } from './sesameDiscord';
+import { StatusMessage } from '../../types/types';
 
 export class MessageHandler {
   private notion: NotionService;
@@ -110,8 +111,8 @@ export class MessageHandler {
 
     if (message.content === 'KEY') {
       try {
-        const lockStatus = await getSesameLockStatus(this.notion);
-        message.reply(`施錠状態: ${lockStatus.isLocked}`);
+        const lockInfo = await getSesameLockInfo(this.notion);
+        message.reply(`施錠状態: ${lockInfo}`);
       } catch (error) {
         logger.error('Error fetching Sesame lock status: ' + error);
       }
@@ -119,11 +120,11 @@ export class MessageHandler {
 
     if (message.content === 'KEYUPDATE') {
       try {
-        const lockStatus = await getSesameLockStatus(this.notion);
+        const lockInfo = await getSesameLockInfo(this.notion);
         const guildId = message.guild?.id;
-        await updateSesameStatusVoiceChannel(message.client, guildId, lockStatus.isLocked);
+        await updateSesameStatusVoiceChannel(message.client, guildId, lockInfo.status);
 
-        message.reply(`ボイスチャンネルの名前を${lockStatus.isLocked}に更新しました。`);
+        message.reply(`ボイスチャンネルの名前を${StatusMessage[lockInfo.status]}に更新しました。`);
       } catch (error) {
         logger.error('Error updating Sesame lock status: ' + error);
       }

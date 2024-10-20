@@ -1,13 +1,13 @@
 import axios from 'axios';
-import { LockStatus, SesameAPIResponse } from '../../types/types';
+import { SesameAPIResponse, LockInfo, SesameStatus } from '../../types/types';
 import { NotionService } from '../notion/notionService';
 
-async function getSesameLockStatus(notion: NotionService): Promise<LockStatus> {
+async function getSesameLockInfo(notion: NotionService): Promise<LockInfo> {
   const history = await retrieveKeyHistory(notion);
 
   if (history.length === 0) {
     return {
-      isLocked: false,
+      status: SesameStatus.Error,
       latestType: 0,
       timestamp: null,
     };
@@ -17,9 +17,14 @@ async function getSesameLockStatus(notion: NotionService): Promise<LockStatus> {
   const lockedTypes = [1, 6, 7, 10, 14, 16];
 
   const isLocked = lockedTypes.includes(latest.type);
+  const isUnavailable = latest.type === -1;
 
   return {
-    isLocked,
+    status: isUnavailable
+      ? SesameStatus.Error
+      : isLocked
+        ? SesameStatus.Locked
+        : SesameStatus.Unlocked,
     latestType: latest.type,
     timestamp: new Date(latest.timeStamp),
   };
@@ -48,11 +53,13 @@ async function retrieveKeyHistory(notion: NotionService): Promise<SesameAPIRespo
       throw new Error('No history data found in Sesame API');
     }
 
+    if (response.status === 503) {
+    }
+
     return response.data as SesameAPIResponse[];
   } catch (error) {
-    console.error(error);
     throw new Error('Error retrieving Sesame history');
   }
 }
 
-export { getSesameLockStatus };
+export { getSesameLockInfo };

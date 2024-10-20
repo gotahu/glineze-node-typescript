@@ -1,5 +1,6 @@
 import { ChannelType, Client, VoiceChannel } from 'discord.js';
 import { logger } from '../../utils/logger';
+import { SesameStatus, StatusMessage } from '../../types/types';
 
 function retrieveSesameStatusVoiceChannel(discordClient: Client, guildId: string): VoiceChannel {
   const guild = discordClient.guilds.cache.get(guildId);
@@ -53,7 +54,7 @@ async function createSesameStatusVoiceChannel(
 async function updateSesameStatusVoiceChannel(
   discordClient: Client,
   guildId: string,
-  isLocked: boolean
+  status: SesameStatus
 ) {
   const voiceChannel = retrieveSesameStatusVoiceChannel(discordClient, guildId);
 
@@ -64,7 +65,7 @@ async function updateSesameStatusVoiceChannel(
   // ボイスチャンネルの権限を編集
   updateChannelPermission(voiceChannel);
 
-  const channelName = isLocked ? '倉庫｜🔐施錠中' : '倉庫｜🔓解錠中';
+  const channelName = StatusMessage[status];
 
   if (voiceChannel.name !== channelName) {
     await voiceChannel.setName(channelName);
@@ -72,11 +73,11 @@ async function updateSesameStatusVoiceChannel(
   }
 }
 
-function updateSesameStatusAllVoiceChannels(discordClient: Client, isLocked: boolean) {
+function updateSesameStatusAllVoiceChannels(discordClient: Client, status: SesameStatus) {
   const guilds = discordClient.guilds.cache;
 
   for (const guild of guilds.values()) {
-    updateSesameStatusVoiceChannel(discordClient, guild.id, isLocked);
+    updateSesameStatusVoiceChannel(discordClient, guild.id, status);
   }
 }
 
