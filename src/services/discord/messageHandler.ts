@@ -109,6 +109,30 @@ export class MessageHandler {
       return;
     }
 
+    if (message.content.startsWith('!deletechannel')) {
+      try {
+        const args = message.content.split(' ');
+
+        if (args.length < 2) {
+          message.reply('チャンネルIDを指定してください');
+          return;
+        }
+
+        const channelId = args[1];
+        const channel = message.guild?.channels.cache.get(channelId);
+        if (!channel) {
+          message.reply('チャンネルが見つかりませんでした');
+          return;
+        }
+
+        await channel.delete();
+        message.reply('チャンネルを削除しました');
+        logger.info(`Channel ${channelId} deleted`);
+      } catch (error) {
+        logger.error('Error deleting channel: ' + error);
+      }
+    }
+
     if (message.content === 'KEY') {
       try {
         const lockInfo = await getSesameLockInfo(this.notion);
