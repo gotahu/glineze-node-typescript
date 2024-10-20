@@ -15,10 +15,22 @@ export type SesameAPIResponse = {
   parameter: string;
 };
 
-export type LockStatus = {
-  isLocked: boolean;
+export type LockInfo = {
+  status: SesameStatus;
   latestType: number;
   timestamp: Date;
+};
+
+export enum SesameStatus {
+  Locked = 1,
+  Unlocked = 2,
+  Error = 3,
+}
+
+export const StatusMessage = {
+  [SesameStatus.Locked]: '🔐施錠中',
+  [SesameStatus.Unlocked]: '🔓解錠中',
+  [SesameStatus.Error]: '😵‍💫エラー',
 };
 
 export type ShukinReply = {
