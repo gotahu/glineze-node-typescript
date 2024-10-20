@@ -47,18 +47,11 @@ async function retrieveKeyHistory(notion: NotionService): Promise<SesameAPIRespo
         },
       }
     );
-
-    // 一件も取得できないということは無いのでエラー
-    if (!response.data) {
-      throw new Error('No history data found in Sesame API');
-    }
-
-    if (response.status === 503) {
-    }
-
     return response.data as SesameAPIResponse[];
   } catch (error) {
-    throw new Error('Error retrieving Sesame history');
+    console.error(error);
+
+    return [];
   }
 }
 
