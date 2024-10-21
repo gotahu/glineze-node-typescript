@@ -146,6 +146,7 @@ export class MessageHandler {
       try {
         const lockInfo = await getSesameLockInfo(this.notion);
         const guildId = message.guild?.id;
+        logger.info('Updating Sesame status (on command)');
         await updateSesameStatusVoiceChannel(message.client, guildId, lockInfo.status);
 
         message.reply(`ボイスチャンネルの名前を${StatusMessage[lockInfo.status]}に更新しました。`);

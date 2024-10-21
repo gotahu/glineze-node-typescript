@@ -48,11 +48,12 @@ async function retrieveKeyHistory(notion: NotionService): Promise<SesameAPIRespo
       }
     );
 
-    console.log(`Sesame API Response: ${response.status}`);
-
     return response.data as SesameAPIResponse[];
   } catch (error) {
-    console.error(error);
+    if (axios.isAxiosError(error)) {
+      const response = error.response;
+      console.log(`Sesame API Error: ${response?.status} - ${error.message}`);
+    }
 
     return [];
   }

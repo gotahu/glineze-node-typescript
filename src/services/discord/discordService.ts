@@ -87,6 +87,7 @@ export class DiscordService {
     // 毎分実行
     cron.schedule('0,15,30,45 * * * *', async () => {
       try {
+        logger.info('Updating Sesame status (on schedule)');
         const lockInfo = await getSesameLockInfo(this.notionService);
         console.log(lockInfo);
         updateSesameStatusAllVoiceChannels(this.client, lockInfo.status);
