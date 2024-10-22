@@ -7,7 +7,7 @@ export type LINEDiscordPairInfo = {
   includeThreads: boolean;
 };
 
-export type SesamiHistory = {
+export type SesameHistory = {
   type: number;
   timeStamp: number;
   historyTag?: string;
@@ -16,7 +16,7 @@ export type SesamiHistory = {
 };
 
 export type SesameAPIResponse = {
-  histories: SesamiHistory[];
+  histories: SesameHistory[];
   cursor: number;
 };
 

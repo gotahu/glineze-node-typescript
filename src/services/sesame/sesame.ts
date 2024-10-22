@@ -1,5 +1,5 @@
 import axios, { Axios, AxiosPromise } from 'axios';
-import { SesameAPIResponse, LockInfo, SesameStatus, SesamiHistory } from '../../types/types';
+import { SesameAPIResponse, LockInfo, SesameStatus, SesameHistory } from '../../types/types';
 import { NotionService } from '../notion/notionService';
 import { logger } from '../../utils/logger';
 
@@ -31,7 +31,7 @@ async function getSesameLockInfo(notion: NotionService): Promise<LockInfo> {
   };
 }
 
-async function retrieveKeyHistory(notion: NotionService): Promise<SesamiHistory[]> {
+async function retrieveKeyHistory(notion: NotionService): Promise<SesameHistory[]> {
   const apiKey = notion.getConfig('sesame_app_api_key');
   const deviceUUID = notion.getConfig('sesame_device_uuid');
   const apiUrl = notion.getConfig('sesame_app_api_url');
