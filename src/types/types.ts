@@ -7,12 +7,17 @@ export type LINEDiscordPairInfo = {
   includeThreads: boolean;
 };
 
-export type SesameAPIResponse = {
+export type SesamiHistory = {
   type: number;
   timeStamp: number;
-  historyTag: string;
+  historyTag?: string;
   recordID: number;
   parameter: string;
+};
+
+export type SesameAPIResponse = {
+  histories: SesamiHistory[];
+  cursor: number;
 };
 
 export type LockInfo = {
