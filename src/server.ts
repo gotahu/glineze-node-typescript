@@ -137,6 +137,7 @@ export class AppServer {
     this.isRestarting = true;
     logger.info('Restarting child processes...');
 
+    // App プロセスのみ再起動
     await this.stopChildProcess(this.appProcess);
 
     this.startChildProcesses();
@@ -144,6 +145,7 @@ export class AppServer {
   }
 
   private async stopChildProcess(process: ChildProcess) {
+    logger.info(`Stopping child process...`);
     if (process) {
       console.log(process);
       process.kill();

@@ -36,32 +36,34 @@ export class WebhookService {
 
   private setupWebhook() {
     this.webhookServer.post('/', async (req, res) => {
+      // リスタートトークンが送信された場合は、プロセスを再起動
       if (req.body && req.body['token'] && req.body['token'] === config.webhook.restartToken) {
         logger.info('Received restart token');
         res.status(200).send('Success');
         await this.appServer.restartChildProcesses();
         return;
-      }
+      } else {
+        // それ以外の場合は、github webhook として処理
+        try {
+          const signature = req.headers['x-hub-signature-256'] as string;
+          console.log(signature);
+          if (!this.verifySignature(JSON.stringify(req.body), signature)) {
+            logger.error('Invalid webhook signature');
+            res.status(403).send('Invalid signature');
+            return;
+          }
 
-      try {
-        const signature = req.headers['x-hub-signature-256'] as string;
-        console.log(signature);
-        if (!this.verifySignature(JSON.stringify(req.body), signature)) {
-          logger.error('Invalid webhook signature');
-          res.status(403).send('Invalid signature');
-          return;
+          console.log(req.body.ref);
+          res.status(200).send('Success');
+          const result = await this.handlePushEvent(req.body.ref);
+
+          if (result) {
+            await this.appServer.restartChildProcesses();
+          }
+        } catch (error) {
+          logger.error('Error in handlePushEvent: ' + error);
+          res.status(500).send('Error');
         }
-
-        console.log(req.body.ref);
-        res.status(200).send('Success');
-        const result = await this.handlePushEvent(req.body.ref);
-
-        if (result) {
-          await this.appServer.restartChildProcesses();
-        }
-      } catch (error) {
-        logger.error('Error in handlePushEvent: ' + error);
-        res.status(500).send('Error');
       }
     });
   }
@@ -91,6 +93,7 @@ export class WebhookService {
   }
 
   private async pullChanges(): Promise<void> {
+    logger.info('Starting git pull');
     try {
       await this.git.pull('origin', config.repository.branch);
       logger.info('Git pull finished');
@@ -103,6 +106,8 @@ export class WebhookService {
   private async runBuild(): Promise<void> {
     // 環境に応じた webpack 設定を選択
     const webpackConfig = isDevelopment() ? webpackDevConfig : webpackProdConfig;
+
+    logger.info(`Starting webpack build in ${isDevelopment() ? 'development' : 'production'} mode`);
 
     // webpack のビルドを非同期に実行
     const webpackAsync = promisify(webpack);
@@ -120,6 +125,7 @@ export class WebhookService {
       }
 
       logger.info(stats.toString({ colors: true }));
+      logger.info('Webpack build finished');
     } catch (err) {
       logger.error('Webpack build process failed: ' + err.message);
       throw err;
