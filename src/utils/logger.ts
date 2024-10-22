@@ -7,7 +7,12 @@ const lineNotifyService = new LINENotifyService();
 import { config } from '../config/config';
 
 export const logger = {
-  info: (message: string) => console.log(`[INFO] ${message}`),
+  info: (message: string, debug?: boolean) => {
+    console.log(`[INFO] ${message}`);
+    if (debug) {
+      lineNotifyService.postTextToLINENotify(config.lineNotify.voidToken, `[INFO] ${message}`);
+    }
+  },
   debug: async (message: string) => {
     console.log(`[DEBUG] ${message}`);
     await logger.sendLogMessageToDiscord(`[DEBUG] ${message}`);

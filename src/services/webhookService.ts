@@ -35,15 +35,17 @@ export class WebhookService {
   }
 
   private setupWebhook() {
+    // /webhook に対して POST リクエスト
     this.webhookServer.post('/', async (req, res) => {
       // リスタートトークンが送信された場合は、プロセスを再起動
       if (req.body && req.body['token'] && req.body['token'] === config.webhook.restartToken) {
-        logger.info('Received restart token');
+        logger.info('Received webhook with restart token');
         res.status(200).send('Success');
         await this.appServer.restartChildProcesses();
         return;
       } else {
         // それ以外の場合は、github webhook として処理
+        logger.info('Received webhook from github pull event', true);
         try {
           const signature = req.headers['x-hub-signature-256'] as string;
           console.log(signature);
@@ -54,7 +56,9 @@ export class WebhookService {
           }
 
           console.log(req.body.ref);
-          res.status(200).send('Success');
+          res.status(200).send('Success'); // 200 応答を返す
+
+          // プッシュイベントを処理
           const result = await this.handlePushEvent(req.body.ref);
 
           if (result) {
