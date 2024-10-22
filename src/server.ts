@@ -130,6 +130,7 @@ export class AppServer {
   public async restartChildProcesses() {
     // リスタート中は再度リスタートしない
     if (this.isRestarting) {
+      logger.info('Already restarting child processes');
       return;
     }
 
