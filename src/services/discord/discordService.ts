@@ -84,8 +84,8 @@ export class DiscordService {
    */
   private startSesameScheduler(): void {
     logger.info('Sesame status scheduler started');
-    // 毎分実行
-    cron.schedule('* * * * *', async () => {
+    // 5分ごとに実行
+    cron.schedule('*/5 * * * *', async () => {
       try {
         logger.info('Updating Sesame status (on schedule)');
         const lockInfo = await getSesameLockInfo(this.notionService);
