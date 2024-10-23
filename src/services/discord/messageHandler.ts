@@ -18,17 +18,23 @@ import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
 import { handleBreakoutRoomCommand } from './breakoutRoom';
 import { handleLineDiscordCommand } from './commands/lineDiscord';
-import { getSesameLockInfo } from '../sesame/sesame';
-import { updateSesameStatusVoiceChannel } from './sesameDiscord';
 import { StatusMessage } from '../../types/types';
+import { DiscordService } from './discordService';
+import { SesameDiscordService } from './sesameDiscord';
+import { SesameService } from '../sesame/sesameService';
+import { format } from 'date-fns';
 
 export class MessageHandler {
   private notion: NotionService;
   private lineNotify: LINENotifyService;
+  private discordService: DiscordService;
+  private sesameService: SesameService;
 
-  constructor(notion: NotionService, lineNotify: LINENotifyService) {
-    this.notion = notion;
-    this.lineNotify = lineNotify;
+  constructor(discordService: DiscordService) {
+    this.notion = discordService.getNotionService();
+    this.lineNotify = discordService.getLINENotifyService();
+    this.sesameService = discordService.getSesameService();
+    this.discordService = discordService;
   }
 
   public async handleMessageCreate(message: Message): Promise<void> {
@@ -135,23 +141,11 @@ export class MessageHandler {
 
     if (message.content === 'KEY') {
       try {
-        const lockInfo = await getSesameLockInfo(this.notion);
-        message.reply(`施錠状態: ${lockInfo}`);
+        const status = await this.sesameService.getSesameDeviceStatus();
+        const dateStr = format(new Date(status.timestamp), 'yyyy-MM-dd HH:mm:ss');
+        message.reply(`施錠状態: ${StatusMessage[status.lockStatus]}, タイムスタンプ：${dateStr}`);
       } catch (error) {
         logger.error('Error fetching Sesame lock status: ' + error);
-      }
-    }
-
-    if (message.content === 'KEYUPDATE') {
-      try {
-        const lockInfo = await getSesameLockInfo(this.notion);
-        const guildId = message.guild?.id;
-        logger.info('Updating Sesame status (on command)');
-        await updateSesameStatusVoiceChannel(message.client, guildId, lockInfo.status);
-
-        message.reply(`ボイスチャンネルの名前を${StatusMessage[lockInfo.status]}に更新しました。`);
-      } catch (error) {
-        logger.error('Error updating Sesame lock status: ' + error);
       }
     }
 
