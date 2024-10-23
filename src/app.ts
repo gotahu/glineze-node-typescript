@@ -12,6 +12,10 @@ import { updateBotProfile, updateChannelTopic } from './services/discord/countdo
 const app = express();
 app.use(express.json());
 
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+});
+
 async function main() {
   logger.info(`Starting application in ${process.env.NODE_ENV} mode`);
 
@@ -39,7 +43,12 @@ async function initializeServices() {
   await discordService.start();
 
   const token = config.lineNotify.voidToken;
-  lineNotifyService.postTextToLINENotify(token, 'Discord アプリが起動しました');
+
+  try {
+    lineNotifyService.postTextToLINENotify(token, 'Discord アプリが起動しました');
+  } catch (error) {
+    logger.error(`Failed to send LINE Notify message: ${error}`);
+  }
 
   return { notionService, lineNotifyService, discordService };
 }
@@ -56,8 +65,8 @@ function setupAPIEndpoints(services: {
       console.log(req);
 
       if (!req.body || !req.body.events) {
-        logger.error('No post data or events array');
-        res.status(500).end();
+        logger.error('Invalid requiest: missing body or events array');
+        res.status(400).send('Invalid request: missing body or events array');
         return;
       }
 
@@ -67,7 +76,7 @@ function setupAPIEndpoints(services: {
         await handleEvent(event, notionService, discordService);
       }
 
-      res.end();
+      res.status(200).end();
     } catch (error) {
       logger.error(`Error in API endpoint: ${error}`);
       res.status(500).end();
@@ -80,38 +89,38 @@ async function handleEvent(
   notionService: NotionService,
   discordService: DiscordService
 ) {
-  switch (event.type) {
-    case 'wake':
-      logger.info('GAS: 定期起動監視スクリプト受信');
-      updateChannelTopic(discordService, notionService).catch((error) => {
-        logger.error(`Error in updating channel topic: ${error}`);
-      });
-      updateBotProfile(discordService, notionService);
-      break;
-    case 'noonNotify':
-      logger.info('GAS: noonNotify');
-      await announcePractice(notionService, discordService, 1).catch((error) => {
-        logger.error(`Error in noonNotify: ${error}`);
-      });
-      break;
-    case 'AKanRemind':
-      logger.info('GAS: AKanRemind');
-      await remindPracticeToBashotori(notionService, discordService).catch((error) => {
-        logger.error(`Error in AKanRemind: ${error}`);
-      });
-      break;
-    case 'message':
-      if (event.groupid && event.name && event.message) {
-        logger.info('LINE: line message to discord channel');
-        const message = `${event.name}：\n${event.message}`;
-        await discordService.sendLINEMessageToDiscord(event.groupid, message);
-      }
-      break;
-    case 'kondate':
-      await fetchKondate(notionService, discordService);
-      break;
-    default:
-      logger.error(`Unknown event type: ${event.type}`);
+  try {
+    switch (event.type) {
+      case 'wake':
+        logger.info('GAS: 定期起動監視スクリプト受信');
+        await updateChannelTopic(discordService, notionService);
+        updateBotProfile(discordService, notionService);
+        break;
+      case 'noonNotify':
+        logger.info('GAS: noonNotify');
+        await announcePractice(notionService, discordService, 1);
+        break;
+      case 'AKanRemind':
+        logger.info('GAS: AKanRemind');
+        await remindPracticeToBashotori(notionService, discordService);
+        break;
+      case 'message':
+        if (event.groupid && event.name && event.message) {
+          logger.info('LINE: line message to discord channel');
+          const message = `${event.name}：\n${event.message}`;
+          await discordService.sendLINEMessageToDiscord(event.groupid, message);
+        } else {
+          logger.error('LINE: Invalid message event: missing groupid, name, or message');
+        }
+        break;
+      case 'kondate':
+        await fetchKondate(notionService, discordService);
+        break;
+      default:
+        logger.error(`Unknown event type: ${event.type}`);
+    }
+  } catch (error) {
+    logger.error(`Error in handling event type ${event.type}: ${error}`);
   }
 }
 
