@@ -8,7 +8,7 @@ import { logger } from './utils/logger';
 import { WebhookService } from './services/webhookService';
 
 export class AppServer {
-  private appProcess: ChildProcess;
+  private appProcess: ChildProcess | null = null;
   private isRestarting = false;
   private app: express.Express;
   private server: import('http').Server;
@@ -21,43 +21,40 @@ export class AppServer {
     this.setupProcessHandlers();
   }
 
-  private setupProxy() {
-    const appProxy = createProxyMiddleware({
-      target: `http://localhost:${config.app.port}/`,
-      changeOrigin: true,
-      on: {
-        error: this.handleProxyError,
-      },
+  start() {
+    this.startChildProcesses();
+    this.server = this.app.listen(config.server.port, () => {
+      logger.info(`Main server is running on port ${config.server.port}`);
     });
-
-    const webhookProxy = createProxyMiddleware({
-      target: `http://localhost:${config.webhook.port}/`,
-      changeOrigin: true,
-      on: {
-        error: this.handleProxyError,
-      },
-    });
-
-    const oshiglaProxy = createProxyMiddleware({
-      target: `http://localhost:${config.oshigla.port}/`,
-      changeOrigin: true,
-      on: {
-        error: this.handleProxyError,
-      },
-    });
-
-    // プロキシの設定を適用
-    this.app.use('/app', appProxy);
-    this.app.use('/webhook', webhookProxy);
-    this.app.use('/oshigla', oshiglaProxy);
   }
 
-  private handleProxyError(err: Error, req: express.Request, res: express.Response) {
-    logger.error(`Proxy error: ${err}`);
-    res.writeHead(500, {
-      'Content-Type': 'text/plain',
+  private setupProxy() {
+    // プロキシエラー処理を共通化
+    const proxyErrorHandler = (err: Error, req: express.Request, res: express.Response) => {
+      logger.error(`Proxy error: ${err.message}`);
+      res.status(500).send('Something went wrong. Please try again later.');
+    };
+
+    // プロキシ設定の配列
+    const proxies = [
+      { path: '/app', target: `http://localhost:${config.app.port}/` },
+      { path: '/webhook', target: `http://localhost:${config.webhook.port}/` },
+      { path: '/oshigla', target: `http://localhost:${config.oshigla.port}/` },
+    ];
+
+    // 各プロキシを設定
+    proxies.forEach(({ path, target }) => {
+      this.app.use(
+        path,
+        createProxyMiddleware({
+          target,
+          changeOrigin: true,
+          on: {
+            error: proxyErrorHandler,
+          },
+        })
+      );
     });
-    res.end('Something went wrong. Please try again later.');
   }
 
   private setupProcessHandlers() {
@@ -80,13 +77,6 @@ export class AppServer {
     }
   }
 
-  start() {
-    this.startChildProcesses();
-    this.server = this.app.listen(config.server.port, () => {
-      logger.info(`Main server is running on port ${config.server.port}`);
-    });
-  }
-
   private startChildProcesses() {
     this.startAppProcess();
   }
@@ -96,39 +86,42 @@ export class AppServer {
       ? path.join(__dirname, 'app.ts')
       : path.join(__dirname, 'app.js');
 
-    logger.info(`Starting ${appPath}...`);
+    logger.info(`Starting child process: ${appPath}`);
 
-    this.appProcess = this.forkProcess(appPath, config.app.port);
+    this.appProcess = this.forkProcess(appPath, config.app.port, (code) => {
+      logger.info(`Child process (${appPath}) exited with code ${code}`);
+      if (!this.isRestarting && code !== 0) {
+        logger.info(`Restarting child process (${appPath})...`);
+        this.startAppProcess();
+      }
+    });
   }
 
-  private forkProcess(scriptPath: string, port: number): ChildProcess {
-    const options = {
+  private forkProcess(
+    scriptPath: string,
+    port: number,
+    onExit: (code: number | null) => void
+  ): ChildProcess {
+    const options: any = {
       env: { ...process.env, PORT: port.toString() },
     };
 
     if (isDevelopment()) {
-      options['execArgv'] = ['-r', 'ts-node/register'];
+      options.execArgv = ['-r', 'ts-node/register'];
     }
 
     const childProcess = fork(scriptPath, [], options);
 
     childProcess.on('error', (err) => {
-      logger.error(`Error in child process (${scriptPath}): ${err}`);
+      logger.error(`Error in child process (${scriptPath}): ${err.message}`);
     });
 
-    childProcess.on('exit', (code) => {
-      logger.info(`Child process (${scriptPath}) exited with code ${code}`);
-      if (!this.isRestarting && code !== 0) {
-        logger.info(`Restarting child process (${scriptPath})...`);
-        this.forkProcess(scriptPath, port);
-      }
-    });
+    childProcess.on('exit', onExit);
 
     return childProcess;
   }
 
   public async restartChildProcesses() {
-    // リスタート中は再度リスタートしない
     if (this.isRestarting) {
       logger.info('Already restarting child processes');
       return;
@@ -137,20 +130,20 @@ export class AppServer {
     this.isRestarting = true;
     logger.info('Restarting child processes...');
 
-    // App プロセスのみ再起動
     await this.stopChildProcess(this.appProcess);
-
     this.startChildProcesses();
+
     this.isRestarting = false;
   }
 
-  private async stopChildProcess(process: ChildProcess) {
-    logger.info(`Stopping child process...`);
-    if (process) {
-      console.log(process);
-      process.kill();
+  private async stopChildProcess(childProcess: ChildProcess | null) {
+    if (childProcess && !childProcess.killed) {
+      logger.info('Stopping child process...');
+      childProcess.kill();
+
       await new Promise<void>((resolve) => {
-        process.on('exit', () => {
+        childProcess.on('exit', () => {
+          logger.info('Child process stopped');
           resolve();
         });
       });
