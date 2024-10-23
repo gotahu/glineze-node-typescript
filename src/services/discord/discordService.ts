@@ -15,8 +15,8 @@ import { LINENotifyService } from '../lineNotifyService';
 import { MessageHandler } from './messageHandler';
 import { handleThreadMembersUpdate } from './threadMember';
 import cron from 'node-cron';
-import { updateSesameStatusAllVoiceChannels } from './sesameDiscord';
-import { getSesameLockInfo } from '../sesame/sesame';
+import { SesameDiscordService } from './sesameDiscord';
+import { SesameService } from '../sesame/sesameService';
 
 export class DiscordService {
   public client: Client;
@@ -24,15 +24,19 @@ export class DiscordService {
 
   private notionService: NotionService;
   private lineNotifyService: LINENotifyService;
+  private sesameService: SesameService;
+  private sesameDiscordService: SesameDiscordService;
+
   private messageHandler: MessageHandler;
 
   constructor(notionService: NotionService, lineNotifyService: LINENotifyService) {
     this.notionService = notionService;
     this.lineNotifyService = lineNotifyService;
+    this.sesameService = new SesameService(notionService);
+    this.sesameDiscordService = new SesameDiscordService(this.sesameService, this);
+    this.messageHandler = new MessageHandler(this);
 
     DiscordService.instance = this;
-
-    this.messageHandler = new MessageHandler(notionService, lineNotifyService);
 
     const options = {
       intents: [
@@ -82,15 +86,15 @@ export class DiscordService {
   /**
    * Sesame の施錠状態を定期的に取得し、Discord のボイスチャンネル名を更新する
    */
-  private startSesameScheduler(): void {
-    logger.info('Sesame status scheduler started');
+  public async startSesameScheduler(): Promise<void> {
+    logger.info('Starting Sesame status scheduler');
     // 5分ごとに実行
     cron.schedule('*/5 * * * *', async () => {
       try {
         logger.info('Updating Sesame status (on schedule)');
-        const lockInfo = await getSesameLockInfo(this.notionService);
-        console.log(lockInfo);
-        updateSesameStatusAllVoiceChannels(this.client, lockInfo.status);
+        const deviceStatus = await this.sesameService.getSesameDeviceStatus();
+        console.log(deviceStatus);
+        this.sesameDiscordService.updateSesameStatusAllVoiceChannels();
       } catch (error) {
         logger.error('Error updating Sesame status (on schedule): ' + error);
       }
@@ -102,6 +106,22 @@ export class DiscordService {
       console.error('DiscordService は初期化されていません');
     }
     return DiscordService.instance;
+  }
+
+  public getLINENotifyService(): LINENotifyService {
+    return this.lineNotifyService;
+  }
+
+  public getNotionService(): NotionService {
+    return this.notionService;
+  }
+
+  public getSesameDiscordService(): SesameDiscordService {
+    return this.sesameDiscordService;
+  }
+
+  public getSesameService(): SesameService {
+    return this.sesameService;
   }
 
   /**

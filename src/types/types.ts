@@ -20,22 +20,22 @@ export type SesameAPIResponse = {
   cursor: number;
 };
 
-export type LockInfo = {
-  status: SesameStatus;
+export type SesameDeviceStatus = {
+  lockStatus: SesameLockStatus;
   latestType: number;
   timestamp: Date;
 };
 
-export enum SesameStatus {
+export enum SesameLockStatus {
   Locked = 1,
   Unlocked = 2,
   Error = 3,
 }
 
 export const StatusMessage = {
-  [SesameStatus.Locked]: '倉庫｜🔐施錠中',
-  [SesameStatus.Unlocked]: '倉庫｜🔓解錠中',
-  [SesameStatus.Error]: '倉庫｜🔄取得中',
+  [SesameLockStatus.Locked]: '倉庫｜🔐施錠中',
+  [SesameLockStatus.Unlocked]: '倉庫｜🔓解錠中',
+  [SesameLockStatus.Error]: '倉庫｜🔄取得中',
 };
 
 export type ShukinReply = {
