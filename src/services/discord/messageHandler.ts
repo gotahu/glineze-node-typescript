@@ -20,7 +20,6 @@ import { handleBreakoutRoomCommand } from './breakoutRoom';
 import { handleLineDiscordCommand } from './commands/lineDiscord';
 import { StatusMessage } from '../../types/types';
 import { DiscordService } from './discordService';
-import { SesameDiscordService } from './sesameDiscord';
 import { SesameService } from '../sesame/sesameService';
 import { format } from 'date-fns';
 

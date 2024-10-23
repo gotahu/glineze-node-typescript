@@ -27,12 +27,20 @@ export class NotionService {
     '（受取済）（振込済）の場合、パトマネさんが受け取ったあと、会計さんが確認中です。',
     '（受取確認済）（振込確認済）の場合、会計さんの確認まで全て終了しています。',
   ];
+
   constructor() {
     this.client = new Client({
       auth: config.notion.token,
     });
+  }
 
-    this.initializeConfig();
+  public async initialize(): Promise<void> {
+    try {
+      await this.initializeConfig();
+    } catch (error) {
+      logger.error(`Failed to initialize NotionService: ${error}`);
+      throw new Error('Failed to initialize NotionService');
+    }
   }
 
   private async initializeConfig(): Promise<void> {

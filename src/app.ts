@@ -27,10 +27,15 @@ async function main() {
 }
 
 async function initializeServices() {
+  // NotionService
   const notionService = new NotionService();
-  const lineNotifyService = new LINENotifyService();
-  const discordService = new DiscordService(notionService, lineNotifyService);
+  await notionService.initialize(); // NotionService の初期化を非同期的に行う
 
+  // LINENotifyService
+  const lineNotifyService = new LINENotifyService();
+
+  // DiscordService
+  const discordService = new DiscordService(notionService, lineNotifyService);
   await discordService.start();
 
   const token = config.lineNotify.voidToken;
