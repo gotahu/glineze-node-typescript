@@ -82,7 +82,7 @@ export async function handleReactionAdd(
 
   reaction.message.fetch().then((message) => {
     logger.info(
-      `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} を ${message.url} に対してリアクションしました`
+      `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} を ${message.cleanContent.slice(0, 20)} に対してリアクションしました`
     );
   });
 

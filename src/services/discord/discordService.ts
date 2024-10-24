@@ -24,13 +24,13 @@ export class DiscordService {
   private sesameSchedulerStarted = false;
 
   constructor(notionService: NotionService, lineNotifyService: LINENotifyService) {
+    DiscordService.instance = this;
+
     this.notionService = notionService;
     this.lineNotifyService = lineNotifyService;
     this.sesameService = new SesameService();
     this.sesameDiscordService = new SesameDiscordService(this.sesameService, this);
     this.messageHandler = new MessageHandler(this);
-
-    DiscordService.instance = this;
 
     const options = {
       intents: [
