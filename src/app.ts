@@ -3,7 +3,7 @@ import { logger } from './utils/logger';
 import { DiscordService } from './services/discord/discordService';
 import { NotionService } from './services/notion/notionService';
 import { LINENotifyService } from './services/lineNotifyService';
-import { announcePractice, remindPracticeToBashotori } from './services/notion/practice';
+import { remindPractice, remindPracticeToBashotori } from './services/notion/practiceFunction';
 import { GASEvent } from './types/types';
 import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';
@@ -31,6 +31,9 @@ async function main() {
 }
 
 async function initializeServices() {
+  // config の初期化
+  await config.initializeConfig();
+
   // NotionService
   const notionService = new NotionService();
   await notionService.initialize(); // NotionService の初期化を非同期的に行う
@@ -93,12 +96,12 @@ async function handleEvent(
     switch (event.type) {
       case 'wake':
         logger.info('GAS: 定期起動監視スクリプト受信');
-        await updateChannelTopic(discordService, notionService);
-        updateBotProfile(discordService, notionService);
+        await updateChannelTopic(discordService);
+        updateBotProfile(discordService);
         break;
       case 'noonNotify':
         logger.info('GAS: noonNotify');
-        await announcePractice(notionService, discordService, 1);
+        await remindPractice(notionService.practiceService, discordService, 1);
         break;
       case 'AKanRemind':
         logger.info('GAS: AKanRemind');

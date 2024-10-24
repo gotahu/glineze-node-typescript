@@ -3,13 +3,14 @@ import { NotionService } from './notionService';
 import { DiscordService } from '../discord/discordService';
 import { ThreadChannel } from 'discord.js';
 import { ja } from 'date-fns/locale/ja';
+import { getDatePropertyValue, getStringPropertyValue, queryAllDatabasePages } from './notionUtil';
 
 // 突貫工事で
 export async function fetchKondate(notion: NotionService, discord: DiscordService) {
   const kondateDatabaseId = '4306f7cc80334f8a9b3333f7b445873a';
   const discordChannelId = '1278820346610450573';
   //const discordThreadId = '1278820346610450573';
-  const kondates = await notion.queryAllDatabasePages(kondateDatabaseId);
+  const kondates = await queryAllDatabasePages(notion.client, kondateDatabaseId);
   console.log(kondates);
 
   const am = set(new Date(), { hours: 6, minutes: 30 });
@@ -19,12 +20,12 @@ export async function fetchKondate(notion: NotionService, discord: DiscordServic
   console.log(now);
 
   for (const kondate of kondates) {
-    const kondateDateTime = notion.getDatePropertyValue(kondate, '日付');
+    const kondateDateTime = getDatePropertyValue(kondate, '日付');
 
     if (kondateDateTime) {
-      const kondateMenu = '\n' + notion.getStringPropertyValue(kondate, '献立', 'rich_text');
+      const kondateMenu = '\n' + getStringPropertyValue(kondate, '献立');
       const mealTime = format(kondateDateTime, 'H:mm');
-      const gohanType = notion.getStringPropertyValue(kondate, '時間', 'select');
+      const gohanType = getStringPropertyValue(kondate, '時間');
 
       const title = `## 🍚 ${format(now, 'M月d日(eee)', { locale: ja })} の${gohanType}\n`;
       let message = '';

@@ -6,7 +6,7 @@ import {
   SesameLockStatus,
 } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { NotionService } from '../notion/notionService';
+import { config } from '../../config/config';
 
 export class SesameService {
   private sesameApiUrl = '';
@@ -14,11 +14,11 @@ export class SesameService {
   private sesameDeviceUUID = '';
   private sesamePublicKey = '';
 
-  constructor(notionService: NotionService) {
-    this.sesameApiUrl = notionService.getConfig('sesame_app_api_url');
-    this.sesameApiToken = notionService.getConfig('sesame_app_api_key');
-    this.sesameDeviceUUID = notionService.getConfig('sesame_device_uuid');
-    this.sesamePublicKey = notionService.getConfig('sesame_device_publickey');
+  constructor() {
+    this.sesameApiUrl = config.getConfig('sesame_app_api_url');
+    this.sesameApiToken = config.getConfig('sesame_app_api_key');
+    this.sesameDeviceUUID = config.getConfig('sesame_device_uuid');
+    this.sesamePublicKey = config.getConfig('sesame_device_publickey');
 
     if (
       !this.sesameApiUrl ||

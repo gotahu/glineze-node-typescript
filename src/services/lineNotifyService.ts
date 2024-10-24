@@ -3,7 +3,7 @@ import { CONSTANTS } from '../config/constants';
 import { logger } from '../utils/logger';
 import { ChannelType, Message, User } from 'discord.js';
 import { config } from '../config/config';
-import { NotionService } from './notion/notionService';
+import { LINEDiscordPairService } from './notion/lineDiscordPairService';
 
 export class LINENotifyService {
   private async postToLINENotify(
@@ -52,7 +52,7 @@ export class LINENotifyService {
   }
 
   public async postTextToLINENotifyFromDiscordMessage(
-    notion: NotionService,
+    service: LINEDiscordPairService,
     discordMessage: Message,
     isVoid: boolean = false
   ): Promise<void> {
@@ -76,7 +76,7 @@ export class LINENotifyService {
 
       if (!isVoid) {
         // LINE と Discord のペアを取得
-        const pairs = await notion.getLINEDiscordPairs();
+        const pairs = await service.getLINEDiscordPairs();
 
         // スレッドの場合は親チャンネルの ID を取得
         const discordChannelId =

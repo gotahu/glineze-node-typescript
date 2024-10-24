@@ -1,19 +1,19 @@
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { ActivityType, TextChannel } from 'discord.js';
 import { DiscordService } from './discordService';
-import { NotionService } from '../notion/notionService';
 import { isValidDateString } from '../../utils/dateUtils';
+import { config } from '../../config/config';
 
 /**
  * Discordチャンネルのトピックを更新する関数
  * @param discord Discordクライアント
  * @param notion Notionサービス
  */
-async function updateChannelTopic(discord: DiscordService, notion: NotionService) {
+async function updateChannelTopic(discord: DiscordService) {
   // Channel Topic を変更する対象のチャンネルID
-  const CHANNEL_ID = notion.getConfig('discord_general_channelid');
-  const targetDateString = notion.getConfig('date_of_countdown_date');
-  const targetEventName = notion.getConfig('name_of_countdown');
+  const CHANNEL_ID = config.getConfig('discord_general_channelid');
+  const targetDateString = config.getConfig('date_of_countdown_date');
+  const targetEventName = config.getConfig('name_of_countdown');
 
   // 日付文字列の妥当性をチェック
   if (!isValidDateString(targetDateString)) {
@@ -51,9 +51,9 @@ async function updateChannelTopic(discord: DiscordService, notion: NotionService
   }
 }
 
-function updateBotProfile(discord: DiscordService, notion: NotionService) {
-  const targetDateString = notion.getConfig('date_of_countdown_date');
-  const targetEventName = notion.getConfig('name_of_countdown');
+function updateBotProfile(discord: DiscordService) {
+  const targetDateString = config.getConfig('date_of_countdown_date');
+  const targetEventName = config.getConfig('name_of_countdown');
 
   // 対象日を日本時間の00:00:00に設定
   const TARGET_DATE = startOfDay(parseISO(targetDateString));

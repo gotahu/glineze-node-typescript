@@ -109,7 +109,11 @@ export async function handleReactionAdd(
     // リアクションを削除する
     reaction.remove();
     // 通知する
-    lineNotify.postTextToLINENotifyFromDiscordMessage(notion, reactedMessage, false);
+    lineNotify.postTextToLINENotifyFromDiscordMessage(
+      notion.lineDiscordPairService,
+      reactedMessage,
+      false
+    );
   }
 
   const notificationMessages = await retrieveNotificationMessages(notion, reactedMessageId);

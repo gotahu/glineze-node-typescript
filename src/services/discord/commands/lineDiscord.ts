@@ -1,12 +1,12 @@
 import { Message } from 'discord.js';
 import { logger } from '../../../utils/logger';
-import { NotionService } from '../../notion/notionService';
 import { LINEDiscordPairInfo } from '../../../types/types';
 import { LINENotifyService } from '../../lineNotifyService';
+import { LINEDiscordPairService } from '../../notion/lineDiscordPairService';
 
 const lineNotify = new LINENotifyService();
 
-async function handleLineDiscordCommand(message: Message, notion: NotionService) {
+async function handleLineDiscordCommand(message: Message, service: LINEDiscordPairService) {
   const args = message.content.split(' ');
   if (args.length < 2) {
     await message.reply(
@@ -46,7 +46,7 @@ async function handleLineDiscordCommand(message: Message, notion: NotionService)
 
       console.log(pairInfo);
 
-      await addLineDiscordPair(notion, message, pairInfo);
+      await addLineDiscordPair(service, message, pairInfo);
 
       // メッセージを削除
       message.delete();
@@ -54,10 +54,10 @@ async function handleLineDiscordCommand(message: Message, notion: NotionService)
       logger.info(`Added LINE-Discord pair: ${pairInfo.name}`);
       break;
     case 'status':
-      await getLineDiscordPairStatus(notion, message, channelId);
+      await getLineDiscordPairStatus(service, message, channelId);
       break;
     case 'remove':
-      await removeLineDiscordPair(notion, message, channelId);
+      await removeLineDiscordPair(service, message, channelId);
       break;
     default:
       await message.reply(
@@ -67,12 +67,12 @@ async function handleLineDiscordCommand(message: Message, notion: NotionService)
 }
 
 async function addLineDiscordPair(
-  notion: NotionService,
+  service: LINEDiscordPairService,
   message: Message,
   pairInfo: LINEDiscordPairInfo
 ): Promise<void> {
   try {
-    await notion.addLineDiscordPair(pairInfo);
+    await service.addLineDiscordPair(pairInfo);
     await message.reply(
       `:white_check_mark: LINE と Discordペアを正常に連携しました。\n安全のためトークンを含むメッセージは削除されました。`
     );
@@ -87,12 +87,12 @@ async function addLineDiscordPair(
 }
 
 async function getLineDiscordPairStatus(
-  notion: NotionService,
+  service: LINEDiscordPairService,
   message: Message,
   channelId: string
 ): Promise<void> {
   try {
-    const pair = await notion.getLineDiscordPairByChannelId(channelId);
+    const pair = await service.getLineDiscordPairByChannelId(channelId);
     if (pair) {
       let statusMessage = `現在のステータス:\nDiscord Channel ID: ${pair.discordChannelId}\n`;
       if (pair.discordChannelId) {
@@ -111,12 +111,12 @@ async function getLineDiscordPairStatus(
 }
 
 async function removeLineDiscordPair(
-  notion: NotionService,
+  service: LINEDiscordPairService,
   message: Message,
   channelId: string
 ): Promise<void> {
   try {
-    const pair = await notion.getLineDiscordPairByChannelId(channelId);
+    const pair = await service.getLineDiscordPairByChannelId(channelId);
     if (!pair) {
       await message.reply(
         ':x: このチャンネル/スレッドには、LINE-Discordペアが設定されていません。'
@@ -124,7 +124,7 @@ async function removeLineDiscordPair(
       return;
     }
 
-    await notion.removeLineDiscordPair(channelId);
+    await service.removeLineDiscordPair(channelId);
     await message.reply(':white_check_mark: LINE-Discordペアを正常に削除しました。');
   } catch (error) {
     logger.error(`Error removing LINE-Discord pair: ${error}`);

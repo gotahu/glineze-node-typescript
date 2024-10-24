@@ -64,7 +64,7 @@ export class MessageHandler {
 
     if (messageContent === 'リロード') {
       try {
-        await this.notion.reloadConfig();
+        await config.initializeConfig();
         message.reply('リロードしました。');
         return;
       } catch (error) {
@@ -78,7 +78,7 @@ export class MessageHandler {
 
     // Notion から集金状況を取得
     try {
-      const glanzeMember = await this.notion.retrieveGlanzeMember(authorId);
+      const glanzeMember = await this.notion.memberService.retrieveGlanzeMember(authorId);
 
       // 団員名簿から情報を取得できなかった場合
       if (!glanzeMember) {
@@ -88,7 +88,7 @@ export class MessageHandler {
         return;
       }
 
-      const reply = await this.notion.retrieveShukinStatus(glanzeMember);
+      const reply = await this.notion.shukinService.retrieveShukinStatus(glanzeMember);
 
       if (reply.status === 'error') {
         message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
@@ -106,7 +106,11 @@ export class MessageHandler {
     if (message.guild && message.guild.id === '1258189444888924324') {
     }
 
-    this.lineNotify.postTextToLINENotifyFromDiscordMessage(this.notion, message, true);
+    this.lineNotify.postTextToLINENotifyFromDiscordMessage(
+      this.notion.lineDiscordPairService,
+      message,
+      true
+    );
 
     // システムメッセージの場合
     if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
@@ -154,7 +158,7 @@ export class MessageHandler {
     }
 
     if (message.content.startsWith('!line-discord')) {
-      await handleLineDiscordCommand(message, this.notion);
+      await handleLineDiscordCommand(message, this.notion.lineDiscordPairService);
       return;
     }
 
@@ -197,7 +201,7 @@ export class MessageHandler {
 
     // LINE に送信するかどうかを判定
     // ペアを取得
-    const pairs = await this.notion.getLINEDiscordPairs();
+    const pairs = await this.notion.lineDiscordPairService.getLINEDiscordPairs();
     let pair = pairs.find((v) => v.discordChannelId == message.channel.id);
 
     // スレッドの場合、親チャンネルにペアが設定されていないか確認する
@@ -216,7 +220,7 @@ export class MessageHandler {
         return reaction.emoji.name === '✅' && user.id === message.author.id;
       };
 
-      const reactionTimeSeconds = this.notion.getConfig('reaction_time_seconds');
+      const reactionTimeSeconds = config.getConfig('reaction_time_seconds');
       const timeoutSeconds = reactionTimeSeconds
         ? parseInt(reactionTimeSeconds)
         : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;
@@ -228,7 +232,11 @@ export class MessageHandler {
         message.reactions.cache.get('✅')?.remove();
 
         // 通知する
-        this.lineNotify.postTextToLINENotifyFromDiscordMessage(this.notion, message, false);
+        this.lineNotify.postTextToLINENotifyFromDiscordMessage(
+          this.notion.lineDiscordPairService,
+          message,
+          false
+        );
 
         // コレクターを停止する
         collector.stop();

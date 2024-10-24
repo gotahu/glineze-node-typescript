@@ -1,16 +1,18 @@
+import { config } from '../../config/config';
 import { NotificationMessage } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { NotionService } from '../notion/notionService';
+import { NotionService } from './notionService';
+import { queryAllDatabasePages } from './notionUtil';
 
 export async function retrieveNotificationMessages(
   notion: NotionService,
   messageId?: string
 ): Promise<NotificationMessage[]> {
   try {
-    const databaseId = notion.getConfig('notification_messages_databaseid');
+    const databaseId = config.getConfig('notification_messages_databaseid');
 
     const filter = messageId ? { property: 'messageId', title: { equals: messageId } } : undefined;
-    const query = await notion.queryAllDatabasePages(databaseId, filter);
+    const query = await queryAllDatabasePages(notion.client, databaseId, filter);
 
     if (!query) {
       logger.info('info: 通知対象メッセージなし');
@@ -47,7 +49,7 @@ export async function addNotificationMessage(
   userId: string
 ) {
   try {
-    const databaseId = notion.getConfig('notification_messages_databaseid');
+    const databaseId = config.getConfig('notification_messages_databaseid');
 
     await notion.client.pages.create({
       parent: {
@@ -87,7 +89,7 @@ export async function deleteNotificationMessage(
   userId: string
 ) {
   try {
-    const databaseId = notion.getConfig('notification_messages_databaseid');
+    const databaseId = config.getConfig('notification_messages_databaseid');
 
     const searchResult = await notion.client.databases.query({
       database_id: databaseId,

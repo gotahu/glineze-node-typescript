@@ -1,12 +1,4 @@
-import {
-  Client,
-  Collection,
-  EmbedBuilder,
-  Events,
-  GatewayIntentBits,
-  Partials,
-  TextChannel,
-} from 'discord.js';
+import { Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
 import { logger } from '../../utils/logger';
 import { handleInteractionCreate, handleReactionAdd } from './discordInteraction';
 import { config } from '../../config/config';
@@ -32,7 +24,7 @@ export class DiscordService {
   constructor(notionService: NotionService, lineNotifyService: LINENotifyService) {
     this.notionService = notionService;
     this.lineNotifyService = lineNotifyService;
-    this.sesameService = new SesameService(notionService);
+    this.sesameService = new SesameService();
     this.sesameDiscordService = new SesameDiscordService(this.sesameService, this);
     this.messageHandler = new MessageHandler(this);
 
@@ -199,7 +191,7 @@ export class DiscordService {
       return;
     }
 
-    const lineDiscordPairs = await this.notionService.getLINEDiscordPairs();
+    const lineDiscordPairs = await this.notionService.lineDiscordPairService.getLINEDiscordPairs();
 
     // 対応するDiscordチャンネルIDを見つける
     let discordChannelId = '';
