@@ -1,6 +1,6 @@
 import { ChannelType, VoiceChannel } from 'discord.js';
 import { logger } from '../../utils/logger';
-import { StatusMessage } from '../../types/types';
+import { SesameLockStatus, StatusMessage } from '../../types/types';
 import { SesameService } from '../sesame/sesameService';
 import { DiscordService } from './discordService';
 
@@ -55,10 +55,8 @@ export class SesameDiscordService {
    * Sesameの施錠状態を表示するボイスチャンネルを更新します
    * @param guildId
    */
-  public async updateSesameStatusVoiceChannel(guildId: string) {
+  public async updateSesameStatusVoiceChannel(guildId: string, lockStatus: SesameLockStatus) {
     try {
-      const status = await this.sesameService.getSesameDeviceStatus();
-
       const voiceChannel = this.retrieveSesameStatusVoiceChannel(guildId);
 
       if (!voiceChannel) {
@@ -69,7 +67,7 @@ export class SesameDiscordService {
       this.updateChannelPermission(voiceChannel);
 
       // ボイスチャンネルの名前を取得
-      const channelName = StatusMessage[status.lockStatus];
+      const channelName = StatusMessage[lockStatus];
 
       // ボイスチャンネルの名前を更新
       if (voiceChannel.name !== channelName) {
@@ -86,9 +84,10 @@ export class SesameDiscordService {
    */
   public async updateSesameStatusAllVoiceChannels() {
     const guilds = this.discordService.client.guilds.cache;
+    const status = await this.sesameService.getSesameDeviceStatus();
 
     for (const guild of guilds.values()) {
-      await this.updateSesameStatusVoiceChannel(guild.id);
+      await this.updateSesameStatusVoiceChannel(guild.id, status.lockStatus);
     }
   }
 
