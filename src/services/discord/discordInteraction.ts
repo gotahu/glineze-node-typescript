@@ -15,7 +15,7 @@ import {
   addNotificationMessage,
   retrieveNotificationMessages,
   deleteNotificationMessage,
-} from '../notion/notion-interaction';
+} from '../notion/notionInteraction';
 
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
