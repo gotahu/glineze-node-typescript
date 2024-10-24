@@ -21,6 +21,8 @@ export class DiscordService {
 
   private messageHandler: MessageHandler;
 
+  private sesameSchedulerStarted = false;
+
   constructor(notionService: NotionService, lineNotifyService: LINENotifyService) {
     this.notionService = notionService;
     this.lineNotifyService = lineNotifyService;
@@ -79,6 +81,12 @@ export class DiscordService {
    * Sesame の施錠状態を定期的に取得し、Discord のボイスチャンネル名を更新する
    */
   public async startSesameScheduler(): Promise<void> {
+    if (this.sesameSchedulerStarted) {
+      logger.info('Sesame status scheduler already started');
+      return;
+    }
+
+    this.sesameSchedulerStarted = true;
     logger.info('Starting Sesame status scheduler');
     // 5分ごとに実行
     schedule('*/5 * * * *', async () => {
