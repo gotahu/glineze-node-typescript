@@ -80,11 +80,9 @@ export async function handleReactionAdd(
 ) {
   if (user.bot) return;
 
-  console.log(reaction);
-
   reaction.message.fetch().then((message) => {
     logger.info(
-      `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} を ${message.cleanContent} に対してリアクションしました`
+      `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} を ${message.url} に対してリアクションしました`
     );
   });
 
