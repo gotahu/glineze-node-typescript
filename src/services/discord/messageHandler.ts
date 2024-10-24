@@ -26,14 +26,12 @@ import { format } from 'date-fns';
 export class MessageHandler {
   private notion: NotionService;
   private lineNotify: LINENotifyService;
-  private discordService: DiscordService;
   private sesameService: SesameService;
 
   constructor(discordService: DiscordService) {
     this.notion = discordService.getNotionService();
     this.lineNotify = discordService.getLINENotifyService();
     this.sesameService = discordService.getSesameService();
-    this.discordService = discordService;
   }
 
   public async handleMessageCreate(message: Message): Promise<void> {
