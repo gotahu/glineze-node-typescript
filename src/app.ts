@@ -3,7 +3,7 @@ import { logger } from './utils/logger';
 import { DiscordService } from './services/discord/discordService';
 import { NotionService } from './services/notion/notionService';
 import { LINENotifyService } from './services/lineNotifyService';
-import { remindPractice, remindPracticeToBashotori } from './services/notion/practiceFunction';
+import { remindPractice, remindPracticeToBashotori } from './services/notion/practiceFunctions';
 import { GASEvent } from './types/types';
 import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';

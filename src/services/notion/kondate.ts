@@ -3,7 +3,11 @@ import { NotionService } from './notionService';
 import { DiscordService } from '../discord/discordService';
 import { ThreadChannel } from 'discord.js';
 import { ja } from 'date-fns/locale/ja';
-import { getDatePropertyValue, getStringPropertyValue, queryAllDatabasePages } from './notionUtil';
+import {
+  getDatePropertyValue,
+  getStringPropertyValue,
+  queryAllDatabasePages,
+} from '../../utils/notionUtils';
 
 // 突貫工事で
 export async function fetchKondate(notion: NotionService, discord: DiscordService) {

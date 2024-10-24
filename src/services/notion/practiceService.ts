@@ -4,7 +4,7 @@ import { Practice } from '../../types/types';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { replaceEnglishDayWithJapanese } from '../../utils/dateUtils';
 import { config } from '../../config/config';
-import { getRelationPropertyValue, getStringPropertyValue } from './notionUtil';
+import { getRelationPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
 
 export class PracticeService {
   private client: Client;

@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { Client } from '@notionhq/client';
 import { logger } from '../utils/logger';
-import { getStringPropertyValue, queryAllDatabasePages } from '../services/notion/notionUtil';
+import { getStringPropertyValue, queryAllDatabasePages } from '../utils/notionUtils';
 
 dotenv.config();
 

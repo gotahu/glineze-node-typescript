@@ -7,7 +7,6 @@ import {
 } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { config } from '../../config/config';
-
 export class SesameService {
   private sesameApiUrl = '';
   private sesameApiToken = '';

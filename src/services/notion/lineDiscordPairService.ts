@@ -2,7 +2,7 @@ import { Client } from '@notionhq/client';
 import { logger } from '../../utils/logger';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { LINEDiscordPairInfo } from '../../types/types';
-import { getBooleanPropertyValue, getStringPropertyValue } from './notionUtil';
+import { getBooleanPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
 import { config } from '../../config/config';
 
 export class LINEDiscordPairService {

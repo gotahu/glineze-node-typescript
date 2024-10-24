@@ -6,7 +6,7 @@ import { NotionService } from '../notion/notionService';
 import { LINENotifyService } from '../lineNotifyService';
 import { MessageHandler } from './messageHandler';
 import { handleThreadMembersUpdate } from './threadMember';
-import cron from 'node-cron';
+import { schedule } from 'node-cron';
 import { SesameDiscordService } from './sesameDiscord';
 import { SesameService } from '../sesame/sesameService';
 
@@ -81,7 +81,7 @@ export class DiscordService {
   public async startSesameScheduler(): Promise<void> {
     logger.info('Starting Sesame status scheduler');
     // 5分ごとに実行
-    cron.schedule('*/5 * * * *', async () => {
+    schedule('*/5 * * * *', async () => {
       try {
         logger.info('Updating Sesame status (on schedule)');
         const deviceStatus = await this.sesameService.getSesameDeviceStatus();

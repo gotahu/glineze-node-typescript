@@ -3,7 +3,7 @@ import { logger } from '../../utils/logger';
 import { GlanzeMember } from '../../types/types';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { config } from '../../config/config';
-import { getStringPropertyValue } from './notionUtil';
+import { getStringPropertyValue } from '../../utils/notionUtils';
 
 export class MemberService {
   private client: Client;

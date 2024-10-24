@@ -2,7 +2,7 @@ import { config } from '../../config/config';
 import { NotificationMessage } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionService } from './notionService';
-import { queryAllDatabasePages } from './notionUtil';
+import { queryAllDatabasePages } from '../../utils/notionUtils';
 
 export async function retrieveNotificationMessages(
   notion: NotionService,

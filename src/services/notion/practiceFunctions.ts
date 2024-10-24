@@ -3,7 +3,7 @@ import { NotionService } from './notionService';
 import { DiscordService } from '../discord/discordService';
 import { PracticeService } from './practiceService';
 import { config } from '../../config/config';
-import { getStringPropertyValue, queryAllDatabasePages } from './notionUtil';
+import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
 
 export async function remindPractice(
   service: PracticeService,
