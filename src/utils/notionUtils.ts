@@ -1,5 +1,6 @@
 import { Client } from '@notionhq/client';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import { logger } from './logger';
 
 function getStringPropertyValue(page: PageObjectResponse, key: string): string {
   const property = page.properties[key];
@@ -36,7 +37,8 @@ function getStringPropertyValue(page: PageObjectResponse, key: string): string {
     throw new Error(`Cannot find property with key: ${key}`);
   }
 
-  throw new Error(`Found the property but cannot get string property value for key: ${key}`);
+  logger.error(`Found property with key: ${key} but cannot get value or undefined`);
+  return undefined;
 }
 
 function getBooleanPropertyValue(page: PageObjectResponse, key: string): boolean {
