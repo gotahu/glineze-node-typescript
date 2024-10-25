@@ -37,7 +37,7 @@ export class PracticeService {
           title: getStringPropertyValue(page, 'タイトル') || '',
           date: targetDate,
           time: getStringPropertyValue(page, '時間') || '',
-          timetable: getStringPropertyValue(page, '練習内容') || '',
+          content: getStringPropertyValue(page, '練習内容') || '',
           place: '',
           announceText: '',
         };

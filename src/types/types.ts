@@ -54,7 +54,7 @@ export type Practice = {
   date: Date;
   time: string;
   place: string;
-  timetable: string;
+  content: string;
   announceText: string;
   id: string;
   url: string;
