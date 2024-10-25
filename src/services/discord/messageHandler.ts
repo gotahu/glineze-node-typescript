@@ -72,30 +72,30 @@ export class MessageHandler {
         );
         return;
       }
-    }
+    } else {
+      // Notion から集金状況を取得
+      try {
+        const glanzeMember = await this.notion.memberService.retrieveGlanzeMember(authorId);
 
-    // Notion から集金状況を取得
-    try {
-      const glanzeMember = await this.notion.memberService.retrieveGlanzeMember(authorId);
+        // 団員名簿から情報を取得できなかった場合
+        if (!glanzeMember) {
+          message.reply(
+            '### エラーが発生しました。\n- エラー内容：団員名簿からあなたの情報を見つけることができませんでした。準備が整っていない可能性があるので、管理者に問い合わせてください。'
+          );
+          return;
+        }
 
-      // 団員名簿から情報を取得できなかった場合
-      if (!glanzeMember) {
-        message.reply(
-          '### エラーが発生しました。\n- エラー内容：団員名簿からあなたの情報を見つけることができませんでした。準備が整っていない可能性があるので、管理者に問い合わせてください。'
-        );
-        return;
+        const reply = await this.notion.shukinService.retrieveShukinStatus(glanzeMember);
+
+        if (reply.status === 'error') {
+          message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
+        } else {
+          message.reply(reply.message);
+        }
+      } catch (error) {
+        logger.error('Error in retrieveShukinStatus: ' + error);
+        message.reply('### エラーが発生しました。\n- エラー内容：' + error);
       }
-
-      const reply = await this.notion.shukinService.retrieveShukinStatus(glanzeMember);
-
-      if (reply.status === 'error') {
-        message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
-      } else {
-        message.reply(reply.message);
-      }
-    } catch (error) {
-      logger.error('Error in retrieveShukinStatus: ' + error);
-      message.reply('### エラーが発生しました。\n- エラー内容：' + error);
     }
   }
 
