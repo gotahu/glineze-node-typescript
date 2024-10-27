@@ -42,7 +42,7 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
     });
 
     if (facilities.length === 0) {
-      logger.info('リマインドが未設定の施設はありません');
+      logger.info('リマインド対象の施設はありません');
       return;
     }
 
@@ -59,8 +59,6 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
 
       // practices の place が facilityName と一致するものがあるかどうか
       const targetPractices = practices.filter((p) => p.place === facilityName);
-
-      console.log(targetPractices);
 
       if (targetPractices.length > 0) {
         // 送信先のチャンネルIDとスレッドIDを取得
