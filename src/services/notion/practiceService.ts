@@ -37,7 +37,7 @@ export class PracticeService {
           title: getStringPropertyValue(page, 'タイトル') || '',
           date: targetDate,
           time: getStringPropertyValue(page, '時間') || '',
-          content: getStringPropertyValue(page, '練習内容') || '',
+          content: getStringPropertyValue(page, '練習内容') || '未定義',
           place: '',
           announceText: '',
         };
@@ -47,7 +47,8 @@ export class PracticeService {
           practice.place = getStringPropertyValue(placeRelations[0], 'タイトル') || '';
         }
 
-        const announceText = getStringPropertyValue(page, '練習連絡');
+        const announceText =
+          getStringPropertyValue(page, '練習連絡') || '練習連絡が取得できませんでした';
         if (announceText) {
           practice.announceText = replaceEnglishDayWithJapanese(announceText);
         }

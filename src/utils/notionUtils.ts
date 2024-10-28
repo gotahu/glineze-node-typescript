@@ -2,7 +2,7 @@ import { Client } from '@notionhq/client';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { logger } from './logger';
 
-function getStringPropertyValue(page: PageObjectResponse, key: string): string {
+function getStringPropertyValue(page: PageObjectResponse, key: string): string | undefined {
   const property = page.properties[key];
 
   if (property) {
@@ -37,7 +37,7 @@ function getStringPropertyValue(page: PageObjectResponse, key: string): string {
     throw new Error(`Cannot find property with key: ${key}`);
   }
 
-  logger.error(`Found property with key: ${key} but cannot get value or undefined`);
+  logger.info(`Found property with key: ${key} but cannot get value or undefined`, true);
   return undefined;
 }
 
