@@ -11,6 +11,7 @@ export const logger = {
     console.log(`[INFO] ${message}`);
     if (debug) {
       lineNotifyService.postTextToLINENotify(config.lineNotify.voidToken, `[INFO] ${message}`);
+      // TODO: discord にも送信
     }
   },
   debug: async (message: string) => {

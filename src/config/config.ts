@@ -36,6 +36,7 @@ export const config = {
   },
   notionConfigs: new Map<string, string>(),
   async initializeConfig() {
+    logger.info('config の初期化を開始します。');
     try {
       const client = new Client({ auth: config.notion.token });
       const databaseId = config.notion.configurationDatabaseId;
@@ -52,17 +53,19 @@ export const config = {
         }
       }
 
-      logger.info('Config initialized from Notion.');
+      logger.info('config を Notion から読み込み、初期化が完了しました。');
       console.log(this.notionConfigs);
     } catch (error) {
-      logger.error(`Failed to initialize configuration: ${error}`);
+      logger.error(`config の初期化に失敗しました: ${error}`);
       throw new Error('Failed to initialize configuration');
     }
   },
   getConfig(key: string): string {
     const value = this.notionConfigs.get(key);
     if (!value) {
-      throw new Error(`Configuration key not found: ${key}`);
+      throw new Error(
+        `config に key: ${key} が存在しません。正しく設定されているか、スペルが間違っていないかよく確認してください。リロードするには、DM で「リロード」と送信してください。`
+      );
     }
     return value;
   },

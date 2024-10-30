@@ -146,7 +146,7 @@ export class MessageHandler {
         const dateStr = format(new Date(status.timestamp), 'yyyy-MM-dd HH:mm:ss');
         message.reply(`施錠状態: ${StatusMessage[status.lockStatus]}, タイムスタンプ：${dateStr}`);
       } catch (error) {
-        logger.error('Error fetching Sesame lock status: ' + error);
+        logger.error('施錠状態を取得できませんでした ' + error);
       }
     }
 
@@ -212,7 +212,6 @@ export class MessageHandler {
     // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
     if (pair) {
       message.react('✅');
-      logger.info('reaction added');
 
       const filter = (reaction: MessageReaction, user: User) => {
         return reaction.emoji.name === '✅' && user.id === message.author.id;

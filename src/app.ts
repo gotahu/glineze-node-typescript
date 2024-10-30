@@ -17,15 +17,15 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 async function main() {
-  logger.info(`Starting application in ${process.env.NODE_ENV} mode`);
+  logger.info(`アプリを "${process.env.NODE_ENV}" モードで起動します。`);
 
   try {
     const services = await initializeServices();
     setupAPIEndpoints(services);
     startServer();
-    logger.info('App started successfully');
+    logger.info('アプリが正常に起動しました。');
   } catch (error) {
-    logger.error(`Failed to start app: ${error}`);
+    logger.error(`アプリの起動に失敗しました: ${error}` + '\n再起動を試みます。');
     process.exit(1);
   }
 }
@@ -45,12 +45,10 @@ async function initializeServices() {
   const discordService = new DiscordService(notionService, lineNotifyService);
   await discordService.start();
 
-  const token = config.lineNotify.voidToken;
-
   try {
-    lineNotifyService.postTextToLINENotify(token, 'Discord アプリが起動しました');
+    logger.info('Discord アプリが起動しました', true);
   } catch (error) {
-    logger.error(`Failed to send LINE Notify message: ${error}`);
+    logger.error(`LINE Notify にメッセージを送信できませんでした: ${error}`);
   }
 
   return { notionService, lineNotifyService, discordService };

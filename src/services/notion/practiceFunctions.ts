@@ -14,7 +14,7 @@ export async function remindPractice(
     const practices = await service.retrievePracticesForRelativeDay(daysFromToday);
 
     if (practices.length === 0) {
-      logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`);
+      logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`, true);
       return;
     }
 
@@ -28,6 +28,8 @@ export async function remindPractice(
       channelId,
       threadId
     );
+
+    logger.info(`練習のリマインドが正常に完了しました`, true);
   } catch (err) {
     logger.error('Error in announcePractice: ' + err);
   }

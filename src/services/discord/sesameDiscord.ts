@@ -23,7 +23,7 @@ export class SesameDiscordService {
       const guild = this.discordService.client.guilds.cache.get(guildId);
 
       if (!guild) {
-        throw new Error('Guild not found');
+        throw new Error('指定されたサーバーが見つかりません');
       }
 
       // 名前が「倉庫｜」から始まるボイスチャンネルを取得
@@ -33,7 +33,7 @@ export class SesameDiscordService {
 
       return voiceChannel;
     } catch (error) {
-      logger.error(`Error retrieving voice channel: ${error}`);
+      logger.error(`ボイスチャンネルの検索中にエラーが発生しました ${error}`);
       return null;
     }
   }
@@ -75,7 +75,7 @@ export class SesameDiscordService {
         logger.info(`ボイスチャンネルの名前を ${channelName} に変更しました`);
       }
     } catch (error) {
-      logger.error(`Error updating Sesame status: ${error}`);
+      logger.error(`Sesame の状態を Discord に反映する際にエラーが発生しました: ${error}`);
     }
   }
 
@@ -100,7 +100,7 @@ export class SesameDiscordService {
     const guild = this.discordService.client.guilds.cache.get(guildId);
 
     if (!guild) {
-      throw new Error('Guild is not found');
+      throw new Error(`指定された Guild が見つかりませんでした: (guildid: ${guildId})`);
     }
 
     const voiceChannel = await guild.channels.create({
