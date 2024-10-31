@@ -7,7 +7,6 @@ import {
   Message,
   MessageReaction,
   MessageType,
-  ThreadChannel,
   User,
 } from 'discord.js';
 import { LINENotifyService } from '../lineNotifyService';
@@ -27,11 +26,31 @@ export class MessageHandler {
   private notion: NotionService;
   private lineNotify: LINENotifyService;
   private sesameService: SesameService;
+  private discordService: DiscordService;
 
   constructor(discordService: DiscordService) {
     this.notion = discordService.getNotionService();
     this.lineNotify = discordService.getLINENotifyService();
     this.sesameService = discordService.getSesameService();
+  }
+
+  /**
+   * メッセージが編集された場合の処理
+   * @param oldMessage
+   * @param newMessage
+   */
+  public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
+    if (newMessage.channel.type === ChannelType.GuildText) {
+      // ペアを取得
+      const pair =
+        await this.notion.lineDiscordPairService.getLINEDiscordPairFromMessage(newMessage);
+
+      // ペアが存在すれば
+      if (pair) {
+        // LINE にもう一度送信できるようにする
+        this.addSendButtonReaction(newMessage);
+      }
+    }
   }
 
   public async handleMessageCreate(message: Message): Promise<void> {
@@ -238,50 +257,46 @@ export class MessageHandler {
 
     // LINE に送信するかどうかを判定
     // ペアを取得
-    const pairs = await this.notion.lineDiscordPairService.getLINEDiscordPairs();
-    let pair = pairs.find((v) => v.discordChannelId == message.channel.id);
-
-    // スレッドの場合、親チャンネルにペアが設定されていないか確認する
-    if (!pair && message.channel.isThread()) {
-      const channel = message.channel as ThreadChannel;
-      // 親チャンネルのIDが一致し、子スレッドを含む設定になっているペアを取得
-      pair = pairs.find((v) => v.discordChannelId == channel.parentId && v.includeThreads);
-    }
+    const pair = await this.notion.lineDiscordPairService.getLINEDiscordPairFromMessage(message);
 
     // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
     if (pair) {
-      message.react('✅');
-
-      const filter = (reaction: MessageReaction, user: User) => {
-        return reaction.emoji.name === '✅' && user.id === message.author.id;
-      };
-
-      const reactionTimeSeconds = config.getConfig('reaction_time_seconds');
-      const timeoutSeconds = reactionTimeSeconds
-        ? parseInt(reactionTimeSeconds)
-        : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;
-
-      const collector = message.createReactionCollector({ filter, time: timeoutSeconds * 1000 });
-
-      collector.on('collect', async () => {
-        // チェックのリアクションを削除する
-        message.reactions.cache.get('✅')?.remove();
-
-        // 通知する
-        this.lineNotify.postTextToLINENotifyFromDiscordMessage(
-          this.notion.lineDiscordPairService,
-          message,
-          false
-        );
-
-        // コレクターを停止する
-        collector.stop();
-      });
-
-      collector.on('end', async (collected) => {
-        // チェックのリアクションを削除する
-        message.reactions.cache.get('✅')?.remove();
-      });
+      this.addSendButtonReaction(message);
     }
+  }
+
+  public addSendButtonReaction(message: Message) {
+    message.react('✅');
+
+    const filter = (reaction: MessageReaction, user: User) => {
+      return reaction.emoji.name === '✅' && user.id === message.author.id;
+    };
+
+    const reactionTimeSeconds = config.getConfig('reaction_time_seconds');
+    const timeoutSeconds = reactionTimeSeconds
+      ? parseInt(reactionTimeSeconds)
+      : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;
+
+    const collector = message.createReactionCollector({ filter, time: timeoutSeconds * 1000 });
+
+    collector.on('collect', async () => {
+      // チェックのリアクションを削除する
+      message.reactions.cache.get('✅')?.remove();
+
+      // 通知する
+      this.lineNotify.postTextToLINENotifyFromDiscordMessage(
+        this.notion.lineDiscordPairService,
+        message,
+        false
+      );
+
+      // コレクターを停止する
+      collector.stop();
+    });
+
+    collector.on('end', async (collected) => {
+      // チェックのリアクションを削除する
+      message.reactions.cache.get('✅')?.remove();
+    });
   }
 }

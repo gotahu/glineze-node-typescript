@@ -4,6 +4,7 @@ import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { LINEDiscordPairInfo } from '../../types/types';
 import { getBooleanPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
 import { config } from '../../config/config';
+import { Message, ThreadChannel } from 'discord.js';
 
 export class LINEDiscordPairService {
   private client: Client;
@@ -103,5 +104,21 @@ export class LINEDiscordPairService {
   ): Promise<LINEDiscordPairInfo | null> {
     const pairs = await this.getLINEDiscordPairs();
     return pairs.find((pair) => pair.discordChannelId === channelId) ?? null;
+  }
+
+  public async getLINEDiscordPairFromMessage(
+    message: Message
+  ): Promise<LINEDiscordPairInfo | null> {
+    const pairs = await this.getLINEDiscordPairs();
+    let pair = pairs.find((v) => v.discordChannelId == message.channel.id);
+
+    // スレッドの場合、親チャンネルにペアが設定されていないかを確認する
+    if (!pair && message.channel.isThread()) {
+      const channel = message.channel as ThreadChannel;
+      // 親チャンネルのIDが一致し、子スレッドを含む設定になっているペアを取得
+      pair = pairs.find((v) => v.discordChannelId == channel.parentId && v.includeThreads);
+    }
+
+    return pair;
   }
 }

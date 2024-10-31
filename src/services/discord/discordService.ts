@@ -69,6 +69,8 @@ export class DiscordService {
     this.client.on(Events.InteractionCreate, handleInteractionCreate);
 
     this.client.on(Events.ThreadMembersUpdate, handleThreadMembersUpdate);
+
+    this.client.on(Events.MessageUpdate, this.messageHandler.handleMessageUpdate);
   }
 
   public async start(): Promise<void> {
