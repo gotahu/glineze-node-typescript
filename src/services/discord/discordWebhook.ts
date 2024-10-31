@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { logger } from '../../utils/logger';
 
 export async function sendDiscordWebhookMessage(
   webhookUrl: string,
