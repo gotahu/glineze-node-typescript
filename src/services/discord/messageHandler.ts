@@ -100,6 +100,12 @@ export class MessageHandler {
   }
 
   private async handleGuildMessage(message: Message): Promise<void> {
+    this.lineNotify.postTextToLINENotifyFromDiscordMessage(
+      this.notion.lineDiscordPairService,
+      message,
+      true
+    );
+
     // テストサーバーでのメッセージの場合
     if (message.guild && message.guild.id === '1258189444888924324') {
       if (message.content === 'リロード') {
@@ -117,15 +123,26 @@ export class MessageHandler {
       }
     }
 
-    this.lineNotify.postTextToLINENotifyFromDiscordMessage(
-      this.notion.lineDiscordPairService,
-      message,
-      true
-    );
-
     // システムメッセージの場合
     if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
       logger.info(`system message, type: ${message.type}`);
+      return;
+    }
+
+    // メッセージに「練習連絡」が含まれており、かつ、BOTをメンションしている場合
+    if (message.content.includes('練習連絡') && message.mentions.has(message.client.user)) {
+      // 次の日の練習を取得
+      const practices = await this.notion.practiceService.retrievePracticesForRelativeDay(1);
+
+      if (practices.length === 0) {
+        message.reply('練習はありません');
+        return;
+      }
+
+      for (const practice of practices) {
+        message.reply(practice.announceText);
+      }
+
       return;
     }
 
