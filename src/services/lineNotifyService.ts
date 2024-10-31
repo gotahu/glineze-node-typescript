@@ -6,6 +6,19 @@ import { config } from '../config/config';
 import { LINEDiscordPairService } from './notion/lineDiscordPairService';
 
 export class LINENotifyService {
+  public static instance: LINENotifyService;
+
+  constructor() {
+    LINENotifyService.instance = this;
+  }
+
+  public static getInstance(): LINENotifyService {
+    if (!LINENotifyService.instance) {
+      LINENotifyService.instance = new LINENotifyService();
+    }
+    return LINENotifyService.instance;
+  }
+
   private async postToLINENotify(
     lineNotifyToken: string,
     message: string,

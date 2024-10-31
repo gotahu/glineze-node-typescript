@@ -54,7 +54,7 @@ export class DiscordService {
 
     this.client.on('ready', () => {
       if (this.client.user) {
-        logger.info('Discord bot is online as ' + this.client.user.tag);
+        logger.info(`Discord bot が ${this.client.user.tag} として起動しました`);
       } else {
         console.log('Discord bot を起動できませんでした');
       }
@@ -103,9 +103,15 @@ export class DiscordService {
     });
   }
 
-  public static getInstance(): DiscordService {
+  public static getInstance(
+    notionService?: NotionService,
+    lineNotifyService?: LINENotifyService
+  ): DiscordService {
     if (!DiscordService.instance) {
-      console.error('DiscordService は初期化されていません');
+      if (!notionService || !lineNotifyService) {
+        throw new Error('NotionService と LINENotifyService は初期化時に必要です');
+      }
+      DiscordService.instance = new DiscordService(notionService, lineNotifyService);
     }
     return DiscordService.instance;
   }

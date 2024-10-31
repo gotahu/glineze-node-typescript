@@ -7,6 +7,8 @@ import { ShukinService } from './shukinService';
 import { logger } from '../../utils/logger';
 
 export class NotionService {
+  private static instance: NotionService;
+
   public client: Client;
   public lineDiscordPairService: LINEDiscordPairService;
   public memberService: MemberService;
@@ -28,5 +30,12 @@ export class NotionService {
       logger.error(`Failed to initialize NotionService: ${error}`);
       throw new Error('Failed to initialize NotionService');
     }
+  }
+
+  public static getInstance(): NotionService {
+    if (!NotionService.instance) {
+      NotionService.instance = new NotionService();
+    }
+    return NotionService.instance;
   }
 }

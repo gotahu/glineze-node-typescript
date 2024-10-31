@@ -4,7 +4,7 @@ import { LINEDiscordPairInfo } from '../../../types/types';
 import { LINENotifyService } from '../../lineNotifyService';
 import { LINEDiscordPairService } from '../../notion/lineDiscordPairService';
 
-const lineNotify = new LINENotifyService();
+const lineNotify = LINENotifyService.getInstance();
 
 async function handleLineDiscordCommand(message: Message, service: LINEDiscordPairService) {
   const args = message.content.split(' ');
@@ -92,7 +92,7 @@ async function getLineDiscordPairStatus(
   channelId: string
 ): Promise<void> {
   try {
-    const pair = await service.getLineDiscordPairByChannelId(channelId);
+    const pair = await service.getLINEDiscordPairByChannelId(channelId);
     if (pair) {
       let statusMessage = `現在のステータス:\nDiscord Channel ID: ${pair.discordChannelId}\n`;
       if (pair.discordChannelId) {
@@ -116,7 +116,7 @@ async function removeLineDiscordPair(
   channelId: string
 ): Promise<void> {
   try {
-    const pair = await service.getLineDiscordPairByChannelId(channelId);
+    const pair = await service.getLINEDiscordPairByChannelId(channelId);
     if (!pair) {
       await message.reply(
         ':x: このチャンネル/スレッドには、LINE-Discordペアが設定されていません。'

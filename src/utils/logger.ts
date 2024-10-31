@@ -3,7 +3,7 @@ import { LINENotifyService } from '../services/lineNotifyService';
 
 const LOGGER_CHANNEL_ID = '1273731421663395973';
 
-const lineNotifyService = new LINENotifyService();
+const lineNotifyService = LINENotifyService.getInstance();
 import { config } from '../config/config';
 import { sendDiscordWebhookMessage } from '../services/discord/discordWebhook';
 

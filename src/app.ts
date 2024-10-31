@@ -8,6 +8,7 @@ import { GASEvent } from './types/types';
 import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';
 import { updateBotProfile, updateChannelTopic } from './services/discord/countdown';
+import { isDevelopment } from './utils/environment';
 
 const app = express();
 app.use(express.json());
@@ -35,18 +36,19 @@ async function initializeServices() {
   await config.initializeConfig();
 
   // NotionService
-  const notionService = new NotionService();
+  const notionService = NotionService.getInstance();
   await notionService.initialize(); // NotionService の初期化を非同期的に行う
 
   // LINENotifyService
-  const lineNotifyService = new LINENotifyService();
+  const lineNotifyService = LINENotifyService.getInstance();
 
   // DiscordService
-  const discordService = new DiscordService(notionService, lineNotifyService);
+  const discordService = DiscordService.getInstance(notionService, lineNotifyService);
   await discordService.start();
 
   try {
-    logger.info('Discord アプリが起動しました', true);
+    const startMessage = isDevelopment ? '開発環境が起動しました' : '本番環境が起動しました';
+    logger.info(startMessage, true);
   } catch (error) {
     logger.error(`LINE Notify にメッセージを送信できませんでした: ${error}`);
   }
