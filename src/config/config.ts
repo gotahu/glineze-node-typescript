@@ -8,6 +8,7 @@ dotenv.config();
 export const config = {
   discord: {
     botToken: process.env.DISCORD_BOT_TOKEN,
+    webHook: process.env.DISCORD_ERROR_LOG_WEBHOOK,
   },
   notion: {
     token: process.env.NOTION_TOKEN,
