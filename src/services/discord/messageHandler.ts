@@ -129,8 +129,12 @@ export class MessageHandler {
       return;
     }
 
-    // メッセージに「練習連絡」が含まれており、かつ、BOTをメンションしている場合
-    if (message.content.includes('練習連絡') && message.mentions.has(message.client.user)) {
+    // メッセージに「練習連絡」が含まれており、BOT のみがメンションされている場合
+    if (
+      message.content.includes('練習連絡') &&
+      message.mentions.has(message.client.user) &&
+      message.mentions.members.size === 1 // これを追加しないと @everyone や @全員 に反応してしまう
+    ) {
       // 次の日の練習を取得
       const practices = await this.notion.practiceService.retrievePracticesForRelativeDay(1);
 
