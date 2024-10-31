@@ -135,6 +135,11 @@ export class MessageHandler {
       message.mentions.has(message.client.user) &&
       message.mentions.members.size === 1 // これを追加しないと @everyone や @全員 に反応してしまう
     ) {
+      // 「メッセージを送信中」を表示
+      if (message.channel.isSendable()) {
+        message.channel.sendTyping();
+      }
+
       // 次の日の練習を取得
       const practices = await this.notion.practiceService.retrievePracticesForRelativeDay(1);
 
