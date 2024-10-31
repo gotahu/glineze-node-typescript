@@ -44,7 +44,7 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
     });
 
     if (facilities.length === 0) {
-      logger.info('リマインド対象の施設はありません');
+      logger.info('リマインド対象の施設はありません', true);
       return;
     }
 
@@ -73,9 +73,9 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
 
         // 送信する
         await discord.sendStringsToChannel([message], channelId, threadId);
-        logger.info(`リマインドを送信しました: ${facilityName}`);
+        logger.info(`リマインドを送信しました: ${facilityName}`, true);
       } else {
-        logger.info(`リマインド対象の練習はありませんでした: ${facilityName}`);
+        logger.info(`リマインド対象の練習はありませんでした: ${facilityName}`, true);
       }
     }
   } catch (err) {
