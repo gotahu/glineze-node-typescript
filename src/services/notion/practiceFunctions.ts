@@ -73,7 +73,7 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
 
         // 送信する
         await discord.sendStringsToChannel([message], channelId, threadId);
-        logger.info(`リマインドを送信しました: ${facilityName}`, true);
+        logger.info(`リマインドを送信しました: ${targetPractices.length}件`, true);
       } else {
         logger.info(`リマインド対象の練習はありませんでした: ${facilityName}`, true);
       }

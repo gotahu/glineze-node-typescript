@@ -102,6 +102,19 @@ export class MessageHandler {
   private async handleGuildMessage(message: Message): Promise<void> {
     // テストサーバーでのメッセージの場合
     if (message.guild && message.guild.id === '1258189444888924324') {
+      if (message.content === 'リロード') {
+        try {
+          await config.initializeConfig();
+          message.reply('リロードしました。');
+          return;
+        } catch (error) {
+          message.reply('リロードに失敗しました。管理者に連絡してください。');
+          logger.error(
+            `${message.author.displayName} が config をリロードしようとしましたが、エラーが発生しました。`
+          );
+          return;
+        }
+      }
     }
 
     this.lineNotify.postTextToLINENotifyFromDiscordMessage(
