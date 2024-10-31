@@ -74,7 +74,7 @@ export class LINEDiscordPairService {
 
   public async removeLineDiscordPair(channelId: string): Promise<void> {
     try {
-      const pair = await this.getLineDiscordPairByChannelId(channelId);
+      const pair = await this.getLINEDiscordPairByChannelId(channelId);
       if (!pair) {
         throw new Error('Pair not found');
       }
@@ -99,7 +99,7 @@ export class LINEDiscordPairService {
     }
   }
 
-  public async getLineDiscordPairByChannelId(
+  public async getLINEDiscordPairByChannelId(
     channelId: string
   ): Promise<LINEDiscordPairInfo | null> {
     const pairs = await this.getLINEDiscordPairs();

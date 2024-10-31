@@ -21,36 +21,17 @@ import { StatusMessage } from '../../types/types';
 import { DiscordService } from './discordService';
 import { SesameService } from '../sesame/sesameService';
 import { format } from 'date-fns';
+import { addSendButtonReaction } from './messageFunction';
 
 export class MessageHandler {
-  private notion: NotionService;
+  private notionService: NotionService;
   private lineNotify: LINENotifyService;
   private sesameService: SesameService;
-  private discordService: DiscordService;
 
   constructor(discordService: DiscordService) {
-    this.notion = discordService.getNotionService();
+    this.notionService = NotionService.getInstance();
     this.lineNotify = discordService.getLINENotifyService();
     this.sesameService = discordService.getSesameService();
-  }
-
-  /**
-   * メッセージが編集された場合の処理
-   * @param oldMessage
-   * @param newMessage
-   */
-  public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
-    if (newMessage.channel.type === ChannelType.GuildText) {
-      // ペアを取得
-      const pair =
-        await this.notion.lineDiscordPairService.getLINEDiscordPairFromMessage(newMessage);
-
-      // ペアが存在すれば
-      if (pair) {
-        // LINE にもう一度送信できるようにする
-        this.addSendButtonReaction(newMessage);
-      }
-    }
   }
 
   public async handleMessageCreate(message: Message): Promise<void> {
@@ -94,7 +75,7 @@ export class MessageHandler {
     } else {
       // Notion から集金状況を取得
       try {
-        const glanzeMember = await this.notion.memberService.retrieveGlanzeMember(authorId);
+        const glanzeMember = await this.notionService.memberService.retrieveGlanzeMember(authorId);
 
         // 団員名簿から情報を取得できなかった場合
         if (!glanzeMember) {
@@ -104,7 +85,7 @@ export class MessageHandler {
           return;
         }
 
-        const reply = await this.notion.shukinService.retrieveShukinStatus(glanzeMember);
+        const reply = await this.notionService.shukinService.retrieveShukinStatus(glanzeMember);
 
         if (reply.status === 'error') {
           message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
@@ -120,7 +101,7 @@ export class MessageHandler {
 
   private async handleGuildMessage(message: Message): Promise<void> {
     this.lineNotify.postTextToLINENotifyFromDiscordMessage(
-      this.notion.lineDiscordPairService,
+      this.notionService.lineDiscordPairService,
       message,
       true
     );
@@ -160,7 +141,7 @@ export class MessageHandler {
       }
 
       // 次の日の練習を取得
-      const practices = await this.notion.practiceService.retrievePracticesForRelativeDay(1);
+      const practices = await this.notionService.practiceService.retrievePracticesForRelativeDay(1);
 
       if (practices.length === 0) {
         message.reply('練習はありません');
@@ -214,7 +195,7 @@ export class MessageHandler {
     }
 
     if (message.content.startsWith('!line-discord')) {
-      await handleLineDiscordCommand(message, this.notion.lineDiscordPairService);
+      await handleLineDiscordCommand(message, this.notionService.lineDiscordPairService);
       return;
     }
 
@@ -257,46 +238,37 @@ export class MessageHandler {
 
     // LINE に送信するかどうかを判定
     // ペアを取得
-    const pair = await this.notion.lineDiscordPairService.getLINEDiscordPairFromMessage(message);
+    const pair =
+      await this.notionService.lineDiscordPairService.getLINEDiscordPairFromMessage(message);
 
     // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
     if (pair) {
-      this.addSendButtonReaction(message);
+      addSendButtonReaction(message);
     }
   }
 
-  public addSendButtonReaction(message: Message) {
-    message.react('✅');
+  /**
+   * メッセージが編集された場合の処理
+   * @param oldMessage
+   * @param newMessage
+   */
+  public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
+    if (newMessage.channel.type === ChannelType.GuildText) {
+      const notion = NotionService.getInstance();
 
-    const filter = (reaction: MessageReaction, user: User) => {
-      return reaction.emoji.name === '✅' && user.id === message.author.id;
-    };
+      try {
+        // ペアを取得
+        const pair = await notion.lineDiscordPairService.getLINEDiscordPairFromMessage(newMessage);
 
-    const reactionTimeSeconds = config.getConfig('reaction_time_seconds');
-    const timeoutSeconds = reactionTimeSeconds
-      ? parseInt(reactionTimeSeconds)
-      : CONSTANTS.DEFAULT_REACTION_TIME_SECONDS;
-
-    const collector = message.createReactionCollector({ filter, time: timeoutSeconds * 1000 });
-
-    collector.on('collect', async () => {
-      // チェックのリアクションを削除する
-      message.reactions.cache.get('✅')?.remove();
-
-      // 通知する
-      this.lineNotify.postTextToLINENotifyFromDiscordMessage(
-        this.notion.lineDiscordPairService,
-        message,
-        false
-      );
-
-      // コレクターを停止する
-      collector.stop();
-    });
-
-    collector.on('end', async (collected) => {
-      // チェックのリアクションを削除する
-      message.reactions.cache.get('✅')?.remove();
-    });
+        // ペアが存在すれば
+        if (pair) {
+          logger.info('ペアが存在しているメッセージが編集されました');
+          // LINE にもう一度送信できるようにする
+          addSendButtonReaction(newMessage);
+        }
+      } catch (error) {
+        logger.error('Error in handleMessageUpdate: ' + error);
+      }
+    }
   }
 }
