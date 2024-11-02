@@ -54,10 +54,7 @@ export class MessageHandler {
     // 「メッセージを送信中」を表示
     dmChannel.sendTyping();
 
-    await this.lineNotify.postTextToLINENotify(
-      config.lineNotify.voidToken,
-      `${authorName}\n${messageContent}`
-    );
+    await this.lineNotify.relayMessage(message, true);
 
     if (messageContent === 'リロード') {
       await reloadConfig(message);
@@ -69,11 +66,7 @@ export class MessageHandler {
   }
 
   private async handleGuildMessage(message: Message): Promise<void> {
-    this.lineNotify.postTextToLINENotifyFromDiscordMessage(
-      this.notionService.lineDiscordPairService,
-      message,
-      true
-    );
+    await this.lineNotify.relayMessage(message, true);
 
     // テストサーバーでのメッセージの場合
     if (message.guild && message.guild.id === '1258189444888924324') {
@@ -175,13 +168,8 @@ export class MessageHandler {
   public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
     if (newMessage.channel.type === ChannelType.GuildText) {
       const notion = NotionService.getInstance();
-      const lineNotify = LINENotifyService.getInstance();
 
-      await lineNotify.postTextToLINENotifyFromDiscordMessage(
-        notion.lineDiscordPairService,
-        newMessage,
-        true
-      );
+      await this.lineNotify.relayMessage(newMessage, true);
 
       try {
         // ペアを取得

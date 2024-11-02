@@ -1,12 +1,12 @@
 import { Message, MessageReaction, User } from 'discord.js';
 import { CONSTANTS } from '../../config/constants';
 import { config } from '../../config/config';
-import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
+import { LINENotifyService } from '../lineNotifyService';
 
 export function addSendButtonReaction(message: Message) {
-  const lineNotify = LINENotifyService.getInstance();
   const notion = NotionService.getInstance();
+  const lineNotify = new LINENotifyService(notion.lineDiscordPairService);
 
   message.react('✅');
 
@@ -26,11 +26,7 @@ export function addSendButtonReaction(message: Message) {
     message.reactions.cache.get('✅')?.remove();
 
     // 通知する
-    lineNotify.postTextToLINENotifyFromDiscordMessage(
-      notion.lineDiscordPairService,
-      message,
-      false
-    );
+    await lineNotify.relayMessage(message, false);
 
     // コレクターを停止する
     collector.stop();

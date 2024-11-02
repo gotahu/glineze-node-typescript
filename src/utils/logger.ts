@@ -1,18 +1,17 @@
 import { DiscordService } from '../services/discord/discordService';
-import { LINENotifyService } from '../services/lineNotifyService';
+import { LINENotifyService, postToLINENotify } from '../services/lineNotifyService';
 
 const LOGGER_CHANNEL_ID = '1273731421663395973';
 
-const lineNotifyService = LINENotifyService.getInstance();
 import { config } from '../config/config';
 import { sendDiscordWebhookMessage } from '../services/discord/discordWebhook';
 
 export const logger = {
-  info: (message: string, debug?: boolean) => {
+  info: async (message: string, debug?: boolean) => {
     const msg = `[INFO] ${message}`;
     console.log(msg);
     if (debug) {
-      lineNotifyService.postTextToLINENotify(config.lineNotify.voidToken, msg);
+      await postToLINENotify(config.lineNotify.voidToken, msg);
       sendDiscordWebhookMessage(config.discord.webHook, msg);
     }
   },
@@ -24,7 +23,7 @@ export const logger = {
     const errorMessage = `[ERROR] ${message}`;
     console.error(errorMessage);
     try {
-      await lineNotifyService.postTextToLINENotify(config.lineNotify.voidToken, errorMessage);
+      postToLINENotify(config.lineNotify.voidToken, errorMessage);
       await sendDiscordWebhookMessage(config.discord.webHook, errorMessage);
     } catch (lineNotifyError) {
       console.error(`Failed to send error to LINE Notify: ${lineNotifyError}`);

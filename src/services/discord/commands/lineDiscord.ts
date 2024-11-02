@@ -4,8 +4,6 @@ import { LINEDiscordPairInfo } from '../../../types/types';
 import { LINENotifyService } from '../../lineNotifyService';
 import { LINEDiscordPairService } from '../../notion/lineDiscordPairService';
 
-const lineNotify = LINENotifyService.getInstance();
-
 async function handleLineDiscordCommand(message: Message, service: LINEDiscordPairService) {
   const args = message.content.split(' ');
   if (args.length < 2) {
@@ -67,18 +65,14 @@ async function handleLineDiscordCommand(message: Message, service: LINEDiscordPa
 }
 
 async function addLineDiscordPair(
-  service: LINEDiscordPairService,
+  pairService: LINEDiscordPairService,
   message: Message,
   pairInfo: LINEDiscordPairInfo
 ): Promise<void> {
   try {
-    await service.addLineDiscordPair(pairInfo);
+    await pairService.addLineDiscordPair(pairInfo);
     await message.reply(
-      `:white_check_mark: LINE と Discordペアを正常に連携しました。\n安全のためトークンを含むメッセージは削除されました。`
-    );
-    lineNotify.postTextToLINENotify(
-      pairInfo.lineNotifyKey,
-      'LINE と Discordペアを正常に連携しました。'
+      `:white_check_mark: LINE と Discordペアを正常に連携しました。\n安全のためトークンを含むメッセージは削除されました。\nメッセージを送信して正しく紐付けができているか確認してください。`
     );
   } catch (error) {
     logger.error(`Error adding LINE-Discord pair: ${error}`);

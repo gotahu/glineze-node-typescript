@@ -1,156 +1,117 @@
 import axios from 'axios';
 import { CONSTANTS } from '../config/constants';
 import { logger } from '../utils/logger';
-import { ChannelType, Message, User } from 'discord.js';
+import {
+  Attachment,
+  ChannelType,
+  Collection,
+  Message,
+  TextChannel,
+  ThreadChannel,
+  User,
+} from 'discord.js';
 import { config } from '../config/config';
 import { LINEDiscordPairService } from './notion/lineDiscordPairService';
 
+interface AttachmentInfo {
+  isImage: boolean;
+  url: string;
+}
+
+const MESSAGE_CONSTANTS = {
+  DM_SERVER_NAME: 'DM',
+  UNKNOWN_SERVER: 'Unknown Server',
+  IMAGE_SUFFIX: '枚目',
+  FILE_SUFFIX: 'つ目',
+} as const;
+
 export class LINENotifyService {
-  public static instance: LINENotifyService;
+  constructor(private readonly pairService: LINEDiscordPairService) {}
 
-  constructor() {
-    LINENotifyService.instance = this;
+  private getServerName(message: Message): string {
+    return message.channel.type === ChannelType.DM
+      ? MESSAGE_CONSTANTS.DM_SERVER_NAME
+      : message.guild?.name || MESSAGE_CONSTANTS.UNKNOWN_SERVER;
   }
 
-  public static getInstance(): LINENotifyService {
-    if (!LINENotifyService.instance) {
-      LINENotifyService.instance = new LINENotifyService();
+  private async createMessageTitle(channel: ThreadChannel | TextChannel): Promise<string> {
+    let title = `${channel.guild.name}: #`;
+
+    if (channel.isThread() && channel.parent) {
+      title += `${channel.parent.name} > `;
     }
-    return LINENotifyService.instance;
+
+    return title + channel.name;
   }
 
-  private async postToLINENotify(
-    lineNotifyToken: string,
-    message: string,
-    imageURL?: string
+  private async processAttachment(attachment: Attachment, index: number): Promise<AttachmentInfo> {
+    const isImage = Boolean(attachment.height && attachment.width);
+    return {
+      isImage,
+      url: attachment.url,
+    };
+  }
+
+  private async sendMessageWithAttachments(
+    token: string,
+    baseTitle: string,
+    messageText: string,
+    attachments: Collection<string, Attachment>
   ): Promise<void> {
-    try {
-      const params = new URLSearchParams({ message });
-      if (imageURL) {
-        params.append('imageThumbnail', imageURL);
-        params.append('imageFullsize', imageURL);
+    let index = 1;
+
+    for (const attachment of attachments.values()) {
+      const { isImage, url } = await this.processAttachment(attachment, index);
+
+      const contentType = isImage ? '画像' : 'ファイル';
+      const suffix = isImage ? MESSAGE_CONSTANTS.IMAGE_SUFFIX : MESSAGE_CONSTANTS.FILE_SUFFIX;
+      let content = `${baseTitle} ${contentType} ${index}${suffix}`;
+
+      if (!isImage) {
+        content += `\n${url}`;
       }
 
-      const res = await axios.post(CONSTANTS.LINE_NOTIFY_API, params.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: 'Bearer ' + lineNotifyToken,
-        },
-        responseType: 'json',
-      });
-      logger.info(`LINE Notify response: ${JSON.stringify(res.data)}`);
-    } catch (error) {
-      logger.error('Error occurred in LINE Notify API');
-      if (axios.isAxiosError(error) && error.response) {
-        logger.error(`Error status: ${error.response.status}`);
-        logger.error(`Error data: ${JSON.stringify(error.response.data)}`);
-      } else if (error instanceof Error) {
-        logger.error(`Error message: ${error.message}`);
-      } else {
-        logger.error(`Unknown error: ${error}`);
+      if (index === 1) {
+        content += `\n${messageText}`;
       }
+
+      await (isImage
+        ? this.postTextWithImageToLINENotify(token, content, url)
+        : this.postTextToLINENotify(token, content));
+
+      index++;
     }
   }
 
-  public async postTextToLINENotify(lineNotifyToken: string, message: string): Promise<void> {
-    await this.postToLINENotify(lineNotifyToken, message);
+  private async getNotifyToken(message: Message, isVoid: boolean): Promise<string> {
+    if (isVoid) return config.lineNotify.voidToken;
+
+    const pairs = await this.pairService.getLINEDiscordPairs();
+    const channelId =
+      message.channel.isThread() && message.channel.parent
+        ? message.channel.parent.id
+        : message.channel.id;
+
+    const pair = pairs.find((v) => v.discordChannelId === channelId);
+
+    if (pair) {
+      logger.info(`LINE Notify token found for channel ID: ${channelId}`);
+      return pair.lineNotifyKey;
+    }
+
+    return config.lineNotify.voidToken;
   }
 
-  public async postTextWithImageToLINENotify(
+  private async postTextToLINENotify(lineNotifyToken: string, message: string): Promise<void> {
+    await postToLINENotify(lineNotifyToken, message);
+  }
+
+  private async postTextWithImageToLINENotify(
     lineNotifyToken: string,
     message: string,
     imageUrl: string
   ): Promise<void> {
-    await this.postToLINENotify(lineNotifyToken, message, imageUrl);
-  }
-
-  public async postTextToLINENotifyFromDiscordMessage(
-    service: LINEDiscordPairService,
-    discordMessage: Message,
-    isVoid: boolean = false
-  ): Promise<void> {
-    try {
-      const messageText = discordMessage.cleanContent;
-      const messageAuthor = await this.getMessageAuthor(discordMessage.author);
-      const serverName =
-        discordMessage.channel.type === ChannelType.DM
-          ? 'DM'
-          : discordMessage.guild?.name || 'Unknown Server';
-      let token = config.lineNotify.voidToken;
-
-      // DM の場合は void トークンを使って送信
-      if (discordMessage.channel.type === ChannelType.DM) {
-        await this.postTextToLINENotify(
-          token,
-          `${serverName}: ${messageAuthor.username}\n${messageText}`
-        );
-        return;
-      }
-
-      if (!isVoid) {
-        // LINE と Discord のペアを取得
-        const pairs = await service.getLINEDiscordPairs();
-
-        // スレッドの場合は親チャンネルの ID を取得
-        const discordChannelId =
-          discordMessage.channel.isThread() && discordMessage.channel.parent
-            ? discordMessage.channel.parent.id
-            : discordMessage.channel.id;
-
-        // 対象の Discord チャンネルに対応するペアを検索
-        const pair = pairs.find((v) => v.discordChannelId === discordChannelId);
-
-        if (pair) {
-          // LINE Notify トークンを代入
-          logger.info('LINE Notify token found for channel ID: ' + discordChannelId);
-          token = pair.lineNotifyKey;
-        }
-      }
-
-      // メッセージタイトルを作成
-      let messageTitle = `${serverName}: #`;
-
-      // スレッドの場合はタイトルを少し変える
-      if (discordMessage.channel.isThread() && discordMessage.channel.parent) {
-        messageTitle += `${discordMessage.channel.parent.name} > `;
-      }
-
-      messageTitle += `${discordMessage.channel.name}\n${messageAuthor.username}:`;
-
-      if (discordMessage.attachments.size === 0) {
-        logger.info('Discord から LINE Notify へ送信。添付ファイルなし。');
-        await this.postTextToLINENotify(token, `${messageTitle}\n${messageText}`);
-        return;
-      }
-
-      logger.info('Discord から LINE Notify へ送信。添付ファイルあり。');
-
-      let index = 1;
-      for (const attachment of discordMessage.attachments.values()) {
-        if (!attachment) continue;
-
-        const isImage = attachment.height && attachment.width;
-        let sendContent = `${messageTitle} ${isImage ? '画像' : 'ファイル'} ${index}${
-          isImage ? '枚目' : 'つ目'
-        }`;
-        if (!isImage) {
-          sendContent += `\n${attachment.url}`;
-        }
-        if (index === 1) {
-          sendContent += `\n${messageText}`;
-        }
-
-        if (isImage) {
-          await this.postTextWithImageToLINENotify(token, sendContent, attachment.url);
-        } else {
-          await this.postTextToLINENotify(token, sendContent);
-        }
-
-        index++;
-      }
-    } catch (error) {
-      logger.error(`Error in postTextToLINENotifyFromDiscordMessage: ${error}`);
-    }
+    await postToLINENotify(lineNotifyToken, message, imageUrl);
   }
 
   private async getMessageAuthor(author: User): Promise<User> {
@@ -158,5 +119,81 @@ export class LINENotifyService {
       return await author.fetch();
     }
     return author;
+  }
+
+  public async relayMessage(message: Message, isVoid: boolean = false): Promise<void> {
+    try {
+      if (
+        message.channel.type !== ChannelType.GuildText &&
+        message.channel.type !== ChannelType.DM
+      ) {
+        logger.error('メッセージの転送に失敗: 未対応のチャンネルタイプです');
+        return;
+      }
+
+      const messageText = message.cleanContent;
+      const messageAuthor = await this.getMessageAuthor(message.author);
+
+      // DMの場合の処理
+      if (message.channel.type === ChannelType.DM) {
+        const serverName = this.getServerName(message);
+        await this.postTextToLINENotify(
+          config.lineNotify.voidToken,
+          `${serverName}: ${messageAuthor.username}\n${messageText}`
+        );
+        return;
+      }
+
+      // 通常チャンネルの処理
+      const token = await this.getNotifyToken(message, isVoid);
+      const messageTitle = await this.createMessageTitle(message.channel);
+      const fullTitle = `${messageTitle}\n${messageAuthor.username}:`;
+
+      if (message.attachments.size === 0) {
+        logger.info('メッセージを転送: 添付ファイルなし');
+        await this.postTextToLINENotify(token, `${fullTitle}\n${messageText}`);
+        return;
+      }
+
+      logger.info('メッセージを転送: 添付ファイルあり');
+      await this.sendMessageWithAttachments(token, fullTitle, messageText, message.attachments);
+    } catch (error) {
+      logger.error(`メッセージの転送中にエラーが発生: ${error}`);
+      throw error;
+    }
+  }
+}
+
+export async function postToLINENotify(
+  lineNotifyToken: string,
+  message: string,
+  imageURL?: string
+): Promise<void> {
+  try {
+    const params = new URLSearchParams({ message });
+    if (imageURL) {
+      params.append('imageThumbnail', imageURL);
+      params.append('imageFullsize', imageURL);
+    }
+
+    const res = await axios.post(CONSTANTS.LINE_NOTIFY_API, params.toString(), {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: 'Bearer ' + lineNotifyToken,
+      },
+      responseType: 'json',
+    });
+    logger.info(`LINE Notify response: ${JSON.stringify(res.data)}`);
+  } catch (error) {
+    logger.error('Error occurred in LINE Notify API');
+    if (axios.isAxiosError(error) && error.response) {
+      logger.error(`Error status: ${error.response.status}`);
+      logger.error(`Error data: ${JSON.stringify(error.response.data)}`);
+    } else if (error instanceof Error) {
+      logger.error(`Error message: ${error.message}`);
+    } else {
+      logger.error(`Unknown error: ${error}`);
+    }
+    throw error;
   }
 }

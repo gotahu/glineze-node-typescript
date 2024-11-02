@@ -39,8 +39,11 @@ async function initializeServices() {
   const notionService = NotionService.getInstance();
   await notionService.initialize(); // NotionService の初期化を非同期的に行う
 
+  // LINENotifyPairService
+  const pairService = notionService.lineDiscordPairService;
+
   // LINENotifyService
-  const lineNotifyService = LINENotifyService.getInstance();
+  const lineNotifyService = new LINENotifyService(pairService);
 
   // DiscordService
   const discordService = DiscordService.getInstance(notionService, lineNotifyService);
