@@ -5,23 +5,23 @@ import {
   ChannelType,
   DMChannel,
   Message,
-  MessageReaction,
   MessageType,
-  User,
 } from 'discord.js';
 import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
 import { config } from '../../config/config';
 import { logger } from '../../utils/logger';
-import { CONSTANTS } from '../../config/constants';
 import axios from 'axios';
 import { handleBreakoutRoomCommand } from './breakoutRoom';
 import { handleLineDiscordCommand } from './commands/lineDiscord';
-import { StatusMessage } from '../../types/types';
 import { DiscordService } from './discordService';
 import { SesameService } from '../sesame/sesameService';
-import { format } from 'date-fns';
 import { addSendButtonReaction } from './messageFunction';
+import { reloadConfig } from './commands/reload';
+import { replyShukinStatus } from './commands/shukin';
+import { handleDeleteChannelCommand } from './commands/deletechannel';
+import { handleSesameStatusCommand } from './commands/sesame';
+import { handleNotifyPracticesCommand } from './commands/practice';
 
 export class MessageHandler {
   private notionService: NotionService;
@@ -48,7 +48,6 @@ export class MessageHandler {
 
   private async handleDMMessage(message: Message): Promise<void> {
     const messageContent = message.content;
-    const authorId = message.author.id;
     const authorName = message.author.displayName;
     const dmChannel = message.channel as DMChannel;
 
@@ -61,41 +60,11 @@ export class MessageHandler {
     );
 
     if (messageContent === 'リロード') {
-      try {
-        await config.initializeConfig();
-        message.reply('リロードしました。');
-        return;
-      } catch (error) {
-        message.reply('リロードに失敗しました。管理者に連絡してください。');
-        logger.error(
-          `${authorName} が config をリロードしようとしましたが、エラーが発生しました。`
-        );
-        return;
-      }
+      await reloadConfig(message);
+      return;
     } else {
-      // Notion から集金状況を取得
-      try {
-        const glanzeMember = await this.notionService.memberService.retrieveGlanzeMember(authorId);
-
-        // 団員名簿から情報を取得できなかった場合
-        if (!glanzeMember) {
-          message.reply(
-            '### エラーが発生しました。\n- エラー内容：団員名簿からあなたの情報を見つけることができませんでした。準備が整っていない可能性があるので、管理者に問い合わせてください。'
-          );
-          return;
-        }
-
-        const reply = await this.notionService.shukinService.retrieveShukinStatus(glanzeMember);
-
-        if (reply.status === 'error') {
-          message.reply('### エラーが発生しました。\n- エラー内容：' + reply.message);
-        } else {
-          message.reply(reply.message);
-        }
-      } catch (error) {
-        logger.error('Error in retrieveShukinStatus: ' + error);
-        message.reply('### エラーが発生しました。\n- エラー内容：' + error);
-      }
+      await replyShukinStatus(this.notionService, message);
+      return;
     }
   }
 
@@ -109,17 +78,8 @@ export class MessageHandler {
     // テストサーバーでのメッセージの場合
     if (message.guild && message.guild.id === '1258189444888924324') {
       if (message.content === 'リロード') {
-        try {
-          await config.initializeConfig();
-          message.reply('リロードしました。');
-          return;
-        } catch (error) {
-          message.reply('リロードに失敗しました。管理者に連絡してください。');
-          logger.error(
-            `${message.author.displayName} が config をリロードしようとしましたが、エラーが発生しました。`
-          );
-          return;
-        }
+        await reloadConfig(message);
+        return;
       }
     }
 
@@ -135,58 +95,18 @@ export class MessageHandler {
       message.mentions.has(message.client.user) &&
       message.mentions.members.size === 1 // これを追加しないと @everyone や @全員 に反応してしまう
     ) {
-      // 「メッセージを送信中」を表示
-      if (message.channel.isSendable()) {
-        message.channel.sendTyping();
-      }
-
-      // 次の日の練習を取得
-      const practices = await this.notionService.practiceService.retrievePracticesForRelativeDay(1);
-
-      if (practices.length === 0) {
-        message.reply('練習はありません');
-        return;
-      }
-
-      for (const practice of practices) {
-        message.reply(practice.announceText);
-      }
-
+      await handleNotifyPracticesCommand(this.notionService, message);
       return;
     }
 
     if (message.content.startsWith('!deletechannel')) {
-      try {
-        const args = message.content.split(' ');
-
-        if (args.length < 2) {
-          message.reply('チャンネルIDを指定してください');
-          return;
-        }
-
-        const channelId = args[1];
-        const channel = message.guild?.channels.cache.get(channelId);
-        if (!channel) {
-          message.reply('チャンネルが見つかりませんでした');
-          return;
-        }
-
-        await channel.delete();
-        message.reply('チャンネルを削除しました');
-        logger.info(`Channel ${channelId} deleted`);
-      } catch (error) {
-        logger.error('Error deleting channel: ' + error);
-      }
+      await handleDeleteChannelCommand(message);
+      return;
     }
 
     if (message.content === 'KEY') {
-      try {
-        const status = await this.sesameService.getSesameDeviceStatus();
-        const dateStr = format(new Date(status.timestamp), 'yyyy-MM-dd HH:mm:ss');
-        message.reply(`施錠状態: ${StatusMessage[status.lockStatus]}, タイムスタンプ：${dateStr}`);
-      } catch (error) {
-        logger.error('施錠状態を取得できませんでした ' + error);
-      }
+      await handleSesameStatusCommand(this.sesameService, message);
+      return;
     }
 
     if (message.content.startsWith('!br')) {
@@ -255,6 +175,13 @@ export class MessageHandler {
   public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
     if (newMessage.channel.type === ChannelType.GuildText) {
       const notion = NotionService.getInstance();
+      const lineNotify = LINENotifyService.getInstance();
+
+      await lineNotify.postTextToLINENotifyFromDiscordMessage(
+        notion.lineDiscordPairService,
+        newMessage,
+        true
+      );
 
       try {
         // ペアを取得
