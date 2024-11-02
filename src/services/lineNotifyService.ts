@@ -125,6 +125,8 @@ export class LINENotifyService {
     try {
       if (
         message.channel.type !== ChannelType.GuildText &&
+        message.channel.type !== ChannelType.PublicThread &&
+        message.channel.type !== ChannelType.PrivateThread &&
         message.channel.type !== ChannelType.DM
       ) {
         logger.error('メッセージの転送に失敗: 未対応のチャンネルタイプです');

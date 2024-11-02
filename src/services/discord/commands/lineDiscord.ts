@@ -1,7 +1,6 @@
 import { Message } from 'discord.js';
 import { logger } from '../../../utils/logger';
 import { LINEDiscordPairInfo } from '../../../types/types';
-import { LINENotifyService } from '../../lineNotifyService';
 import { LINEDiscordPairService } from '../../notion/lineDiscordPairService';
 
 async function handleLineDiscordCommand(message: Message, service: LINEDiscordPairService) {

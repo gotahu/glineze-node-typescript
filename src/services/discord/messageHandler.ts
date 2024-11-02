@@ -167,13 +167,15 @@ export class MessageHandler {
    */
   public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
     if (newMessage.channel.type === ChannelType.GuildText) {
-      const notion = NotionService.getInstance();
+      const notionService = NotionService.getInstance();
+      const notifyService = new LINENotifyService(notionService.lineDiscordPairService);
 
-      await this.lineNotify.relayMessage(newMessage, true);
+      await notifyService.relayMessage(newMessage, true);
 
       try {
         // ペアを取得
-        const pair = await notion.lineDiscordPairService.getLINEDiscordPairFromMessage(newMessage);
+        const pair =
+          await notionService.lineDiscordPairService.getLINEDiscordPairFromMessage(newMessage);
 
         // ペアが存在すれば
         if (pair) {
