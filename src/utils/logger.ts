@@ -1,48 +1,107 @@
 import { DiscordService } from '../services/discord/discordService';
-import { LINENotifyService, postToLINENotify } from '../services/lineNotifyService';
-
-const LOGGER_CHANNEL_ID = '1273731421663395973';
-
-import { config } from '../config/config';
+import { postToLINENotify } from '../services/lineNotifyService';
 import { sendDiscordWebhookMessage } from '../services/discord/discordWebhook';
+import { LoggerConfig, LogMessage, LogLevel } from '../types/types';
 
-export const logger = {
-  info: async (message: string, debug?: boolean) => {
-    const msg = `[INFO] ${message}`;
-    console.log(msg);
-    if (debug) {
-      await postToLINENotify(config.lineNotify.voidToken, msg);
-      sendDiscordWebhookMessage(config.discord.webHook, msg);
+export class Logger {
+  private static instance: Logger;
+  private readonly config: LoggerConfig;
+
+  private constructor(config: LoggerConfig) {
+    this.config = config;
+  }
+
+  public static getInstance(): Logger {
+    if (!Logger.instance) {
+      Logger.instance = new Logger({
+        loggerChannelId: '1273731421663395973',
+        lineNotifyToken: process.env.LINE_NOTIFY_VOID_TOKEN,
+        discordWebhookUrl: process.env.DISCORD_ERROR_LOG_WEBHOOK,
+        enableDebugOutput: process.env.NODE_ENV !== 'production',
+      });
     }
-  },
-  debug: async (message: string) => {
-    console.log(`[DEBUG] ${message}`);
-    await logger.sendLogMessageToDiscord(`[DEBUG] ${message}`);
-  },
-  error: async (message: string) => {
-    const errorMessage = `[ERROR] ${message}`;
-    console.error(errorMessage);
+    return Logger.instance;
+  }
+
+  private formatLogMessage(
+    level: LogLevel,
+    message: string,
+    metadata?: Record<string, unknown>
+  ): LogMessage {
+    return {
+      level,
+      message,
+      timestamp: new Date(),
+      metadata,
+    };
+  }
+
+  private async sendToDiscord(logMessage: LogMessage): Promise<void> {
     try {
-      postToLINENotify(config.lineNotify.voidToken, errorMessage);
-      await sendDiscordWebhookMessage(config.discord.webHook, errorMessage);
-    } catch (lineNotifyError) {
-      console.error(`Failed to send error to LINE Notify: ${lineNotifyError}`);
-    }
-  },
-  sendLogMessageToDiscord: async (message: string) => {
-    // Discordのロガーにもエラーメッセージを送信
-    try {
-      // DiscordService のインスタンスを取得
       const discordService = DiscordService.getInstance();
-
-      // DiscordService が初期化されていない場合はエラーメッセージを送信しない
-      if (discordService) {
-        await discordService.sendStringsToChannel([message], LOGGER_CHANNEL_ID);
-      } else {
+      if (!discordService) {
         throw new Error('DiscordService is not initialized');
       }
+
+      const formattedMessage = `[${logMessage.level}] [${logMessage.timestamp.toISOString()}] ${logMessage.message}`;
+      await discordService.sendStringsToChannel([formattedMessage], this.config.loggerChannelId);
     } catch (error) {
-      console.error(`Error sending error message to Discord: ${error}`);
+      console.error(
+        `Failed to send message to Discord: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
-  },
-};
+  }
+
+  private async sendToLineNotify(logMessage: LogMessage): Promise<void> {
+    try {
+      const formattedMessage = `[${logMessage.level}] ${logMessage.message}`;
+      await postToLINENotify(this.config.lineNotifyToken, formattedMessage);
+    } catch (error) {
+      console.error(
+        `Failed to send message to LINE Notify: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  private async sendToWebhook(logMessage: LogMessage): Promise<void> {
+    try {
+      const formattedMessage = `[${logMessage.level}] ${logMessage.message}`;
+      await sendDiscordWebhookMessage(this.config.discordWebhookUrl, formattedMessage);
+    } catch (error) {
+      console.error(
+        `Failed to send message to Discord webhook: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  public async info(message: string, metadata?: Record<string, unknown>): Promise<void> {
+    const logMessage = this.formatLogMessage(LogLevel.INFO, message, metadata);
+    console.log(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
+
+    if (metadata?.debug) {
+      await Promise.allSettled([this.sendToLineNotify(logMessage), this.sendToWebhook(logMessage)]);
+    }
+  }
+
+  public async debug(message: string, metadata?: Record<string, unknown>): Promise<void> {
+    if (!this.config.enableDebugOutput) return;
+
+    const logMessage = this.formatLogMessage(LogLevel.DEBUG, message, metadata);
+    console.log(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
+    await this.sendToDiscord(logMessage);
+  }
+
+  public async error(message: string, metadata?: Record<string, unknown>): Promise<void> {
+    const logMessage = this.formatLogMessage(LogLevel.ERROR, message, metadata);
+    console.error(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
+
+    await Promise.allSettled([
+      this.sendToLineNotify(logMessage),
+      this.sendToWebhook(logMessage),
+      this.sendToDiscord(logMessage),
+    ]);
+  }
+}
+
+// 使いやすいようにデフォルトエクスポートを提供
+export const logger = Logger.getInstance();

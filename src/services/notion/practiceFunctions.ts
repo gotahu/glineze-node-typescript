@@ -14,7 +14,7 @@ export async function remindPractice(
     const practices = await service.retrievePracticesForRelativeDay(daysFromToday);
 
     if (practices.length === 0) {
-      logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`, true);
+      logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`, { debug: true });
       return;
     }
 
@@ -29,7 +29,7 @@ export async function remindPractice(
       threadId
     );
 
-    logger.info(`練習のリマインドが正常に完了しました`, true);
+    logger.info(`練習のリマインドが正常に完了しました`, { debug: true });
   } catch (err) {
     logger.error('Error in announcePractice: ' + err);
   }
@@ -44,7 +44,7 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
     });
 
     if (facilities.length === 0) {
-      logger.info('リマインド対象の施設はありません', true);
+      logger.info('リマインド対象の施設はありません', { debug: true });
       return;
     }
 
@@ -73,9 +73,9 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
 
         // 送信する
         await discord.sendStringsToChannel([message], channelId, threadId);
-        logger.info(`リマインドを送信しました: ${targetPractices.length}件`, true);
+        logger.info(`リマインドを送信しました: ${targetPractices.length}件`, { debug: true });
       } else {
-        logger.info(`リマインド対象の練習はありませんでした: ${facilityName}`, true);
+        logger.info(`リマインド対象の練習はありませんでした: ${facilityName}`, { debug: true });
       }
     }
   } catch (err) {

@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "NODE_ENV=production node dist/server.js",
     "start:dev": "ts-node src/server.ts",
     "build": "tsc && webpack --config webpack/webpack.prod.ts",
     "dev": "npm run start:dev"

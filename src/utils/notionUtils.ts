@@ -37,7 +37,9 @@ function getStringPropertyValue(page: PageObjectResponse, key: string): string |
     throw new Error(`Cannot find property with key: ${key}`);
   }
 
-  logger.info(`Found property with key: ${key} but cannot get value or undefined`, true);
+  logger.info(`プロパティ ${key} は見つかりましたが、その値が存在しないか空になっています`, {
+    debug: true,
+  });
   return undefined;
 }
 
