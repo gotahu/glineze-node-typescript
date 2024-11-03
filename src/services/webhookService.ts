@@ -45,7 +45,7 @@ export class WebhookService {
         return;
       } else {
         // それ以外の場合は、github webhook として処理
-        logger.info('GitHub から push イベントの webhook を受信しました', true);
+        logger.info('GitHub から push イベントの webhook を受信しました', { debug: true });
         try {
           const signature = req.headers['x-hub-signature-256'] as string;
           console.log(signature);
@@ -113,7 +113,7 @@ export class WebhookService {
 
     logger.info(
       `Starting webpack build in ${isDevelopment() ? 'development' : 'production'} mode`,
-      true
+      { debug: true }
     );
 
     // webpack のビルドを非同期に実行
@@ -132,7 +132,7 @@ export class WebhookService {
       }
 
       logger.info(stats.toString({ colors: true }));
-      logger.info('Webpack build finished', true);
+      logger.info('Webpack のビルドが完了しました。', { debug: true });
     } catch (err) {
       logger.error('Webpack build process failed: ' + err.message);
       throw err;

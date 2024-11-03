@@ -46,12 +46,12 @@ async function initializeServices() {
   const lineNotifyService = new LINENotifyService(pairService);
 
   // DiscordService
-  const discordService = DiscordService.getInstance(notionService, lineNotifyService);
+  const discordService = DiscordService.getInstance({ notionService, lineNotifyService });
   await discordService.start();
 
   try {
     const startMessage = isDevelopment ? '開発環境が起動しました' : '本番環境が起動しました';
-    logger.info(startMessage, true);
+    logger.info(startMessage, { debug: true });
   } catch (error) {
     logger.error(`LINE Notify にメッセージを送信できませんでした: ${error}`);
   }

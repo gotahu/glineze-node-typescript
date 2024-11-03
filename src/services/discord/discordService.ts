@@ -1,88 +1,110 @@
-import { Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
-import { logger } from '../../utils/logger';
-import { handleInteractionCreate, handleReactionAdd } from './discordInteraction';
-import { config } from '../../config/config';
-import { NotionService } from '../notion/notionService';
-import { LINENotifyService } from '../lineNotifyService';
-import { MessageHandler } from './messageHandler';
-import { handleThreadMembersUpdate } from './threadMember';
+import { EmbedBuilder, Client, GatewayIntentBits, Partials, Events, TextChannel } from 'discord.js';
 import { schedule } from 'node-cron';
-import { SesameDiscordService } from './sesameDiscord';
+import { logger } from '../../utils/logger';
+import { LINENotifyService } from '../lineNotifyService';
+import { NotionService } from '../notion/notionService';
 import { SesameService } from '../sesame/sesameService';
+import { handleReactionAdd, handleInteractionCreate } from './discordInteraction';
+import { MessageHandler } from './messageHandler';
+import { SesameDiscordService } from './sesameDiscord';
+import { handleThreadMembersUpdate } from './threadMember';
+import { config } from '../../config/config';
 
+// types.ts
+interface DiscordServiceDependencies {
+  notionService: NotionService;
+  lineNotifyService: LINENotifyService;
+  sesameService?: SesameService;
+}
+
+interface MessageContent {
+  content: string | EmbedBuilder[];
+  channelId: string;
+  threadId?: string;
+}
+
+// discordService.ts
 export class DiscordService {
-  public client: Client;
   private static instance: DiscordService;
+  public readonly client: Client;
 
-  private notionService: NotionService;
-  private lineNotifyService: LINENotifyService;
-  private sesameService: SesameService;
-  private sesameDiscordService: SesameDiscordService;
-
-  private messageHandler: MessageHandler;
-
+  private readonly dependencies: DiscordServiceDependencies;
+  private readonly messageHandler: MessageHandler;
+  private readonly sesameDiscordService: SesameDiscordService;
   private sesameSchedulerStarted = false;
 
-  constructor(notionService: NotionService, lineNotifyService: LINENotifyService) {
-    DiscordService.instance = this;
+  private static readonly CLIENT_OPTIONS = {
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.GuildMessageReactions,
+      GatewayIntentBits.DirectMessages,
+    ],
+    partials: [
+      Partials.Message,
+      Partials.Channel,
+      Partials.Reaction,
+      Partials.ThreadMember,
+      Partials.GuildMember,
+    ],
+  };
 
-    this.notionService = notionService;
-    this.lineNotifyService = lineNotifyService;
-    this.sesameService = new SesameService();
-    this.sesameDiscordService = new SesameDiscordService(this.sesameService, this);
+  private constructor({
+    notionService,
+    lineNotifyService,
+    sesameService = new SesameService(),
+  }: DiscordServiceDependencies) {
+    this.dependencies = { notionService, lineNotifyService, sesameService };
+    this.sesameDiscordService = new SesameDiscordService(sesameService, this);
     this.messageHandler = new MessageHandler(this);
+    this.client = new Client(DiscordService.CLIENT_OPTIONS);
 
-    const options = {
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMessageReactions,
-        GatewayIntentBits.DirectMessages,
-      ],
-      partials: [
-        Partials.Message,
-        Partials.Channel,
-        Partials.Reaction,
-        Partials.ThreadMember,
-        Partials.GuildMember,
-      ],
-    };
+    this.initializeEventListeners();
+  }
 
-    this.client = new Client(options);
-
-    this.client.on('ready', () => {
-      if (this.client.user) {
-        logger.info(`Discord bot が ${this.client.user.tag} として起動しました`);
-      } else {
-        console.log('Discord bot を起動できませんでした');
+  public static getInstance(dependencies?: DiscordServiceDependencies): DiscordService {
+    if (!DiscordService.instance) {
+      if (!dependencies?.notionService || !dependencies?.lineNotifyService) {
+        throw new Error('NotionService と LINENotifyService は初期化時に必要です');
       }
-    });
+      DiscordService.instance = new DiscordService(dependencies);
+    }
+    return DiscordService.instance;
+  }
 
-    this.client.on(Events.MessageCreate, (message) => {
-      this.messageHandler.handleMessageCreate(message);
-    });
-    this.client.on(Events.MessageReactionAdd, (reaction, user) =>
-      handleReactionAdd(reaction, user, this.notionService, this.lineNotifyService)
-    );
-    this.client.on(Events.InteractionCreate, handleInteractionCreate);
+  private initializeEventListeners(): void {
+    this.client
+      .on('ready', this.handleReady.bind(this))
+      .on(Events.MessageCreate, this.messageHandler.handleMessageCreate.bind(this.messageHandler))
+      .on(Events.MessageReactionAdd, (reaction, user) =>
+        handleReactionAdd(
+          reaction,
+          user,
+          this.dependencies.notionService,
+          this.dependencies.lineNotifyService
+        )
+      )
+      .on(Events.InteractionCreate, handleInteractionCreate)
+      .on(Events.ThreadMembersUpdate, handleThreadMembersUpdate)
+      .on(Events.MessageUpdate, this.messageHandler.handleMessageUpdate.bind(this.messageHandler));
+  }
 
-    this.client.on(Events.ThreadMembersUpdate, handleThreadMembersUpdate);
-
-    this.client.on(Events.MessageUpdate, this.messageHandler.handleMessageUpdate);
+  private handleReady(): void {
+    if (this.client.user) {
+      logger.info(`Discord bot が ${this.client.user.tag} として起動しました`);
+    } else {
+      logger.error('Discord bot を起動できませんでした');
+    }
   }
 
   public async start(): Promise<void> {
     await this.client.login(config.discord.botToken);
-
-    this.startSesameScheduler();
+    await this.startSesameScheduler();
   }
 
-  /**
-   * Sesame の施錠状態を定期的に取得し、Discord のボイスチャンネル名を更新する
-   */
-  public async startSesameScheduler(): Promise<void> {
+  private async startSesameScheduler(): Promise<void> {
     if (this.sesameSchedulerStarted) {
       logger.info('Sesame status scheduler already started');
       return;
@@ -90,149 +112,100 @@ export class DiscordService {
 
     this.sesameSchedulerStarted = true;
     logger.info('Starting Sesame status scheduler');
-    // 5分ごとに実行
+
     schedule('*/5 * * * *', async () => {
       try {
         logger.info('Updating Sesame status (on schedule)');
-        const deviceStatus = await this.sesameService.getSesameDeviceStatus();
-        console.log(deviceStatus);
-        this.sesameDiscordService.updateSesameStatusAllVoiceChannels();
+        const deviceStatus = await this.dependencies.sesameService?.getSesameDeviceStatus();
+        logger.debug(`Device status:, ${deviceStatus}`);
+        await this.sesameDiscordService.updateSesameStatusAllVoiceChannels();
       } catch (error) {
-        logger.error('Error updating Sesame status (on schedule): ' + error);
+        logger.error(`Error updating Sesame status (on schedule):, ${error}`);
       }
     });
   }
 
-  public static getInstance(
-    notionService?: NotionService,
-    lineNotifyService?: LINENotifyService
-  ): DiscordService {
-    if (!DiscordService.instance) {
-      if (!notionService || !lineNotifyService) {
-        throw new Error('NotionService と LINENotifyService は初期化時に必要です');
-      }
-      DiscordService.instance = new DiscordService(notionService, lineNotifyService);
-    }
-    return DiscordService.instance;
-  }
-
-  public getLINENotifyService(): LINENotifyService {
-    return this.lineNotifyService;
-  }
-
-  public getNotionService(): NotionService {
-    return this.notionService;
-  }
-
-  public getSesameDiscordService(): SesameDiscordService {
-    return this.sesameDiscordService;
-  }
-
-  public getSesameService(): SesameService {
-    return this.sesameService;
-  }
-
-  /**
-   * チャンネルまたはスレッドに文字列および embed を送信する
-   * @param client
-   * @param content
-   * @param channelId
-   * @param threadId 任意
-   */
-  private async sendContentToChannel(
-    client: Client,
-    content: string | EmbedBuilder[],
-    channelId: string,
-    threadId?: string
-  ) {
+  public async sendContentToChannel({
+    content,
+    channelId,
+    threadId,
+  }: MessageContent): Promise<void> {
     try {
-      const channel = client.channels.cache.get(channelId) as TextChannel;
+      const channel = this.client.channels.cache.get(channelId) as TextChannel;
 
-      if (!channel.isTextBased) {
-        logger.error('Channel is not a TextChannel');
-        return;
+      if (!channel?.isTextBased()) {
+        throw new Error('Channel is not a TextChannel');
       }
 
       const target = threadId ? await channel.threads.fetch(threadId) : channel;
 
-      if (target) {
-        if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
-          await target.send({ embeds: content });
-        } else if (typeof content === 'string') {
-          await target.send(content);
-        }
-        logger.info(`Content sent to ${threadId ? 'thread' : 'channel'}`);
-      } else {
-        logger.error(`${threadId ? 'Thread' : 'Channel'} not found`);
+      if (!target) {
+        throw new Error(`${threadId ? 'Thread' : 'Channel'} not found`);
       }
+
+      if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
+        await target.send({ embeds: content });
+      } else if (typeof content === 'string') {
+        await target.send(content);
+      }
+
+      logger.info(`Content sent to ${threadId ? 'thread' : 'channel'}`);
     } catch (error) {
-      logger.error('Error sending content: ' + error);
+      logger.error(`Error sending content:, ${error}`);
+      throw error;
     }
   }
 
-  /**
-   * チャンネルやスレッドに文字列を送信する
-   * @param client
-   * @param strings
-   * @param channelId
-   * @param threadId 任意
-   */
-  public async sendStringsToChannel(strings: string[], channelId: string, threadId?: string) {
-    for (const str of strings) {
-      await this.sendContentToChannel(this.client, str, channelId, threadId);
-    }
+  public async sendStringsToChannel(
+    strings: string[],
+    channelId: string,
+    threadId?: string
+  ): Promise<void> {
+    await Promise.all(
+      strings.map((content) => this.sendContentToChannel({ content, channelId, threadId }))
+    );
   }
 
-  /**
-   * チャンネルまたはスレッドに embed を送信する
-   * @param client
-   * @param embeds
-   * @param channelId
-   * @param threadId 任意
-   */
-  public async sendEmbedsToChannel(embeds: EmbedBuilder[], channelId: string, threadId?: string) {
-    await this.sendContentToChannel(this.client, embeds, channelId, threadId);
+  public async sendEmbedsToChannel(
+    embeds: EmbedBuilder[],
+    channelId: string,
+    threadId?: string
+  ): Promise<void> {
+    await this.sendContentToChannel({ content: embeds, channelId, threadId });
   }
 
-  /**
-   * LINE からのメッセージを Discord に送信する
-   * @param {string} lineGroupId
-   * @param {string} message
-   * @returns void
-   */
-  public async sendLINEMessageToDiscord(lineGroupId: string, message: string) {
-    // lineGroupId が undefined の場合、既定のチャンネルIDを使用
+  public async sendLINEMessageToDiscord(lineGroupId: string, message: string): Promise<void> {
+    const DEFAULT_CHANNEL_ID = '1037911984399724634';
+
     if (lineGroupId === 'undefined') {
-      await this.sendStringsToChannel([message], '1037911984399724634');
+      await this.sendStringsToChannel([message], DEFAULT_CHANNEL_ID);
       return;
     }
 
-    const lineDiscordPairs = await this.notionService.lineDiscordPairService.getLINEDiscordPairs();
-
-    // 対応するDiscordチャンネルIDを見つける
-    let discordChannelId = '';
-    for (const pair of lineDiscordPairs) {
-      if (pair.lineGroupId === lineGroupId) {
-        // priorityがtrueならそれを優先
-        if (pair.priority) {
-          discordChannelId = pair.discordChannelId;
-          break;
-        }
-        // priorityがtrueでなければ、最初に見つかったものを使用
-        if (!discordChannelId) {
-          discordChannelId = pair.discordChannelId;
-        }
-      }
-    }
+    const discordChannelId = await this.findMatchingDiscordChannel(lineGroupId);
 
     if (!discordChannelId) {
       logger.error(
-        `error: LINE BOTがメッセージを受信しましたが、対応するDiscordチャンネルが見つかりませんでした\nlineGroupId: ${lineGroupId}\nmessage: ${message}`
+        `LINE BOTがメッセージを受信しましたが、対応するDiscordチャンネルが見つかりませんでした`
       );
       return;
     }
 
-    // Discord に送信
     await this.sendStringsToChannel([message], discordChannelId);
   }
+
+  private async findMatchingDiscordChannel(lineGroupId: string): Promise<string | undefined> {
+    const pairs =
+      await this.dependencies.notionService.lineDiscordPairService.getLINEDiscordPairs();
+
+    return pairs
+      .filter((pair) => pair.lineGroupId === lineGroupId)
+      .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0))[0]?.discordChannelId;
+  }
+
+  // Getters
+  public getLINENotifyService = () => this.dependencies.lineNotifyService;
+  public getNotionService = () => this.dependencies.notionService;
+  public getSesameDiscordService = () => this.sesameDiscordService;
+  public getSesameService = () => this.dependencies.sesameService;
 }
