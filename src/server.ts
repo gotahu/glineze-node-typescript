@@ -128,7 +128,7 @@ export class AppServer {
     }
 
     this.isRestarting = true;
-    logger.info('Restarting child processes...', true);
+    logger.info('Restarting child processes...', { debug: true });
 
     await this.stopChildProcess(this.appProcess);
     this.startChildProcesses();
