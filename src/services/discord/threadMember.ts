@@ -24,7 +24,7 @@ async function handleThreadMembersUpdate(
     const lastMessage = thread.lastMessage;
     if (lastMessage) {
       const replyMessage = await lastMessage.reply(
-        'スレッドにメンバーが追加されました。誤って追加した場合は、何らかのリアクションをこのメッセージにしてください。'
+        'スレッドにメンバーが追加されました。誤って追加した場合は、何らかのリアクションをこのメッセージにしてください。このメッセージは30秒後に自動で削除されます。'
       );
 
       // メッセージを送信したユーザーと同じユーザーのリアクションのみを受け付ける
@@ -49,6 +49,7 @@ async function handleThreadMembersUpdate(
 
       collector.on('end', async (collected) => {
         await replyMessage.delete();
+        logger.info('リアクションの収集が終了しました。メッセージを削除します。');
       });
     }
   }
