@@ -23,6 +23,14 @@ async function handleThreadMembersUpdate(
     // スレッドの中で最新のメッセージを1件取得する
     const lastMessage = thread.lastMessage;
     if (lastMessage) {
+      if (lastMessage.author.bot) {
+        return;
+      }
+
+      logger.info('スレッドでのメンバー追加を検知、確認メッセージを送信しました', {
+        debug: true,
+      });
+
       const replyMessage = await lastMessage.reply(
         'スレッドにメンバーが追加されました。誤って追加した場合は、何らかのリアクションをこのメッセージにしてください。このメッセージは30秒後に自動で削除されます。'
       );
@@ -49,7 +57,9 @@ async function handleThreadMembersUpdate(
 
       collector.on('end', async (collected) => {
         await replyMessage.delete();
-        logger.info('リアクションの収集が終了しました。メッセージを削除します。');
+        logger.info(
+          'リアクションの収集が終了しました。スレッドメンバー確認メッセージを削除します。'
+        );
       });
     }
   }
