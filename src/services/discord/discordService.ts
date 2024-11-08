@@ -4,7 +4,7 @@ import { logger } from '../../utils/logger';
 import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
 import { SesameService } from '../sesame/sesameService';
-import { handleReactionAdd, handleInteractionCreate } from './discordInteraction';
+import { handleReactionAdd } from './discordInteraction';
 import { MessageHandler } from './messageHandler';
 import { SesameDiscordService } from './sesameDiscord';
 import { handleThreadMembersUpdate } from './threadMember';
@@ -86,7 +86,6 @@ export class DiscordService {
           this.dependencies.lineNotifyService
         )
       )
-      .on(Events.InteractionCreate, handleInteractionCreate)
       .on(Events.ThreadMembersUpdate, handleThreadMembersUpdate)
       .on(Events.MessageUpdate, this.messageHandler.handleMessageUpdate.bind(this.messageHandler));
   }

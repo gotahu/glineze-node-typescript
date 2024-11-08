@@ -21,14 +21,18 @@ async function handleThreadMembersUpdate(
 
     // 追加のきっかけとなったメッセージを取得
     // スレッドの中で最新のメッセージを1件取得する
-    const message = thread.lastMessage;
-    if (message) {
+    const lastMessage = thread.lastMessage;
+    if (lastMessage) {
+      const replyMessage = await lastMessage.reply(
+        'スレッドにメンバーが追加されました。誤って追加した場合は、何らかのリアクションをこのメッセージにしてください。'
+      );
+
       // メッセージを送信したユーザーと同じユーザーのリアクションのみを受け付ける
       const filter = (reaction: MessageReaction, user: User) => {
-        return reaction.emoji.name === '😇' && user.id === message.author.id;
+        return user.id === lastMessage.author.id;
       };
 
-      const collector = message.createReactionCollector({
+      const collector = replyMessage.createReactionCollector({
         filter: filter,
         time: 30_000,
       });
@@ -41,6 +45,10 @@ async function handleThreadMembersUpdate(
         );
         await removeThreadMembers(thread, addedMembers);
         thread.send('メンバーの削除が完了しました。');
+      });
+
+      collector.on('end', async (collected) => {
+        await replyMessage.delete();
       });
     }
   }

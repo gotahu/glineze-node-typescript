@@ -1,15 +1,6 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ChannelType,
-  DMChannel,
-  Message,
-  MessageType,
-} from 'discord.js';
+import { ChannelType, DMChannel, Message, MessageType } from 'discord.js';
 import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
-import { config } from '../../config/config';
 import { logger } from '../../utils/logger';
 import axios from 'axios';
 import { handleBreakoutRoomCommand } from './breakoutRoom';
@@ -123,30 +114,6 @@ export class MessageHandler {
       }
       return;
     }
-
-    // スレッドチャンネルで全員にメンションがある場合
-    if (
-      message.channel.isThread() &&
-      message.channel.parent &&
-      message.channel.parent.name.includes('スレッド') &&
-      message.mentions.roles.some((role) => role.name.includes('全員'))
-    ) {
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId('delete').setLabel('消去する').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId('ignore')
-          .setLabel('無視する')
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-      message.reply({
-        content:
-          'スレッドチャンネルで全員にメンションを行いました。\nBOTはこのイベントを取り消すことはできません。\n\nもしこれが意図した動作ではない場合、スレッドの作成者・ボタンを押すあなた・BOTの3者を残し、他の人を一旦スレッドから削除します。\nその後、再度意図する人をメンションし直してください。',
-        components: [row],
-      });
-      return;
-    }
-
     // それ以外の場合（通常のチャンネルやスレッドでのメッセージ）
 
     // LINE に送信するかどうかを判定

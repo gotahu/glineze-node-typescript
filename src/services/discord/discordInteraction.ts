@@ -33,45 +33,6 @@ async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberId
   }
 }
 
-const handleButtonInteraction = async (interaction: ButtonInteraction) => {
-  switch (interaction.customId) {
-    case 'deleteThreadMembers':
-      if (interaction.message.channel instanceof ThreadChannel) {
-        const ownerId = interaction.message.channel.ownerId;
-
-        if (ownerId) {
-          const interactionMakerId = interaction.user.id;
-          const botId = interaction.client.user.id;
-
-          const excludeMemberIds = [ownerId, interactionMakerId, botId];
-          await removeMembersExcept(interaction.message.channel, excludeMemberIds);
-          await interaction.reply({
-            content: '指定されたメンバーをスレッドから削除しました。',
-            ephemeral: true,
-          });
-        } else {
-          await interaction.reply({
-            content: 'この操作はスレッド内でのみ有効です。',
-            ephemeral: true,
-          });
-        }
-      }
-      break;
-
-    case 'ignore':
-      if (interaction.message.deletable) {
-        await interaction.message.delete();
-      }
-      break;
-  }
-};
-
-export const handleInteractionCreate = async (interaction: BaseInteraction) => {
-  if (interaction.isButton()) {
-    await handleButtonInteraction(interaction);
-  }
-};
-
 export async function handleReactionAdd(
   reaction: MessageReaction | PartialMessageReaction,
   user: User | PartialUser,
