@@ -8,6 +8,7 @@ import {
 } from 'discord.js';
 import { logger } from '../../utils/logger';
 import { setTimeout } from 'timers/promises';
+import { debug } from 'console';
 
 async function handleThreadMembersUpdate(
   addedMembers: Collection<Snowflake, ThreadMember>,
@@ -58,7 +59,8 @@ async function handleThreadMembersUpdate(
       collector.on('end', async (collected) => {
         await replyMessage.delete();
         logger.info(
-          'リアクションの収集が終了しました。スレッドメンバー確認メッセージを削除します。'
+          'リアクションの収集が終了しました。スレッドメンバー確認メッセージを削除します。',
+          { debug: true }
         );
       });
     }
