@@ -59,7 +59,16 @@ async function removeThreadMembers(
   thread: AnyThreadChannel,
   members: Collection<Snowflake, ThreadMember>
 ) {
-  await Promise.all(Array.from(members.values()).map((member) => thread.members.remove(member.id)));
+  for (const member of members.values()) {
+    if (!member.partial) {
+      try {
+        await thread.members.remove(member.id);
+        logger.info(`メンバー ${member.user.displayName} をスレッドから削除しました。`);
+      } catch (error) {
+        logger.error(`メンバー ${member.user.displayName} の削除に失敗しました。`);
+      }
+    }
+  }
 }
 
 export { handleThreadMembersUpdate, removeThreadMembers };
