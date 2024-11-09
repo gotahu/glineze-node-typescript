@@ -3,16 +3,17 @@ import { CONSTANTS } from '../config/constants';
 import { logger } from '../utils/logger';
 import {
   Attachment,
+  Channel,
   ChannelType,
   Collection,
   Message,
   TextChannel,
   ThreadChannel,
   User,
+  VoiceChannel,
 } from 'discord.js';
 import { config } from '../config/config';
 import { LINEDiscordPairService } from './notion/lineDiscordPairService';
-
 interface AttachmentInfo {
   isImage: boolean;
   url: string;
@@ -34,7 +35,9 @@ export class LINENotifyService {
       : message.guild?.name || MESSAGE_CONSTANTS.UNKNOWN_SERVER;
   }
 
-  private async createMessageTitle(channel: ThreadChannel | TextChannel): Promise<string> {
+  private async createMessageTitle(
+    channel: TextChannel | VoiceChannel | ThreadChannel
+  ): Promise<string> {
     let title = `${channel.guild.name}: #`;
 
     if (channel.isThread() && channel.parent) {
@@ -124,41 +127,42 @@ export class LINENotifyService {
   public async relayMessage(message: Message, isVoid: boolean = false): Promise<void> {
     try {
       if (
-        message.channel.type !== ChannelType.GuildText &&
-        message.channel.type !== ChannelType.PublicThread &&
-        message.channel.type !== ChannelType.PrivateThread &&
-        message.channel.type !== ChannelType.DM
+        message.channel.type === ChannelType.DM ||
+        message.channel.type === ChannelType.GuildText ||
+        message.channel.type === ChannelType.GuildVoice ||
+        message.channel.type === ChannelType.PrivateThread ||
+        message.channel.type === ChannelType.PublicThread
       ) {
-        logger.error('メッセージの転送に失敗: 未対応のチャンネルタイプです');
+        const messageText = message.cleanContent;
+        const messageAuthor = await this.getMessageAuthor(message.author);
+
+        // DMの場合の処理
+        if (message.channel.type === ChannelType.DM) {
+          const serverName = this.getServerName(message);
+          await this.postTextToLINENotify(
+            config.lineNotify.voidToken,
+            `${serverName}: ${messageAuthor.username}\n${messageText}`
+          );
+          return;
+        }
+
+        // 通常チャンネルの処理
+        const token = await this.getNotifyToken(message, isVoid);
+        const messageTitle = await this.createMessageTitle(message.channel);
+        const fullTitle = `${messageTitle}\n${messageAuthor.username}:`;
+
+        if (message.attachments.size === 0) {
+          logger.info('メッセージを転送: 添付ファイルなし');
+          await this.postTextToLINENotify(token, `${fullTitle}\n${messageText}`);
+          return;
+        }
+
+        logger.info('メッセージを転送: 添付ファイルあり');
+        await this.sendMessageWithAttachments(token, fullTitle, messageText, message.attachments);
+      } else {
+        logger.info(`メッセージの転送対象外: 不明なチャンネルタイプ ${message.channel.type}`);
         return;
       }
-
-      const messageText = message.cleanContent;
-      const messageAuthor = await this.getMessageAuthor(message.author);
-
-      // DMの場合の処理
-      if (message.channel.type === ChannelType.DM) {
-        const serverName = this.getServerName(message);
-        await this.postTextToLINENotify(
-          config.lineNotify.voidToken,
-          `${serverName}: ${messageAuthor.username}\n${messageText}`
-        );
-        return;
-      }
-
-      // 通常チャンネルの処理
-      const token = await this.getNotifyToken(message, isVoid);
-      const messageTitle = await this.createMessageTitle(message.channel);
-      const fullTitle = `${messageTitle}\n${messageAuthor.username}:`;
-
-      if (message.attachments.size === 0) {
-        logger.info('メッセージを転送: 添付ファイルなし');
-        await this.postTextToLINENotify(token, `${fullTitle}\n${messageText}`);
-        return;
-      }
-
-      logger.info('メッセージを転送: 添付ファイルあり');
-      await this.sendMessageWithAttachments(token, fullTitle, messageText, message.attachments);
     } catch (error) {
       logger.error(`メッセージの転送中にエラーが発生: ${error}`);
       throw error;
