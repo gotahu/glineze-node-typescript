@@ -8,7 +8,6 @@ import {
 } from 'discord.js';
 import { logger } from '../../utils/logger';
 import { setTimeout } from 'timers/promises';
-import { debug } from 'console';
 
 async function handleThreadMembersUpdate(
   addedMembers: Collection<Snowflake, ThreadMember>,
