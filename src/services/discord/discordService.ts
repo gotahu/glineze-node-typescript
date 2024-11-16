@@ -1,4 +1,12 @@
-import { EmbedBuilder, Client, GatewayIntentBits, Partials, Events, TextChannel } from 'discord.js';
+import {
+  EmbedBuilder,
+  Client,
+  GatewayIntentBits,
+  Partials,
+  Events,
+  TextChannel,
+  ThreadChannel,
+} from 'discord.js';
 import { schedule } from 'node-cron';
 import { logger } from '../../utils/logger';
 import { LINENotifyService } from '../lineNotifyService';

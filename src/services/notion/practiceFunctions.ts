@@ -4,6 +4,9 @@ import { DiscordService } from '../discord/discordService';
 import { PracticeService } from './practiceService';
 import { config } from '../../config/config';
 import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
+import { Practice } from '../../types/types';
+import { format } from 'date-fns';
+import { TextChannel, ThreadChannel } from 'discord.js';
 
 export async function remindPractice(
   service: PracticeService,
@@ -35,7 +38,7 @@ export async function remindPractice(
   }
 }
 
-export async function remindPracticeToBashotori(notion: NotionService, discord: DiscordService) {
+async function fetchRemindablePractices(notion: NotionService): Promise<Practice[]> {
   try {
     const facilityDatabaseId = config.getConfig('facility_databaseid');
     const facilities = await queryAllDatabasePages(notion.client, facilityDatabaseId, {
@@ -45,9 +48,10 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
 
     if (facilities.length === 0) {
       logger.info('リマインド対象の施設はありません', { debug: true });
-      return;
+      return [];
     }
 
+    const remindablePractices = [];
     for (const facility of facilities) {
       const facilityName = getStringPropertyValue(facility, 'タイトル');
       const daysFromToday = Number.parseInt(getStringPropertyValue(facility, 'リマインド'));
@@ -63,21 +67,40 @@ export async function remindPracticeToBashotori(notion: NotionService, discord: 
       const targetPractices = practices.filter((p) => p.place === facilityName);
 
       if (targetPractices.length > 0) {
-        // 送信先のチャンネルIDとスレッドIDを取得
-        const channelId = config.getConfig('bashotori_remind_channelid');
-        const threadId = config.getConfig('bashotori_remind_threadid');
-
-        const message =
-          `## 場所取りリマインド\nリマインド対象の「${facilityName}」で ${daysFromToday} 日後に練習があります。\n` +
-          `${targetPractices.map((p) => `- [${p.title}](${p.url})`).join('\n')}`;
-
-        // 送信する
-        await discord.sendStringsToChannel([message], channelId, threadId);
-        logger.info(`リマインドを送信しました: ${targetPractices.length}件`, { debug: true });
-      } else {
-        logger.info(`リマインド対象の練習はありませんでした: ${facilityName}`, { debug: true });
+        remindablePractices.push(...targetPractices);
       }
     }
+
+    return remindablePractices;
+  } catch (err) {
+    logger.error('Error in fetchRemindablePractices: ' + err);
+  }
+}
+
+export async function remindPracticesToChannel(notion: NotionService, channel: TextChannel) {
+  try {
+    const remindablePractices = await fetchRemindablePractices(notion);
+
+    if (remindablePractices.length === 0) {
+      logger.info('リマインド対象の練習はありません', { debug: true });
+      return;
+    }
+
+    for (const practice of remindablePractices) {
+      const place = practice.place;
+      const date = format(practice.date, 'yyyy/MM/dd');
+
+      const message =
+        `## 場所取りリマインド\nリマインド対象の「${place}」で ${date} に練習があります。\n` +
+        `${remindablePractices.map((p) => `- [${p.title}](${p.url})`).join('\n')}`;
+
+      logger.info(`${place}で${date}に行われる練習のリマインドを送信します`, { debug: true });
+
+      // 送信する
+      await channel.send(message);
+    }
+
+    logger.info('場所取りリマインドが正常に完了しました', { debug: true });
   } catch (err) {
     logger.error('Error in remindPracticeToBashotori: ' + err);
   }

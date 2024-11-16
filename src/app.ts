@@ -3,12 +3,13 @@ import { logger } from './utils/logger';
 import { DiscordService } from './services/discord/discordService';
 import { NotionService } from './services/notion/notionService';
 import { LINENotifyService } from './services/lineNotifyService';
-import { remindPractice, remindPracticeToBashotori } from './services/notion/practiceFunctions';
+import { remindPractice, remindPracticesToChannel } from './services/notion/practiceFunctions';
 import { GASEvent } from './types/types';
 import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';
 import { updateBotProfile, updateChannelTopic } from './services/discord/countdown';
 import { isDevelopment } from './utils/environment';
+import { TextChannel, ThreadChannel } from 'discord.js';
 
 const app = express();
 app.use(express.json());
@@ -108,7 +109,11 @@ async function handleEvent(
         break;
       case 'AKanRemind':
         logger.info('GAS: AKanRemind');
-        await remindPracticeToBashotori(notionService, discordService);
+        const remindThreadId = config.getConfig('practice_remind_threadid');
+
+        const channel = (await discordService.client.channels.fetch(remindThreadId)) as TextChannel;
+        // リマインドを送信
+        await remindPracticesToChannel(notionService, channel);
         break;
       case 'message':
         if (event.groupid && event.name && event.message) {

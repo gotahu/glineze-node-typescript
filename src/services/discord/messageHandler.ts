@@ -1,4 +1,4 @@
-import { ChannelType, DMChannel, Message, MessageType } from 'discord.js';
+import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'discord.js';
 import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
 import { logger } from '../../utils/logger';
@@ -13,6 +13,7 @@ import { replyShukinStatus } from './commands/shukin';
 import { handleDeleteChannelCommand } from './commands/deletechannel';
 import { handleSesameStatusCommand } from './commands/sesame';
 import { handleNotifyPracticesCommand } from './commands/practice';
+import { remindPracticesToChannel } from '../notion/practiceFunctions';
 
 export class MessageHandler {
   private notionService: NotionService;
@@ -101,6 +102,11 @@ export class MessageHandler {
     if (message.content.startsWith('!line-discord')) {
       await handleLineDiscordCommand(message, this.notionService.lineDiscordPairService);
       return;
+    }
+
+    if (message.content.startsWith('!bashotoriremind')) {
+      const channel = message.channel as TextChannel;
+      await remindPracticesToChannel(this.notionService, channel);
     }
 
     // メッセージにGLOBALIPが含まれている場合
