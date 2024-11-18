@@ -5,6 +5,7 @@ import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { replaceEnglishDayWithJapanese } from '../../utils/dateUtils';
 import { config } from '../../config/config';
 import { getRelationPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
+import { addDays, format } from 'date-fns';
 
 export class PracticeService {
   private client: Client;
@@ -14,11 +15,10 @@ export class PracticeService {
   }
 
   public async retrievePracticesForRelativeDay(daysFromToday: number): Promise<Practice[]> {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + daysFromToday);
-    const formattedDate = targetDate.toISOString().split('T')[0];
+    const targetDate = addDays(new Date(), daysFromToday);
+    const formattedDate = format(targetDate, 'yyyy-MM-dd');
 
-    logger.info(`Retrieving practices for date: ${formattedDate}`);
+    logger.info(`Retrieving practices for date: ${formattedDate}`, { debug: true });
 
     try {
       const databaseId = config.getConfig('practice_databaseid');
