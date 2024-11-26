@@ -9,7 +9,7 @@ import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';
 import { updateBotProfile, updateChannelTopic } from './services/discord/countdown';
 import { isDevelopment } from './utils/environment';
-import { TextChannel, ThreadChannel } from 'discord.js';
+import { TextChannel } from 'discord.js';
 
 const app = express();
 app.use(express.json());
@@ -109,7 +109,7 @@ async function handleEvent(
         break;
       case 'AKanRemind':
         logger.info('GAS: AKanRemind');
-        const remindThreadId = config.getConfig('practice_remind_threadid');
+        const remindThreadId = config.getConfig('bashotori_remind_threadid');
 
         const channel = (await discordService.client.channels.fetch(remindThreadId)) as TextChannel;
         // リマインドを送信
