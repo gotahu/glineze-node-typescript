@@ -4,12 +4,13 @@ import { DiscordService } from './services/discord/discordService';
 import { NotionService } from './services/notion/notionService';
 import { LINENotifyService } from './services/lineNotifyService';
 import { remindPractice, remindPracticesToChannel } from './services/notion/practiceFunctions';
-import { GASEvent } from './types/types';
+import { GASEvent, NotionAutomationWebhookEvent } from './types/types';
 import { config } from './config/config';
 import { fetchKondate } from './services/notion/kondate';
 import { updateBotProfile, updateChannelTopic } from './services/discord/countdown';
 import { isDevelopment } from './utils/environment';
 import { TextChannel } from 'discord.js';
+import { handleShukinAutomation } from './services/notion/automation/ShukinAutomation';
 
 const app = express();
 app.use(express.json());
@@ -81,6 +82,40 @@ function setupAPIEndpoints(services: {
 
       for (const event of events) {
         await handleEvent(event, notionService, discordService);
+      }
+
+      res.status(200).end();
+    } catch (error) {
+      logger.error(`Error in API endpoint: ${error}`);
+      res.status(500).end();
+    }
+  });
+
+  app.post('/automation', async (req, res) => {
+    try {
+      console.log(req);
+
+      if (!req.body) {
+        logger.error('Invalid requiest: missing body');
+        res.status(400).send('Invalid request: missing body');
+        return;
+      }
+
+      const event = req.body as NotionAutomationWebhookEvent;
+
+      // database_id が存在する
+      if (event.data.parent['database_id']) {
+        const databaseId = (event.data.parent['database_id'] as string).replace(/-/g, '');
+
+        const shukinDatabaseId = config.getConfig('shukin_databaseid');
+
+        if (databaseId === shukinDatabaseId) {
+          handleShukinAutomation(event, { notion: notionService, discord: discordService });
+        } else {
+          logger.error('Invalid request: invalid database_id');
+        }
+      } else {
+        logger.error('Invalid request: missing database_id');
       }
 
       res.status(200).end();

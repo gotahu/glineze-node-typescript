@@ -47,7 +47,7 @@ export class ShukinService {
     }
   }
 
-  private extractShukinInfo(page: PageObjectResponse): ShukinInfo[] {
+  public extractShukinInfo(page: PageObjectResponse): ShukinInfo[] {
     const shukinList: ShukinInfo[] = [];
 
     for (const [key, prop] of Object.entries(page.properties)) {
@@ -72,7 +72,7 @@ export class ShukinService {
     return shukinList;
   }
 
-  private formatReplyMessage(memberName: string, shukinList: ShukinInfo[]): string {
+  public formatReplyMessage(memberName: string, shukinList: ShukinInfo[]): string {
     let message = `${memberName} さんの集金状況をお知らせします。\n### 集金状況`;
 
     if (shukinList.length === 0) {

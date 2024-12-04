@@ -1,3 +1,5 @@
+import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+
 export type LINEDiscordPairInfo = {
   name: string;
   lineGroupId: string;
@@ -99,4 +101,15 @@ export interface LoggerConfig {
   lineNotifyToken: string;
   discordWebhookUrl: string;
   enableDebugOutput: boolean;
+}
+
+export interface NotionAutomationWebhookEvent {
+  source: {
+    type: string;
+    automation_id: string;
+    action_id: string;
+    event_id: string;
+    attempt: number;
+  };
+  data: PageObjectResponse;
 }

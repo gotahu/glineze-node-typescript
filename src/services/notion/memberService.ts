@@ -12,7 +12,35 @@ export class MemberService {
     this.client = client;
   }
 
-  public async retrieveGlanzeMember(discordId: string): Promise<GlanzeMember | undefined> {
+  public async retrieveGlanzeMemberFromNotionPage(page: PageObjectResponse): Promise<GlanzeMember> {
+    try {
+      if (page === undefined) {
+        throw new Error('Notion page is undefined');
+      }
+
+      if (page.object !== 'page') {
+        throw new Error('Notion object is not a page');
+      }
+
+      const member: GlanzeMember = {
+        notionPageId: page.id,
+        discordUserId: getStringPropertyValue(page, 'Discord') || '',
+        name: getStringPropertyValue(page, '名前') || '',
+        generation: getStringPropertyValue(page, '期') || '',
+        part4: getStringPropertyValue(page, '4パート') || '',
+        part8: getStringPropertyValue(page, '8パート') || '',
+      };
+
+      return member;
+    } catch (error) {
+      logger.error(`Failed to retrieve GlanzeMember: ${error}`);
+      throw error;
+    }
+  }
+
+  public async retrieveGlanzeMemberFromDiscordId(
+    discordId: string
+  ): Promise<GlanzeMember | undefined> {
     try {
       const databaseId = config.getConfig('discord_and_notion_pairs_databaseid');
       const response = await this.client.databases.query({
@@ -30,16 +58,7 @@ export class MemberService {
 
       const page = response.results[0] as PageObjectResponse;
 
-      const member: GlanzeMember = {
-        notionPageId: page.id,
-        discordUserId: discordId,
-        name: getStringPropertyValue(page, '名前') || '',
-        generation: getStringPropertyValue(page, '期') || '',
-        part4: getStringPropertyValue(page, '4パート') || '',
-        part8: getStringPropertyValue(page, '8パート') || '',
-      };
-
-      return member;
+      return this.retrieveGlanzeMemberFromNotionPage(page);
     } catch (error) {
       logger.error(`Failed to retrieve GlanzeMember: ${error}`);
       return undefined;

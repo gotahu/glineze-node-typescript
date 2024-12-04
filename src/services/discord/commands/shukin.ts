@@ -6,7 +6,7 @@ import { NotionService } from '../../notion/notionService';
 export async function replyShukinStatus(notion: NotionService, message: Message) {
   try {
     const authorId = message.author.id;
-    const glanzeMember = await notion.memberService.retrieveGlanzeMember(authorId);
+    const glanzeMember = await notion.memberService.retrieveGlanzeMemberFromDiscordId(authorId);
 
     // 団員名簿から情報を取得できなかった場合
     if (!glanzeMember) {
