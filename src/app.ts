@@ -24,11 +24,14 @@ async function main() {
 
   try {
     const services = await initializeServices();
+    // DiscordService が初期化されたら logger に設定
+    logger.setDiscordService(services.discordService);
     setupAPIEndpoints(services);
     startServer();
     logger.info('アプリが正常に起動しました。');
   } catch (error) {
-    logger.error(`アプリの起動に失敗しました: ${error}` + '\n再起動を試みます。');
+    // エラー発生時、まだ discordService が存在しない可能性があるため、ここでは logger.error() ではなく console.error() を使用
+    console.error(`アプリの起動に失敗しました: ${error}` + '\n再起動を試みます。');
     process.exit(1);
   }
 }

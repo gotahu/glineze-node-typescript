@@ -6,6 +6,7 @@ import { LoggerConfig, LogMessage, LogLevel } from '../types/types';
 export class Logger {
   private static instance: Logger;
   private readonly config: LoggerConfig;
+  private discordService?: DiscordService; // 後から注入されるDiscordService
 
   private constructor(config: LoggerConfig) {
     this.config = config;
@@ -23,6 +24,14 @@ export class Logger {
     return Logger.instance;
   }
 
+  /**
+   * DiscordServiceを後から注入するメソッド
+   * DiscordServiceが完全に初期化されてから呼び出してください。
+   */
+  public setDiscordService(discordService: DiscordService): void {
+    this.discordService = discordService;
+  }
+
   private formatLogMessage(
     level: LogLevel,
     message: string,
@@ -37,14 +46,17 @@ export class Logger {
   }
 
   private async sendToDiscord(logMessage: LogMessage): Promise<void> {
-    try {
-      const discordService = DiscordService.getInstance();
-      if (!discordService) {
-        throw new Error('DiscordService is not initialized');
-      }
+    // DiscordService が未初期化ならDiscordへの送信はスキップ
+    if (!this.discordService) {
+      return;
+    }
 
+    try {
       const formattedMessage = `[${logMessage.level}] [${logMessage.timestamp.toISOString()}] ${logMessage.message}`;
-      await discordService.sendStringsToChannel([formattedMessage], this.config.loggerChannelId);
+      await this.discordService.sendStringsToChannel(
+        [formattedMessage],
+        this.config.loggerChannelId
+      );
     } catch (error) {
       console.error(
         `Failed to send message to Discord: ${error instanceof Error ? error.message : String(error)}`
@@ -78,8 +90,13 @@ export class Logger {
     const logMessage = this.formatLogMessage(LogLevel.INFO, message, metadata);
     console.log(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 
+    // debugオプション付きの場合はLINEとWebhookにも送信
     if (metadata?.debug) {
-      await Promise.allSettled([this.sendToLineNotify(logMessage), this.sendToWebhook(logMessage)]);
+      await Promise.allSettled([
+        this.sendToLineNotify(logMessage),
+        this.sendToWebhook(logMessage),
+        this.sendToDiscord(logMessage),
+      ]);
     }
   }
 
@@ -103,5 +120,4 @@ export class Logger {
   }
 }
 
-// 使いやすいようにデフォルトエクスポートを提供
 export const logger = Logger.getInstance();
