@@ -39,7 +39,7 @@ export class AppServer {
     const proxies = [
       { path: '/app', target: `http://localhost:${config.app.port}/` },
       { path: '/webhook', target: `http://localhost:${config.webhook.port}/` },
-      { path: '/oshigla', target: `http://localhost:${config.oshigla.port}/` },
+      { path: '/oshigla', target: `http://oshigla:${config.oshigla.port}/` },
     ];
 
     // 各プロキシを設定
