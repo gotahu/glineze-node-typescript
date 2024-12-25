@@ -5,18 +5,15 @@ import path from 'path';
 import { isDevelopment } from './utils/environment';
 import { config } from './config/config';
 import { logger } from './utils/logger';
-import { WebhookService } from './services/webhookService';
 
 export class AppServer {
   private appProcess: ChildProcess | null = null;
   private isRestarting = false;
   private app: express.Express;
   private server: import('http').Server;
-  private webhookService: WebhookService;
 
   constructor() {
     this.app = express();
-    this.webhookService = new WebhookService(this);
     this.setupProxy();
     this.setupProcessHandlers();
   }
