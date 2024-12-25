@@ -99,7 +99,7 @@ function setupAPIEndpoints(services: {
       console.log(req);
 
       if (!req.body) {
-        logger.error('Invalid requiest: missing body');
+        logger.error('Invalid request: missing body');
         res.status(400).send('Invalid request: missing body');
         return;
       }
