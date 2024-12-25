@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "NODE_ENV=production node --env-file=.env dist/server.js",
-    "start:dev": "ts-node --env-file=.env src/server.ts",
+    "start:dev": "NODE_ENV=development node --env-file=.env -r ts-node/register ./src/server.ts",
     "build": "tsc && webpack --config webpack/webpack.prod.ts",
     "dev": "npm run start:dev"
   },
