@@ -22,8 +22,9 @@ jobs:
 
       - name: Build
         env:
-          BOT_PATH: ${{ secrets.CONTAINER_PATH }}
+          CONTAINER_PATH: ${{ secrets.CONTAINER_PATH }}
         run: |
+          cd $CONTAINER_PATH
           docker compose build
 
       - name: Deploy
