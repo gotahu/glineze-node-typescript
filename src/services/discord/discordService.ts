@@ -1,12 +1,4 @@
-import {
-  EmbedBuilder,
-  Client,
-  GatewayIntentBits,
-  Partials,
-  Events,
-  TextChannel,
-  ThreadChannel,
-} from 'discord.js';
+import { EmbedBuilder, Client, GatewayIntentBits, Partials, Events, TextChannel } from 'discord.js';
 import { schedule } from 'node-cron';
 import { logger } from '../../utils/logger';
 import { LINENotifyService } from '../lineNotifyService';
@@ -17,6 +9,7 @@ import { MessageHandler } from './messageHandler';
 import { SesameDiscordService } from './sesameDiscord';
 import { handleThreadMembersUpdate } from './threadMember';
 import { config } from '../../config/config';
+import { Services } from '../../types/types';
 
 // types.ts
 interface DiscordServiceDependencies {
@@ -33,53 +26,51 @@ interface MessageContent {
 
 // discordService.ts
 export class DiscordService {
-  private static instance: DiscordService;
   public readonly client: Client;
 
-  private readonly dependencies: DiscordServiceDependencies;
   private readonly messageHandler: MessageHandler;
   private readonly sesameDiscordService: SesameDiscordService;
   private sesameSchedulerStarted = false;
 
-  private static readonly CLIENT_OPTIONS = {
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.MessageContent,
-      GatewayIntentBits.GuildMessageReactions,
-      GatewayIntentBits.DirectMessages,
-    ],
-    partials: [
-      Partials.Message,
-      Partials.Channel,
-      Partials.Reaction,
-      Partials.ThreadMember,
-      Partials.GuildMember,
-    ],
-  };
+  private readonly services: Services;
 
-  private constructor({
-    notionService,
-    lineNotifyService,
-    sesameService = new SesameService(),
-  }: DiscordServiceDependencies) {
-    this.dependencies = { notionService, lineNotifyService, sesameService };
-    this.sesameDiscordService = new SesameDiscordService(sesameService, this);
-    this.messageHandler = new MessageHandler(this);
-    this.client = new Client(DiscordService.CLIENT_OPTIONS);
+  constructor(services: { notion: NotionService; lineNotify: LINENotifyService }) {
+    // インスタンスを格納
+    this.services = {
+      notion: services.notion,
+      lineNotify: services.lineNotify,
+      discord: this,
+      sesame: new SesameService(),
+    };
 
+    // SesameDiscordService を初期化
+    this.sesameDiscordService = new SesameDiscordService(this.services);
+
+    const options = {
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.DirectMessages,
+      ],
+      partials: [
+        Partials.Message,
+        Partials.Channel,
+        Partials.Reaction,
+        Partials.ThreadMember,
+        Partials.GuildMember,
+      ],
+    };
+    // Discord Client を初期化
+    this.client = new Client(options);
+
+    // MessageHandler を初期化
+    this.messageHandler = new MessageHandler(this.services);
+
+    // イベントリスナーを初期化
     this.initializeEventListeners();
-  }
-
-  public static getInstance(dependencies?: DiscordServiceDependencies): DiscordService {
-    if (!DiscordService.instance) {
-      if (!dependencies?.notionService || !dependencies?.lineNotifyService) {
-        throw new Error('NotionService と LINENotifyService は初期化時に必要です');
-      }
-      DiscordService.instance = new DiscordService(dependencies);
-    }
-    return DiscordService.instance;
   }
 
   private initializeEventListeners(): void {
@@ -87,12 +78,7 @@ export class DiscordService {
       .on('ready', this.handleReady.bind(this))
       .on(Events.MessageCreate, this.messageHandler.handleMessageCreate.bind(this.messageHandler))
       .on(Events.MessageReactionAdd, (reaction, user) =>
-        handleReactionAdd(
-          reaction,
-          user,
-          this.dependencies.notionService,
-          this.dependencies.lineNotifyService
-        )
+        handleReactionAdd(reaction, user, this.services)
       )
       .on(Events.ThreadMembersUpdate, handleThreadMembersUpdate)
       .on(Events.MessageUpdate, this.messageHandler.handleMessageUpdate.bind(this.messageHandler));
@@ -122,8 +108,9 @@ export class DiscordService {
 
     schedule('*/5 * * * *', async () => {
       try {
+        const sesame = this.services.sesame;
         logger.info('Updating Sesame status (on schedule)');
-        const deviceStatus = await this.dependencies.sesameService?.getSesameDeviceStatus();
+        const deviceStatus = await sesame?.getSesameDeviceStatus();
         logger.debug(`Device status:, ${deviceStatus}`);
         await this.sesameDiscordService.updateSesameStatusAllVoiceChannels();
       } catch (error) {
@@ -201,18 +188,12 @@ export class DiscordService {
     await this.sendStringsToChannel([message], discordChannelId);
   }
 
-  private async findMatchingDiscordChannel(lineGroupId: string): Promise<string | undefined> {
-    const pairs =
-      await this.dependencies.notionService.lineDiscordPairService.getLINEDiscordPairs();
+  public async findMatchingDiscordChannel(lineGroupId: string): Promise<string | undefined> {
+    const { notion } = this.services;
+    const pairs = await notion.lineDiscordPairService.getLINEDiscordPairs();
 
     return pairs
       .filter((pair) => pair.lineGroupId === lineGroupId)
       .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0))[0]?.discordChannelId;
   }
-
-  // Getters
-  public getLINENotifyService = () => this.dependencies.lineNotifyService;
-  public getNotionService = () => this.dependencies.notionService;
-  public getSesameDiscordService = () => this.sesameDiscordService;
-  public getSesameService = () => this.dependencies.sesameService;
 }

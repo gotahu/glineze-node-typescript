@@ -12,6 +12,12 @@ export class LINEDiscordPairService {
 
   constructor(client: Client) {
     this.client = client;
+
+    this.initialize()
+      .then()
+      .catch((error) => {
+        logger.error(`Failed to initialize LINEDiscordPairService: ${error}`);
+      });
   }
 
   public async initialize(): Promise<void> {

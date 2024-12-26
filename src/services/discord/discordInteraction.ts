@@ -20,6 +20,7 @@ import {
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
 import { LINENotifyService } from '../lineNotifyService';
+import { Services } from '../../types/types';
 
 async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberIds: string[]) {
   try {
@@ -36,9 +37,9 @@ async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberId
 export async function handleReactionAdd(
   reaction: MessageReaction | PartialMessageReaction,
   user: User | PartialUser,
-  notion: NotionService,
-  lineNotify: LINENotifyService
+  services: Services
 ) {
+  const { notion, lineNotify } = services;
   if (user.bot) return;
 
   reaction.message.fetch().then((message) => {

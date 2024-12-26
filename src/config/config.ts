@@ -17,6 +17,10 @@ export const config = {
   lineNotify: {
     voidToken: process.env.LINE_NOTIFY_VOID_TOKEN,
   },
+  lineBot: {
+    channelSecret: process.env.LINEBOT_CHANNEL_SECRET,
+    channelAccessToken: process.env.LINEBOT_CHANNEL_ACCESS_TOKEN,
+  },
   server: {
     port: Number(process.env.SERVER_PORT) || 3000,
   },

@@ -1,15 +1,10 @@
-import { NotionAutomationWebhookEvent } from '../../../types/types';
+import { NotionAutomationWebhookEvent, Services } from '../../../types/types';
 import { logger } from '../../../utils/logger';
 import { getRelationPropertyValue } from '../../../utils/notionUtils';
-import { DiscordService } from '../../discord/discordService';
-import { NotionService } from '../notionService';
 
 export async function handleShukinAutomation(
   event: NotionAutomationWebhookEvent,
-  services: {
-    notion: NotionService;
-    discord: DiscordService;
-  }
+  services: Services
 ) {
   logger.info('handleShukinAutomation:', { debug: true });
 
