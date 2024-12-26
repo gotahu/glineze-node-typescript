@@ -1,6 +1,5 @@
 import { Message } from 'discord.js';
 import { logger } from '../../../utils/logger';
-import { MemberService } from '../../notion/memberService';
 import { NotionService } from '../../notion/notionService';
 
 export async function replyShukinStatus(notion: NotionService, message: Message) {

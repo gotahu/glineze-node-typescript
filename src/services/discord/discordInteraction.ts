@@ -1,6 +1,4 @@
 import {
-  BaseInteraction,
-  ButtonInteraction,
   ChannelType,
   Message,
   MessageReaction,
@@ -18,8 +16,6 @@ import {
 } from '../notion/notionInteraction';
 
 import { logger } from '../../utils/logger';
-import { NotionService } from '../notion/notionService';
-import { LINENotifyService } from '../lineNotifyService';
 import { Services } from '../../types/types';
 
 async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberIds: string[]) {

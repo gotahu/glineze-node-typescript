@@ -1,11 +1,4 @@
-import {
-  ClientConfig,
-  MessageAPIResponseBase,
-  messagingApi,
-  middleware,
-  webhook,
-  WebhookEvent,
-} from '@line/bot-sdk';
+import { ClientConfig, MessageAPIResponseBase, messagingApi, webhook } from '@line/bot-sdk';
 import { config } from '../../config/config';
 
 import { DiscordService } from '../discord/discordService';

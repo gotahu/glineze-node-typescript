@@ -3,7 +3,6 @@ import { CONSTANTS } from '../config/constants';
 import { logger } from '../utils/logger';
 import {
   Attachment,
-  Channel,
   ChannelType,
   Collection,
   Message,
