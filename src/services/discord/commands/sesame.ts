@@ -6,7 +6,7 @@ import { logger } from '../../../utils/logger';
 
 export async function handleSesameStatusCommand(sesameService: SesameService, message: Message) {
   try {
-    const status = await this.sesameService.getSesameDeviceStatus();
+    const status = await sesameService.getSesameDeviceStatus();
     const dateStr = format(new Date(status.timestamp), 'yyyy-MM-dd HH:mm:ss');
     message.reply(`施錠状態: ${StatusMessage[status.lockStatus]}, タイムスタンプ：${dateStr}`);
   } catch (error) {
