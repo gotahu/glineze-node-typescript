@@ -17,6 +17,7 @@ export type Services = {
   discord: DiscordService;
   notion: NotionService;
   lineNotify: LINENotifyService;
+  sesame?: SesameService;
 };
 
 export type SesameHistory = {
