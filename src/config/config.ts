@@ -61,8 +61,8 @@ export const config = {
         }
       }
 
-      logger.info('Config を Notion から読み込み、初期化が完了しました。');
       console.log(this.notionConfigs);
+      logger.info('Config を Notion から読み込み、初期化が完了しました。');
     } catch (error) {
       logger.error(`Config の初期化に失敗しました: ${error}`);
       throw new Error('Failed to initialize configuration');
@@ -74,7 +74,7 @@ export const config = {
     const value = this.notionConfigs.get(key);
     if (!value) {
       throw new Error(
-        `Config に key: ${key} が存在しません。正しく設定されているか確認してください。`
+        `Config に key: ${key} が存在しません。正しく設定されているかどうか、スペルが間違っていないかよく確認してください。リロードするには、DM で「リロード」と送信してください。`
       );
     }
     return value;
