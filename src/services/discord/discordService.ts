@@ -123,11 +123,7 @@ export class DiscordService {
     });
   }
 
-  public async sendContentToChannel({
-    content,
-    channelId,
-    threadId,
-  }: MessageContent): Promise<void> {
+  public async sendContentToChannel({ content, channelId }: MessageContent): Promise<void> {
     try {
       const channel = this.client.channels.cache.get(channelId) as TextChannel;
 
@@ -135,33 +131,21 @@ export class DiscordService {
         throw new Error('Channel is not a TextChannel');
       }
 
-      const target = threadId ? await channel.threads.fetch(threadId) : channel;
-
-      if (!target) {
-        throw new Error(`${threadId ? 'Thread' : 'Channel'} not found`);
-      }
-
       if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
-        await target.send({ embeds: content });
+        await channel.send({ embeds: content });
       } else if (typeof content === 'string') {
-        await target.send(content);
+        await channel.send(content);
       }
 
-      logger.info(`Content sent to ${threadId ? 'thread' : 'channel'}`);
+      logger.info(`Content sent to ${channel.isThread ? 'thread' : 'channel'}`);
     } catch (error) {
       logger.error(`Error sending content:, ${error}`);
       throw error;
     }
   }
 
-  public async sendStringsToChannel(
-    strings: string[],
-    channelId: string,
-    threadId?: string
-  ): Promise<void> {
-    await Promise.all(
-      strings.map((content) => this.sendContentToChannel({ content, channelId, threadId }))
-    );
+  public async sendStringsToChannel(strings: string[], channelId: string): Promise<void> {
+    await Promise.all(strings.map((content) => this.sendContentToChannel({ content, channelId })));
   }
 
   public async sendEmbedsToChannel(

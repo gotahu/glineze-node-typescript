@@ -1,35 +1,29 @@
-import { logger } from '../../utils/logger';
-import { NotionService } from './notionService';
-import { DiscordService } from '../discord/discordService';
-import { PracticeService } from './practiceService';
-import { config } from '../../config/config';
-import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
-import { Practice } from '../../types/types';
 import { format } from 'date-fns';
-import { TextChannel, ThreadChannel } from 'discord.js';
+import { config } from '../../config/config';
+import { Practice, Services } from '../../types/types';
+import { logger } from '../../utils/logger';
+import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
+import { NotionService } from './notionService';
 
-export async function remindPractice(
-  service: PracticeService,
-  discord: DiscordService,
-  daysFromToday: number
+export async function notifyPractice(
+  service: Services,
+  settings: { channelId: string; daysFromToday: number }
 ) {
   try {
-    const practices = await service.retrievePracticesForRelativeDay(daysFromToday);
+    const { notion, discord } = service;
+    const { channelId, daysFromToday } = settings;
+    const practiceService = notion.practiceService;
+    const practices = await practiceService.retrievePracticesForRelativeDay(daysFromToday);
 
     if (practices.length === 0) {
       logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`, { debug: true });
       return;
     }
 
-    // 送信先のチャンネルIDとスレッドIDを取得
-    const channelId = config.getConfig('practice_remind_channelid');
-    const threadId = config.getConfig('practice_remind_threadid');
-
     // 送信する
     await discord.sendStringsToChannel(
       practices.map((p) => p.announceText),
-      channelId,
-      threadId
+      channelId
     );
 
     logger.info(`練習のリマインドが正常に完了しました`, { debug: true });
@@ -77,8 +71,9 @@ async function fetchRemindablePractices(notion: NotionService): Promise<Practice
   }
 }
 
-export async function remindPracticesToChannel(notion: NotionService, channel: TextChannel) {
+export async function remindPracticesToChannel(service: Services, channelId: string) {
   try {
+    const { notion, discord } = service;
     const remindablePractices = await fetchRemindablePractices(notion);
 
     if (remindablePractices.length === 0) {
@@ -97,7 +92,7 @@ export async function remindPracticesToChannel(notion: NotionService, channel: T
       logger.info(`${place}で${date}に行われる練習のリマインドを送信します`, { debug: true });
 
       // 送信する
-      await channel.send(message);
+      await discord.sendStringsToChannel([message], channelId);
     }
 
     logger.info('場所取りリマインドが正常に完了しました', { debug: true });
