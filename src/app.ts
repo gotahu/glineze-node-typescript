@@ -4,7 +4,6 @@ import { LINENotifyService } from './services/lineNotifyService';
 import { NotionService } from './services/notion/notionService';
 import { WebServerService } from './services/webapi/webServerService';
 import { Services } from './types/types';
-import { isDevelopment } from './utils/environment';
 import { logger } from './utils/logger';
 
 // メイン処理
@@ -48,9 +47,14 @@ const initializeServices = async () => {
     const WebService = new WebServerService(services);
 
     try {
-      logger.info(isDevelopment ? '開発環境が起動しました' : '本番環境が起動しました', {
-        debug: true,
-      });
+      logger.info(
+        process.env.NODE_ENV === 'development'
+          ? `開発環境が起動しました`
+          : `本番環境（dockerコンテナ）が起動しました`,
+        {
+          debug: true,
+        }
+      );
     } catch (error) {
       // LINE Notify にメッセージを送信できなかった場合
       console.log(`LINE Notify にメッセージを送信できませんでした: ${error}`);
