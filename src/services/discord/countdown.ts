@@ -3,6 +3,7 @@ import { ActivityType, TextChannel } from 'discord.js';
 import { DiscordService } from './discordService';
 import { isValidDateString } from '../../utils/dateUtils';
 import { config } from '../../config/config';
+import { logger } from '../../utils/logger';
 
 /**
  * Discordチャンネルのトピックを更新する関数
@@ -77,7 +78,7 @@ function updateBotProfile(discord: DiscordService) {
   // ボットのステータスを更新
   discord.client.user.setActivity(topicMessage, { type: ActivityType.Custom });
 
-  console.log(`ボットのステータスを更新しました: ${topicMessage}`);
+  logger.info(`ボットのステータスを更新しました: ${topicMessage}`, { debug: true });
 }
 
 export { updateChannelTopic, updateBotProfile };

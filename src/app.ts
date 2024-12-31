@@ -3,6 +3,7 @@ import { CronService } from './services/cron/CronService';
 import { DiscordService } from './services/discord/discordService';
 import { LINENotifyService } from './services/lineNotifyService';
 import { NotionService } from './services/notion/notionService';
+import { SesameService } from './services/sesame/sesameService';
 import { WebServerService } from './services/webapi/webServerService';
 import { Services } from './types/types';
 import { logger } from './utils/logger';
@@ -28,10 +29,13 @@ const initializeServices = async () => {
     // LINENotifyService
     const lineNotifyService = new LINENotifyService(notionService.lineDiscordPairService);
 
+    const sesameService = new SesameService();
+
     // DiscordService
     const discordService = new DiscordService({
       notion: notionService,
       lineNotify: lineNotifyService,
+      sesame: sesameService,
     });
 
     // DiscordService（Client を起動する）
@@ -42,6 +46,7 @@ const initializeServices = async () => {
       notion: notionService,
       lineNotify: lineNotifyService,
       discord: discordService,
+      sesame: sesameService,
     };
 
     // CronService
