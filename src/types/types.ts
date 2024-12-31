@@ -124,3 +124,19 @@ export interface NotionAutomationWebhookEvent {
   };
   data: PageObjectResponse;
 }
+
+export function isNotionAutomationWebhookEvent(obj: any): obj is NotionAutomationWebhookEvent {
+  return (
+    obj &&
+    typeof obj === 'object' &&
+    obj.source &&
+    typeof obj.source === 'object' &&
+    typeof obj.source.type === 'string' &&
+    typeof obj.source.automation_id === 'string' &&
+    typeof obj.source.action_id === 'string' &&
+    typeof obj.source.event_id === 'string' &&
+    typeof obj.source.attempt === 'number' &&
+    obj.data &&
+    typeof obj.data === 'object'
+  );
+}

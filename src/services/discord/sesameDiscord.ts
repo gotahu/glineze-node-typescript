@@ -1,6 +1,6 @@
 import { ChannelType, VoiceChannel } from 'discord.js';
 import { logger } from '../../utils/logger';
-import { Services, SesameLockStatus, StatusMessage } from '../../types/types';
+import { Services, SesameDeviceStatus, SesameLockStatus, StatusMessage } from '../../types/types';
 
 export class SesameDiscordService {
   constructor(private readonly services: Services) {}
@@ -75,13 +75,12 @@ export class SesameDiscordService {
   /**
    * Sesameの施錠状態を表示するボイスチャンネルをBOTが参加しているサーバーに対して全て更新します
    */
-  public async updateSesameStatusAllVoiceChannels() {
-    const { discord, sesame } = this.services;
+  public async updateSesameStatusAllVoiceChannels(deviceStatus: SesameDeviceStatus) {
+    const { discord } = this.services;
     const guilds = discord.client.guilds.cache;
-    const status = await sesame?.getSesameDeviceStatus();
 
     for (const guild of guilds.values()) {
-      await this.updateSesameStatusVoiceChannel(guild.id, status.lockStatus);
+      await this.updateSesameStatusVoiceChannel(guild.id, deviceStatus.lockStatus);
     }
   }
 

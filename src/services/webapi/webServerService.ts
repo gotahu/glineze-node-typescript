@@ -3,18 +3,24 @@ import { logger } from '../../utils/logger';
 import { config } from '../../config/config';
 import { HTTPFetchError, middleware, webhook } from '@line/bot-sdk';
 import { LINEBotService } from './lineBotService';
-import { NotionAutomationWebhookEvent, Services } from '../../types/types';
-import { handleShukinAutomation } from '../notion/automation/ShukinAutomation';
+import {
+  isNotionAutomationWebhookEvent,
+  NotionAutomationWebhookEvent,
+  Services,
+} from '../../types/types';
+import { NotionAutomationService } from './notionAutomationService';
 
 export class WebServerService {
   private app: Express;
   private line: LINEBotService;
+  private notionAutomation: NotionAutomationService;
 
   constructor(private readonly services: Services) {
     this.line = new LINEBotService(services);
+    this.notionAutomation = new NotionAutomationService(services);
 
     this.app = express();
-    this.app.use('/linebot', middleware({ channelSecret: process.env.LINEBOT_CHANNEL_SECRET }));
+    this.app.use('/linebot', middleware({ channelSecret: config.lineBot.channelSecret }));
     this.app.use('/glineze', express.json());
 
     this.setupAPIEndpoints();
@@ -73,22 +79,15 @@ export class WebServerService {
           return;
         }
 
-        const event = req.body as NotionAutomationWebhookEvent;
-
-        // database_id が存在する
-        if (event.data.parent['database_id']) {
-          const databaseId = (event.data.parent['database_id'] as string).replace(/-/g, '');
-
-          const shukinDatabaseId = config.getConfig('shukin_databaseid');
-
-          if (databaseId === shukinDatabaseId) {
-            handleShukinAutomation(event, this.services);
-          } else {
-            logger.error('Invalid request: invalid database_id');
-          }
-        } else {
-          logger.error('Invalid request: missing database_id');
+        if (!isNotionAutomationWebhookEvent(req.body)) {
+          logger.error('Invalid request: invalid body');
+          res.status(400).send('Invalid request: invalid body');
+          return;
         }
+
+        const event: NotionAutomationWebhookEvent = req.body;
+
+        this.notionAutomation.handleNotionAutomationWebhookEvent(event);
 
         res.status(200).end();
       } catch (error) {

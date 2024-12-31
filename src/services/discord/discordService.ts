@@ -112,7 +112,7 @@ export class DiscordService {
         logger.info('Updating Sesame status (on schedule)');
         const deviceStatus = await sesame?.getSesameDeviceStatus();
         logger.debug(`Device status:, ${deviceStatus}`);
-        await this.sesameDiscordService.updateSesameStatusAllVoiceChannels();
+        await this.sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
       } catch (error) {
         logger.error(`Error updating Sesame status (on schedule):, ${error}`);
       }
