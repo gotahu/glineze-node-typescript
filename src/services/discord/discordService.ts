@@ -6,7 +6,7 @@ import { NotionService } from '../notion/notionService';
 import { SesameService } from '../sesame/sesameService';
 import { handleReactionAdd } from './discordInteraction';
 import { MessageHandler } from './messageHandler';
-import { SesameDiscordService } from './sesameDiscord';
+import { SesameDiscordService } from './sesameDiscordService';
 import { handleThreadMembersUpdate } from './threadMember';
 import { config } from '../../config/config';
 import { Services } from '../../types/types';
@@ -29,7 +29,7 @@ export class DiscordService {
   public readonly client: Client;
 
   private readonly messageHandler: MessageHandler;
-  private readonly sesameDiscordService: SesameDiscordService;
+  public readonly sesameDiscordService: SesameDiscordService;
   private sesameSchedulerStarted = false;
 
   private readonly services: Services;
