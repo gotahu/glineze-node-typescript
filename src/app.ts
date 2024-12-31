@@ -1,4 +1,5 @@
 import { config } from './config/config';
+import { CronService } from './services/cron/CronService';
 import { DiscordService } from './services/discord/discordService';
 import { LINENotifyService } from './services/lineNotifyService';
 import { NotionService } from './services/notion/notionService';
@@ -42,6 +43,10 @@ const initializeServices = async () => {
       lineNotify: lineNotifyService,
       discord: discordService,
     };
+
+    // CronService
+    const cronService = new CronService(services);
+    cronService.start();
 
     // WebService
     const WebService = new WebServerService(services);
