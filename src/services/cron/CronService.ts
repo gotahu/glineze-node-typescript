@@ -3,7 +3,7 @@
 import { schedule } from 'node-cron';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { updateBotProfile, updateChannelTopic } from '../discord/countdown';
+import { updateBotProfile } from '../discord/countdown';
 
 /**
  * 定期実行タスクを一元管理するクラス
@@ -38,23 +38,36 @@ export class CronService {
     this.sesameSchedulerStarted = true;
     logger.info('Starting Sesame status scheduler');
 
+    // セサミの状態を即時更新
+    this.runSesameScheduler();
+
     // 5 分おきに実行する
     schedule('*/5 * * * *', async () => {
-      try {
-        const { discord, sesame } = this.services;
-
-        logger.info('Updating Sesame status (on schedule)');
-        const deviceStatus = await sesame?.getSesameDeviceStatus();
-        logger.debug(`Device status: ${JSON.stringify(deviceStatus, null, 2)}`);
-        // SesameDiscordService を使って全ギルドのボイスチャンネル名を更新
-        await discord.sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
-      } catch (error) {
-        logger.error(`onSesameScheduler: Error updating Sesame status (on schedule): ${error}`);
-      }
+      await this.runSesameScheduler();
     });
   }
 
-  private startCountdownScheduler(): void {
+  /**
+   * Sesame の状態を更新するジョブ
+   */
+  private async runSesameScheduler() {
+    try {
+      const { discord, sesame } = this.services;
+
+      logger.info('Updating Sesame status (manual or scheduled)');
+      sesame.getSesameDeviceStatus().then((deviceStatus) => {
+        logger.debug(`Device status: ${JSON.stringify(deviceStatus, null, 2)}`);
+        discord.sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
+      });
+    } catch (error) {
+      logger.error(`onSesameScheduler: Error updating Sesame status: ${error}`);
+    }
+  }
+
+  /**
+   * カウントダウンを更新するジョブ
+   */
+  private startCountdownScheduler() {
     if (this.countDownSchedulerStarted) {
       logger.info('Countdown scheduler already started');
       return;
@@ -72,6 +85,9 @@ export class CronService {
     });
   }
 
+  /**
+   * カウントダウンを更新するジョブ
+   */
   private runCountdownScheduler() {
     try {
       const { discord } = this.services;
