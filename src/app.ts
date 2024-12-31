@@ -1,3 +1,4 @@
+import { on } from 'events';
 import { config } from './config/config';
 import { CronService } from './services/cron/CronService';
 import { DiscordService } from './services/discord/discordService';

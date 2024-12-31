@@ -3,7 +3,7 @@
 import { schedule } from 'node-cron';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { updateChannelTopic } from '../discord/countdown';
+import { updateBotProfile, updateChannelTopic } from '../discord/countdown';
 
 /**
  * 定期実行タスクを一元管理するクラス
@@ -43,11 +43,6 @@ export class CronService {
       try {
         const { discord, sesame } = this.services;
 
-        if (!discord || !sesame) {
-          logger.error('onSesameScheduler: Discord or Sesame service not available');
-          return;
-        }
-
         logger.info('Updating Sesame status (on schedule)');
         const deviceStatus = await sesame?.getSesameDeviceStatus();
         logger.debug(`Device status: ${JSON.stringify(deviceStatus, null, 2)}`);
@@ -68,21 +63,28 @@ export class CronService {
     this.countDownSchedulerStarted = true;
     logger.info('Starting Countdown scheduler');
 
+    // カウントダウンを即時更新
+    this.runCountdownScheduler();
+
     // 1 日おきに実行する
-    schedule('0 0 * * *', async () => {
-      try {
-        const { discord } = this.services;
-
-        if (!discord) {
-          logger.error('onCountdownScheduler: Discord service not available');
-          return;
-        }
-
-        logger.info('Updating countdown (on schedule)');
-        await updateChannelTopic(discord);
-      } catch (error) {
-        logger.error(`onCountdownScheduler: Error updating countdown (on schedule): ${error}`);
-      }
+    schedule('0 0 * * *', () => {
+      this.runCountdownScheduler();
     });
+  }
+
+  private runCountdownScheduler() {
+    try {
+      const { discord } = this.services;
+
+      if (!discord) {
+        logger.error('onCountdownScheduler: Discord service not available');
+        return;
+      }
+
+      logger.info('Updating countdown (manual or scheduled)');
+      updateBotProfile(discord);
+    } catch (error) {
+      logger.error(`onCountdownScheduler: Error updating countdown: ${error}`);
+    }
   }
 }
