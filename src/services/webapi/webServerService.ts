@@ -1,13 +1,13 @@
-import express, { Express, Request, Response } from 'express';
-import { logger } from '../../utils/logger';
-import { config } from '../../config/config';
 import { HTTPFetchError, middleware, webhook } from '@line/bot-sdk';
-import { LINEBotService } from './lineBotService';
+import express, { Express, Request, Response } from 'express';
+import { config } from '../../config/config';
 import {
   isNotionAutomationWebhookEvent,
   NotionAutomationWebhookEvent,
   Services,
 } from '../../types/types';
+import { logger } from '../../utils/logger';
+import { LINEBotService } from './lineBotService';
 import { NotionAutomationService } from './notionAutomationService';
 
 export class WebServerService {
@@ -29,7 +29,7 @@ export class WebServerService {
 
   private setupAPIEndpoints() {
     // https://<proxy-url>/api/ への GET リクエスト
-    this.app.get('/', (req, res) => {
+    this.app.get('/health', (req, res) => {
       res.send('This app is running').end();
     });
 
