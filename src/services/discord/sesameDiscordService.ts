@@ -63,8 +63,7 @@ export class SesameDiscordService {
         voiceChannel = await this.createSesameStatusVoiceChannel(guildId);
       } else {
         logger.info(
-          `guildId: ${guildId} のボイスチャンネル（id: ${voiceChannel.id}）を取得しました`,
-          { debug: true }
+          `guildId: ${guildId} のボイスチャンネル（id: ${voiceChannel.id}）を取得しました`
         );
       }
 
