@@ -1,14 +1,17 @@
 import { format } from 'date-fns';
-import { TextChannel } from 'discord.js';
 import { config } from '../../config/config';
 import { Practice, Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
 import { NotionService } from './notionService';
 
-export async function notifyPractice(service: Services, daysFromToday: number) {
+export async function notifyPractice(
+  service: Services,
+  settings: { channelId: string; daysFromToday: number }
+) {
   try {
     const { notion, discord } = service;
+    const { channelId, daysFromToday } = settings;
     const practiceService = notion.practiceService;
     const practices = await practiceService.retrievePracticesForRelativeDay(daysFromToday);
 
@@ -17,15 +20,10 @@ export async function notifyPractice(service: Services, daysFromToday: number) {
       return;
     }
 
-    // 送信先のチャンネルIDとスレッドIDを取得
-    const channelId = config.getConfig('practice_remind_channelid');
-    const threadId = config.getConfig('practice_remind_threadid');
-
     // 送信する
     await discord.sendStringsToChannel(
       practices.map((p) => p.announceText),
-      channelId,
-      threadId
+      channelId
     );
 
     logger.info(`練習のリマインドが正常に完了しました`, { debug: true });
@@ -73,9 +71,9 @@ async function fetchRemindablePractices(notion: NotionService): Promise<Practice
   }
 }
 
-export async function remindPracticesToChannel(service: Services, channel: TextChannel) {
+export async function remindPracticesToChannel(service: Services, channelId: string) {
   try {
-    const { notion } = service;
+    const { notion, discord } = service;
     const remindablePractices = await fetchRemindablePractices(notion);
 
     if (remindablePractices.length === 0) {
@@ -94,7 +92,7 @@ export async function remindPracticesToChannel(service: Services, channel: TextC
       logger.info(`${place}で${date}に行われる練習のリマインドを送信します`, { debug: true });
 
       // 送信する
-      await channel.send(message);
+      await discord.sendStringsToChannel([message], channelId);
     }
 
     logger.info('場所取りリマインドが正常に完了しました', { debug: true });

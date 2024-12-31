@@ -1,9 +1,11 @@
 // src/services/cron/cronService.ts
 
 import { schedule } from 'node-cron';
+import { config } from '../../config/config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { updateBotProfile } from '../discord/countdown';
+import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
 
 /**
  * 定期実行タスクを一元管理するクラス
@@ -12,6 +14,8 @@ export class CronService {
   private services: Services;
   private sesameSchedulerStarted = false;
   private countDownSchedulerStarted = false;
+  private notifyPracticeStarted = false;
+  private remindBashotoriStarted = false;
 
   constructor(services: Services) {
     this.services = services;
@@ -24,6 +28,8 @@ export class CronService {
     // ここで複数のジョブをスケジュール登録したりする
     this.startSesameScheduler();
     this.startCountdownScheduler();
+    this.startNotifyPractice();
+    this.startRemindBashotori();
   }
 
   /**
@@ -101,6 +107,61 @@ export class CronService {
       updateBotProfile(discord);
     } catch (error) {
       logger.error(`onCountdownScheduler: Error updating countdown: ${error}`);
+    }
+  }
+
+  private startNotifyPractice() {
+    if (this.notifyPracticeStarted) {
+      logger.info('Notify practice scheduler already started');
+      return;
+    }
+
+    this.notifyPracticeStarted = true;
+    logger.info('Starting Notify practice scheduler');
+
+    // 毎日17時に実行する
+    schedule('0 17 * * *', () => {
+      this.runNotifyPractice();
+    });
+  }
+
+  private async runNotifyPractice() {
+    try {
+      logger.info('Notify practice (manual or scheduled)', { debug: true });
+
+      const threadId = config.getConfig('practice_remind_threadid');
+
+      // 1日後の練習を通知する
+      await notifyPractice(this.services, { channelId: threadId, daysFromToday: 1 });
+    } catch (error) {
+      logger.error(`onNotifyPractice: Error notify practice: ${error}`);
+    }
+  }
+
+  private startRemindBashotori() {
+    if (this.remindBashotoriStarted) {
+      logger.info('Remind Bashotori scheduler already started');
+      return;
+    }
+
+    this.remindBashotoriStarted = true;
+    logger.info('Starting Remind Bashotori scheduler');
+
+    // 毎日8時に実行する
+    schedule('0 8 * * *', () => {
+      this.runRemindBashotori();
+    });
+  }
+
+  private async runRemindBashotori() {
+    try {
+      logger.info('Remind Bashotori (manual or scheduled)', { debug: true });
+
+      const threadId = config.getConfig('bashotori_remind_threadid');
+      // 1日後の練習を通知する
+      await remindPracticesToChannel(this.services, threadId);
+    } catch (error) {
+      logger.error(`onRemindBashotori: Error remind Bashotori: ${error}`);
     }
   }
 }

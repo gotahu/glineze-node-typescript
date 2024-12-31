@@ -1,16 +1,16 @@
-import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'discord.js';
-import { logger } from '../../utils/logger';
 import axios from 'axios';
-import { handleBreakoutRoomCommand } from './breakoutRoom';
-import { handleLineDiscordCommand } from './commands/lineDiscord';
-import { addSendButtonReaction } from './messageFunction';
-import { reloadConfig } from './commands/reload';
-import { replyShukinStatus } from './commands/shukin';
-import { handleDeleteChannelCommand } from './commands/deletechannel';
-import { handleSesameStatusCommand } from './commands/sesame';
-import { handleNotifyPracticesCommand } from './commands/practice';
-import { remindPracticesToChannel } from '../notion/practiceFunctions';
+import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'discord.js';
 import { Services } from '../../types/types';
+import { logger } from '../../utils/logger';
+import { remindPracticesToChannel } from '../notion/practiceFunctions';
+import { handleBreakoutRoomCommand } from './breakoutRoom';
+import { handleDeleteChannelCommand } from './commands/deletechannel';
+import { handleLineDiscordCommand } from './commands/lineDiscord';
+import { handleNotifyPracticesCommand } from './commands/practice';
+import { reloadConfig } from './commands/reload';
+import { handleSesameStatusCommand } from './commands/sesame';
+import { replyShukinStatus } from './commands/shukin';
+import { addSendButtonReaction } from './messageFunction';
 
 export class MessageHandler {
   constructor(private readonly services: Services) {}
@@ -98,7 +98,7 @@ export class MessageHandler {
 
     if (message.content.startsWith('!bashotoriremind')) {
       const channel = message.channel as TextChannel;
-      await remindPracticesToChannel(notion, channel);
+      await remindPracticesToChannel(this.services, channel.id);
     }
 
     // メッセージにGLOBALIPが含まれている場合
