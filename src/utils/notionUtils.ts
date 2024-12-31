@@ -131,6 +131,19 @@ async function queryAllDatabasePages(
   return allResults;
 }
 
+/**
+ * 2つのUUIDが同一かどうかを判定する関数
+ * @param uuid1 判定対象のUUID (ハイフンあり/なし)
+ * @param uuid2 判定対象のUUID (ハイフンあり/なし)
+ * @returns 同一なら true、異なるなら false
+ */
+function areUUIDsEqual(uuid1: string, uuid2: string): boolean {
+  // 両方のUUIDからハイフンを除去して比較
+  const normalizedUUID1 = uuid1.replace(/-/g, '').toLowerCase();
+  const normalizedUUID2 = uuid2.replace(/-/g, '').toLowerCase();
+  return normalizedUUID1 === normalizedUUID2;
+}
+
 export {
   getStringPropertyValue,
   getBooleanPropertyValue,
@@ -138,4 +151,5 @@ export {
   getDatePropertyValue,
   getRelationPropertyValue,
   queryAllDatabasePages,
+  areUUIDsEqual,
 };

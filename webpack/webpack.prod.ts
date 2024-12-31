@@ -6,7 +6,6 @@ import path from 'path';
 const prodConfig: Configuration = {
   mode: 'production',
   entry: {
-    server: './src/server.ts',
     app: './src/app.ts',
   },
   output: {

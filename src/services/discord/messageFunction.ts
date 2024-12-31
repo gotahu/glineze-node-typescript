@@ -1,12 +1,10 @@
 import { Message, MessageReaction, User } from 'discord.js';
 import { CONSTANTS } from '../../config/constants';
 import { config } from '../../config/config';
-import { NotionService } from '../notion/notionService';
-import { LINENotifyService } from '../lineNotifyService';
+import { Services } from '../../types/types';
 
-export function addSendButtonReaction(message: Message) {
-  const notion = NotionService.getInstance();
-  const lineNotify = new LINENotifyService(notion.lineDiscordPairService);
+export function addSendButtonReaction(services: Services, message: Message) {
+  const { lineNotify } = services;
 
   message.react('✅');
 

@@ -1,12 +1,8 @@
 import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'discord.js';
-import { LINENotifyService } from '../lineNotifyService';
-import { NotionService } from '../notion/notionService';
 import { logger } from '../../utils/logger';
 import axios from 'axios';
 import { handleBreakoutRoomCommand } from './breakoutRoom';
 import { handleLineDiscordCommand } from './commands/lineDiscord';
-import { DiscordService } from './discordService';
-import { SesameService } from '../sesame/sesameService';
 import { addSendButtonReaction } from './messageFunction';
 import { reloadConfig } from './commands/reload';
 import { replyShukinStatus } from './commands/shukin';
@@ -14,17 +10,10 @@ import { handleDeleteChannelCommand } from './commands/deletechannel';
 import { handleSesameStatusCommand } from './commands/sesame';
 import { handleNotifyPracticesCommand } from './commands/practice';
 import { remindPracticesToChannel } from '../notion/practiceFunctions';
+import { Services } from '../../types/types';
 
 export class MessageHandler {
-  private notionService: NotionService;
-  private lineNotify: LINENotifyService;
-  private sesameService: SesameService;
-
-  constructor(discordService: DiscordService) {
-    this.notionService = NotionService.getInstance();
-    this.lineNotify = discordService.getLINENotifyService();
-    this.sesameService = discordService.getSesameService();
-  }
+  constructor(private readonly services: Services) {}
 
   public async handleMessageCreate(message: Message): Promise<void> {
     if (message.author.bot) return;
@@ -39,6 +28,7 @@ export class MessageHandler {
   }
 
   private async handleDMMessage(message: Message): Promise<void> {
+    const { notion, lineNotify } = this.services;
     const messageContent = message.content;
     const authorName = message.author.displayName;
     const dmChannel = message.channel as DMChannel;
@@ -46,19 +36,21 @@ export class MessageHandler {
     // 「メッセージを送信中」を表示
     dmChannel.sendTyping();
 
-    await this.lineNotify.relayMessage(message, true);
+    await lineNotify.relayMessage(message, true);
 
     if (messageContent === 'リロード') {
       await reloadConfig(message);
       return;
     } else {
-      await replyShukinStatus(this.notionService, message);
+      await replyShukinStatus(notion, message);
       return;
     }
   }
 
   private async handleGuildMessage(message: Message): Promise<void> {
-    await this.lineNotify.relayMessage(message, true);
+    const { lineNotify, notion, sesame } = this.services;
+
+    await lineNotify.relayMessage(message, true);
 
     // テストサーバーでのメッセージの場合
     if (message.guild && message.guild.id === '1258189444888924324') {
@@ -80,7 +72,7 @@ export class MessageHandler {
       message.mentions.has(message.client.user) &&
       message.mentions.members.size === 1 // これを追加しないと @everyone や @全員 に反応してしまう
     ) {
-      await handleNotifyPracticesCommand(this.notionService, message);
+      await handleNotifyPracticesCommand(notion, message);
       return;
     }
 
@@ -90,7 +82,7 @@ export class MessageHandler {
     }
 
     if (message.content === 'KEY') {
-      await handleSesameStatusCommand(this.sesameService, message);
+      await handleSesameStatusCommand(sesame, message);
       return;
     }
 
@@ -100,13 +92,13 @@ export class MessageHandler {
     }
 
     if (message.content.startsWith('!line-discord')) {
-      await handleLineDiscordCommand(message, this.notionService.lineDiscordPairService);
+      await handleLineDiscordCommand(message, notion.lineDiscordPairService);
       return;
     }
 
     if (message.content.startsWith('!bashotoriremind')) {
       const channel = message.channel as TextChannel;
-      await remindPracticesToChannel(this.notionService, channel);
+      await remindPracticesToChannel(notion, channel);
     }
 
     // メッセージにGLOBALIPが含まれている場合
@@ -124,12 +116,11 @@ export class MessageHandler {
 
     // LINE に送信するかどうかを判定
     // ペアを取得
-    const pair =
-      await this.notionService.lineDiscordPairService.getLINEDiscordPairFromMessage(message);
+    const pair = await notion.lineDiscordPairService.getLINEDiscordPairFromMessage(message);
 
     // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
     if (pair) {
-      addSendButtonReaction(message);
+      addSendButtonReaction(this.services, message);
     }
   }
 
@@ -139,9 +130,10 @@ export class MessageHandler {
    * @param newMessage
    */
   public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
+    const { notion, lineNotify } = this.services;
     if (newMessage.channel.type === ChannelType.GuildText) {
-      const notionService = NotionService.getInstance();
-      const notifyService = new LINENotifyService(notionService.lineDiscordPairService);
+      const notionService = notion;
+      const notifyService = lineNotify;
 
       await notifyService.relayMessage(newMessage, true);
 
@@ -154,7 +146,7 @@ export class MessageHandler {
         if (pair) {
           logger.info('ペアが存在しているメッセージが編集されました');
           // LINE にもう一度送信できるようにする
-          addSendButtonReaction(newMessage);
+          addSendButtonReaction(this.services, newMessage);
         }
       } catch (error) {
         logger.error('Error in handleMessageUpdate: ' + error);

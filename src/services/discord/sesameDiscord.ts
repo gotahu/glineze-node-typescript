@@ -1,17 +1,9 @@
 import { ChannelType, VoiceChannel } from 'discord.js';
 import { logger } from '../../utils/logger';
-import { SesameLockStatus, StatusMessage } from '../../types/types';
-import { SesameService } from '../sesame/sesameService';
-import { DiscordService } from './discordService';
+import { Services, SesameDeviceStatus, SesameLockStatus, StatusMessage } from '../../types/types';
 
 export class SesameDiscordService {
-  private sesameService: SesameService;
-  private discordService: DiscordService;
-
-  constructor(sesameService: SesameService, discordService: DiscordService) {
-    this.sesameService = sesameService;
-    this.discordService = discordService;
-  }
+  constructor(private readonly services: Services) {}
 
   /**
    * ギルドIDを指定して、倉庫の施錠状態を表示するボイスチャンネルを取得します。
@@ -20,7 +12,8 @@ export class SesameDiscordService {
    */
   public retrieveSesameStatusVoiceChannel(guildId: string): VoiceChannel {
     try {
-      const guild = this.discordService.client.guilds.cache.get(guildId);
+      const { discord } = this.services;
+      const guild = discord.client.guilds.cache.get(guildId);
 
       if (!guild) {
         throw new Error('指定されたサーバーが見つかりません');
@@ -82,12 +75,12 @@ export class SesameDiscordService {
   /**
    * Sesameの施錠状態を表示するボイスチャンネルをBOTが参加しているサーバーに対して全て更新します
    */
-  public async updateSesameStatusAllVoiceChannels() {
-    const guilds = this.discordService.client.guilds.cache;
-    const status = await this.sesameService.getSesameDeviceStatus();
+  public async updateSesameStatusAllVoiceChannels(deviceStatus: SesameDeviceStatus) {
+    const { discord } = this.services;
+    const guilds = discord.client.guilds.cache;
 
     for (const guild of guilds.values()) {
-      await this.updateSesameStatusVoiceChannel(guild.id, status.lockStatus);
+      await this.updateSesameStatusVoiceChannel(guild.id, deviceStatus.lockStatus);
     }
   }
 
@@ -97,7 +90,8 @@ export class SesameDiscordService {
    * @returns {Promise<VoiceChannel>}
    */
   public async createSesameStatusVoiceChannel(guildId: string): Promise<VoiceChannel> {
-    const guild = this.discordService.client.guilds.cache.get(guildId);
+    const { discord } = this.services;
+    const guild = discord.client.guilds.cache.get(guildId);
 
     if (!guild) {
       throw new Error(`指定された Guild が見つかりませんでした: (guildid: ${guildId})`);
