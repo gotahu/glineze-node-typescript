@@ -23,7 +23,7 @@ export class CronService {
   public start() {
     // ここで複数のジョブをスケジュール登録したりする
     this.startSesameScheduler();
-    // ほかのジョブがあればそれらもここで start
+    this.startCountdownScheduler();
   }
 
   /**
