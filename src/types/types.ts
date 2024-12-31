@@ -1,7 +1,7 @@
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { DiscordService } from '../services/discord/discordService';
-import { NotionService } from '../services/notion/notionService';
 import { LINENotifyService } from '../services/lineNotifyService';
+import { NotionService } from '../services/notion/notionService';
 import { SesameService } from '../services/sesame/sesameService';
 
 export type LINEDiscordPairInfo = {
@@ -17,7 +17,7 @@ export type Services = {
   discord: DiscordService;
   notion: NotionService;
   lineNotify: LINENotifyService;
-  sesame?: SesameService;
+  sesame: SesameService;
 };
 
 export type SesameHistory = {

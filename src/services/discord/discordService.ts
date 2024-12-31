@@ -1,5 +1,7 @@
-import { EmbedBuilder, Client, GatewayIntentBits, Partials, Events, TextChannel } from 'discord.js';
+import { Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
 import { schedule } from 'node-cron';
+import { config } from '../../config/config';
+import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
@@ -8,8 +10,6 @@ import { handleReactionAdd } from './discordInteraction';
 import { MessageHandler } from './messageHandler';
 import { SesameDiscordService } from './sesameDiscordService';
 import { handleThreadMembersUpdate } from './threadMember';
-import { config } from '../../config/config';
-import { Services } from '../../types/types';
 
 // types.ts
 interface DiscordServiceDependencies {
@@ -34,13 +34,17 @@ export class DiscordService {
 
   private readonly services: Services;
 
-  constructor(services: { notion: NotionService; lineNotify: LINENotifyService }) {
+  constructor(_services: {
+    notion: NotionService;
+    lineNotify: LINENotifyService;
+    sesame: SesameService;
+  }) {
     // インスタンスを格納
     this.services = {
-      notion: services.notion,
-      lineNotify: services.lineNotify,
+      notion: _services.notion,
+      lineNotify: _services.lineNotify,
       discord: this,
-      sesame: new SesameService(),
+      sesame: _services.sesame,
     };
 
     // SesameDiscordService を初期化
