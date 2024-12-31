@@ -21,7 +21,7 @@ export class WebServerService {
 
     this.app = express();
     this.app.use('/linebot', middleware({ channelSecret: config.lineBot.channelSecret }));
-    this.app.use('/glineze', express.json());
+    this.app.use('/automation', express.json());
 
     this.setupAPIEndpoints();
     this.start();
@@ -33,7 +33,7 @@ export class WebServerService {
       res.send('This app is running').end();
     });
 
-    // https://<proxy-url>/glineze/linebot への POST リクエスト
+    // https://<proxy-url>/linebot への POST リクエスト
     this.app.post('/linebot', async (req: Request, res: Response) => {
       console.log('GAS: LINE メッセージ受信リクエスト受信');
 
