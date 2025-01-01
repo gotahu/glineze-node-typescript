@@ -190,14 +190,14 @@ export async function postToLINENotify(
     });
     logger.info(`LINE Notify response: ${JSON.stringify(res.data)}`);
   } catch (error) {
-    logger.error('Error occurred in LINE Notify API');
+    console.error('Error occurred in LINE Notify API');
     if (axios.isAxiosError(error) && error.response) {
-      logger.error(`Error status: ${error.response.status}`);
-      logger.error(`Error data: ${JSON.stringify(error.response.data)}`);
+      console.error(`Error status: ${error.response.status}`);
+      console.error(`Error data: ${JSON.stringify(error.response.data)}`);
     } else if (error instanceof Error) {
-      logger.error(`Error message: ${error.message}`);
+      console.error(`Error message: ${error.message}`);
     } else {
-      logger.error(`Unknown error: ${error}`);
+      console.error(`Unknown error: ${error}`);
     }
     throw error;
   }

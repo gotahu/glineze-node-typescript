@@ -44,9 +44,6 @@ export class CronService {
     this.sesameSchedulerStarted = true;
     logger.info('Starting Sesame status scheduler');
 
-    // セサミの状態を即時更新
-    this.runSesameScheduler();
-
     // 5 分おきに実行する
     schedule('*/5 * * * *', async () => {
       await this.runSesameScheduler();
