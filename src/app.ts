@@ -29,6 +29,7 @@ const initializeServices = async () => {
     // LINENotifyService
     const lineNotifyService = new LINENotifyService(notionService.lineDiscordPairService);
 
+    // SesameService
     const sesameService = new SesameService();
 
     // DiscordService
