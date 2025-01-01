@@ -98,29 +98,6 @@ export class DiscordService {
 
   public async start(): Promise<void> {
     await this.client.login(config.discord.botToken);
-    await this.startSesameScheduler();
-  }
-
-  private async startSesameScheduler(): Promise<void> {
-    if (this.sesameSchedulerStarted) {
-      logger.info('Sesame status scheduler already started');
-      return;
-    }
-
-    this.sesameSchedulerStarted = true;
-    logger.info('Starting Sesame status scheduler');
-
-    schedule('*/5 * * * *', async () => {
-      try {
-        const sesame = this.services.sesame;
-        logger.info('Updating Sesame status (on schedule)');
-        const deviceStatus = await sesame?.getSesameDeviceStatus();
-        logger.debug(`Device status:, ${deviceStatus}`);
-        await this.sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
-      } catch (error) {
-        logger.error(`Error updating Sesame status (on schedule):, ${error}`);
-      }
-    });
   }
 
   public async sendContentToChannel({ content, channelId }: MessageContent): Promise<void> {
