@@ -8,7 +8,7 @@
       "skipFiles": ["<node_internals>/**"],
       "runtimeExecutable": "node",
       "runtimeArgs": ["-r", "ts-node/register"],
-      "args": ["${workspaceFolder}/src/server.ts"],
+      "args": ["${workspaceFolder}/src/app.ts"],
       "cwd": "${workspaceRoot}",
       "internalConsoleOptions": "openOnSessionStart",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
