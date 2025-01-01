@@ -83,9 +83,13 @@ export class CronService {
     this.runCountdownScheduler();
 
     // 1 日おきに実行する
-    schedule('0 0 * * *', () => {
-      this.runCountdownScheduler();
-    });
+    schedule(
+      '0 0 * * *',
+      () => {
+        this.runCountdownScheduler();
+      },
+      { timezone: 'Asia/Tokyo' }
+    );
   }
 
   /**
@@ -117,9 +121,13 @@ export class CronService {
     logger.info('Starting Notify practice scheduler');
 
     // 毎日17時に実行する
-    schedule('0 17 * * *', () => {
-      this.runNotifyPractice();
-    });
+    schedule(
+      '0 17 * * *',
+      () => {
+        this.runNotifyPractice();
+      },
+      { timezone: 'Asia/Tokyo' }
+    );
   }
 
   private async runNotifyPractice() {
@@ -145,9 +153,13 @@ export class CronService {
     logger.info('Starting Remind Bashotori scheduler');
 
     // 毎日8時に実行する
-    schedule('0 8 * * *', () => {
-      this.runRemindBashotori();
-    });
+    schedule(
+      '0 8 * * *',
+      () => {
+        this.runRemindBashotori();
+      },
+      { timezone: 'Asia/Tokyo' }
+    );
   }
 
   private async runRemindBashotori() {
