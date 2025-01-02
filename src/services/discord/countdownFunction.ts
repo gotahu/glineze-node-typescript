@@ -13,8 +13,10 @@ import { tz } from '@date-fns/tz';
  */
 function isTodayTargetDate(): boolean {
   // 何日前にカウントダウンを行うか取得し、数値型の配列に変換
-  const countdownDaysString = config.getConfig('countdown_date'); // バリデーションはconfigで行う
+  const countdownDaysString = config.getConfig('countdown_notify_days'); // バリデーションはconfigで行う
   const countdownDays = countdownDaysString.split(',').map((day) => parseInt(day, 10)); // カンマ区切りで分割して数値に変換
+
+  console.log(countdownDays);
 
   // 今日からの日数を計算
   const daysLeft = calculateDiffBetweenTodayAndEventDate();

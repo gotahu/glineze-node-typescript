@@ -87,6 +87,7 @@ export class CronService {
       '0 0 * * *',
       () => {
         this.runCountdownScheduler();
+        this.runSendCountdownMessage();
       },
       { timezone: 'Asia/Tokyo' }
     );
@@ -100,15 +101,30 @@ export class CronService {
       const { discord } = this.services;
 
       if (!discord) {
-        logger.error('onCountdownScheduler: Discord service not available');
+        logger.error('runCountdownScheduler: Discord service not available');
         return;
       }
 
       logger.info('Updating countdown (manual or scheduled)');
       updateBotProfile(discord);
+    } catch (error) {
+      logger.error(`runCountdownScheduler: Error updating countdown: ${error}`);
+    }
+  }
+
+  private runSendCountdownMessage() {
+    try {
+      const { discord } = this.services;
+
+      if (!discord) {
+        logger.error('runSendCountdownMessage: Discord service not available');
+        return;
+      }
+
+      logger.info('Sending countdown message (manual or scheduled)');
       sendCountdownMessage(this.services);
     } catch (error) {
-      logger.error(`onCountdownScheduler: Error updating countdown: ${error}`);
+      logger.error(`runSendCountdownMessage: Error sending countdown message: ${error}`);
     }
   }
 
