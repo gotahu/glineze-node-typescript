@@ -11,11 +11,12 @@ import { reloadConfig } from './commands/reload';
 import { handleSesameStatusCommand } from './commands/sesame';
 import { replyShukinStatus } from './commands/shukin';
 import { addSendButtonReaction } from './messageFunction';
+import { handleCountdownCommand } from './commands/countdown';
 
 export class MessageHandler {
   constructor(private readonly services: Services) {}
 
-  public async handleMessageCreate(message: Message): Promise<void> {
+  public async handleMessageCreate(message: Message) {
     if (message.author.bot) return;
 
     console.log(message);
@@ -27,7 +28,7 @@ export class MessageHandler {
     }
   }
 
-  private async handleDMMessage(message: Message): Promise<void> {
+  private async handleDMMessage(message: Message) {
     const { notion, lineNotify } = this.services;
     const messageContent = message.content;
     const authorName = message.author.displayName;
@@ -47,7 +48,11 @@ export class MessageHandler {
     }
   }
 
-  private async handleGuildMessage(message: Message): Promise<void> {
+  /**
+   * ギルドメッセージの処理
+   * @param message Discord Message
+   */
+  private async handleGuildMessage(message: Message) {
     const { lineNotify, notion, sesame } = this.services;
 
     await lineNotify.relayMessage(message, true);
@@ -88,6 +93,11 @@ export class MessageHandler {
 
     if (message.content.startsWith('!br')) {
       await handleBreakoutRoomCommand(message);
+      return;
+    }
+
+    if (message.content.startsWith('!countdown')) {
+      await handleCountdownCommand(message, this.services);
       return;
     }
 
