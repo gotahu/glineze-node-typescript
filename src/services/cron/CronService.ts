@@ -4,7 +4,7 @@ import { schedule } from 'node-cron';
 import { config } from '../../config/config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { updateBotProfile } from '../discord/countdown';
+import { sendCountdownMessage, updateBotProfile } from '../discord/countdownFunction';
 import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
 
 /**
@@ -106,6 +106,7 @@ export class CronService {
 
       logger.info('Updating countdown (manual or scheduled)');
       updateBotProfile(discord);
+      sendCountdownMessage(this.services);
     } catch (error) {
       logger.error(`onCountdownScheduler: Error updating countdown: ${error}`);
     }
