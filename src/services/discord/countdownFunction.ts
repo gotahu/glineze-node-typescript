@@ -5,6 +5,7 @@ import { isValidDateString } from '../../utils/dateUtils';
 import { config } from '../../config/config';
 import { logger } from '../../utils/logger';
 import { Services } from '../../types/types';
+import { tz } from '@date-fns/tz';
 
 /**
  * 今日がターゲット日付かどうかを判定する関数
@@ -139,13 +140,13 @@ function calculateDiffBetweenTodayAndEventDate(): number {
   }
 
   // 対象日を日本時間の00:00:00に設定
-  const TARGET_DATE = startOfDay(parseISO(eventDateString));
+  const TARGET_DATE = startOfDay(parseISO(eventDateString), { in: tz('Asia/Tokyo') });
 
   // 今日の日付を日本時間の00:00:00に設定
-  const today = startOfDay(new Date());
+  const today = startOfDay(new Date(), { in: tz('Asia/Tokyo') });
 
   // 今日からターゲット日付までの日数を計算
-  return differenceInDays(TARGET_DATE, today);
+  return differenceInDays(TARGET_DATE, today, { in: tz('Asia/Tokyo') });
 }
 
 export {
