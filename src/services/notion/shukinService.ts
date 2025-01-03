@@ -2,7 +2,7 @@ import { Client } from '@notionhq/client';
 import { logger } from '../../utils/logger';
 import { GlanzeMember, ShukinReply, ShukinInfo } from '../../types/types';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { config } from '../../config/config';
+import { config } from '../../config';
 
 export class ShukinService {
   private client: Client;

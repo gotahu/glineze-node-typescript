@@ -1,6 +1,6 @@
 import { Message, MessageReaction, User } from 'discord.js';
-import { CONSTANTS } from '../../config/constants';
-import { config } from '../../config/config';
+import { CONSTANTS } from '../../constants';
+import { config } from '../../config';
 import { Services } from '../../types/types';
 
 export function addSendButtonReaction(services: Services, message: Message) {

@@ -6,7 +6,7 @@ import {
   SesameLockStatus,
 } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { config } from '../../config/config';
+import { config } from '../../config';
 export class SesameService {
   private sesameApiUrl = '';
   private sesameApiToken = '';

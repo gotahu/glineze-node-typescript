@@ -1,4 +1,4 @@
-import { config } from './config/config';
+import { config } from './config';
 import { CronService } from './services/cron/CronService';
 import { DiscordService } from './services/discord/discordService';
 import { LINENotifyService } from './services/lineNotifyService';

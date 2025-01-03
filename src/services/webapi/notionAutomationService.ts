@@ -1,4 +1,4 @@
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { NotionAutomationWebhookEvent, Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { areUUIDsEqual } from '../../utils/notionUtils';

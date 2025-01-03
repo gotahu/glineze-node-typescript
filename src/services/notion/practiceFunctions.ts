@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { Practice, Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';

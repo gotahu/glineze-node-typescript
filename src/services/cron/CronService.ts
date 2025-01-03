@@ -1,7 +1,7 @@
 // src/services/cron/cronService.ts
 
 import { schedule } from 'node-cron';
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { sendCountdownMessage, updateBotProfile } from '../discord/countdownFunction';

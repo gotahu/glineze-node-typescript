@@ -1,5 +1,5 @@
 import { Message } from 'discord.js';
-import { config } from '../../../config/config';
+import { config } from '../../../config';
 import {
   calculateDiffBetweenTodayAndEventDate,
   forceSendCountdownMessage,

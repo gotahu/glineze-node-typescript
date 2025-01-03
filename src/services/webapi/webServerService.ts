@@ -1,6 +1,6 @@
 import { HTTPFetchError, middleware, webhook } from '@line/bot-sdk';
 import express, { Express, Request, Response } from 'express';
-import { config } from '../../config/config';
+import { config } from '../../config';
 import {
   isNotionAutomationWebhookEvent,
   NotionAutomationWebhookEvent,

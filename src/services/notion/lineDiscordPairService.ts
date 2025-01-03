@@ -3,7 +3,7 @@ import { logger } from '../../utils/logger';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { LINEDiscordPairInfo } from '../../types/types';
 import { getBooleanPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { Message, ThreadChannel } from 'discord.js';
 
 export class LINEDiscordPairService {

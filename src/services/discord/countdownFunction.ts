@@ -2,7 +2,7 @@ import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { ActivityType, TextChannel } from 'discord.js';
 import { DiscordService } from './discordService';
 import { isValidDateString } from '../../utils/dateUtils';
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { logger } from '../../utils/logger';
 import { Services } from '../../types/types';
 import { tz } from '@date-fns/tz';
