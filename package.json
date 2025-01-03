@@ -1,13 +1,13 @@
 {
   "name": "glineze-node-typescript",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "",
   "main": "dist/app.js",
   "type": "commonjs",
   "scripts": {
     "start": "NODE_ENV=production node --env-file=.env dist/app.js",
     "start:dev": "NODE_ENV=development node --env-file=.env -r ts-node/register ./src/app.ts",
-    "build": "tsc && webpack --config webpack/webpack.prod.ts",
+    "build": "tsc",
     "dev": "npm run start:dev"
   },
   "author": "",
@@ -18,8 +18,6 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.3",
     "@types/node-cron": "^3.0.11",
-    "@types/webpack": "^5.28.5",
-    "@types/webpack-node-externals": "^3.0.4",
     "@typescript-eslint/eslint-plugin": "^8.19.0",
     "@typescript-eslint/parser": "^8.19.0",
     "eslint": "^9.17.0",
@@ -28,12 +26,7 @@
     "prettier": "^3.4.2",
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2",
-    "webpack": "^5.97.1",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.0",
-    "webpack-merge": "^6.0.1",
-    "webpack-node-externals": "^3.0.0"
+    "typescript": "^5.7.2"
   },
   "dependencies": {
     "@date-fns/tz": "^1.2.0",
@@ -44,8 +37,7 @@
     "discord.js": "^14.17.2",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "http-proxy-middleware": "^3.0.3",
     "node-cron": "^3.0.3",
-    "simple-git": "^3.27.0"
+    "tsconfig-paths": "^4.2.0"
   }
 }
