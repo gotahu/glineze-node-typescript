@@ -3,8 +3,8 @@ import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'disco
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { remindPracticesToChannel } from '../notion/practiceFunctions';
-import { handleNotifyPracticesCommand } from './commands/practice';
-import { replyShukinStatus } from './commands/shukin';
+import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
+import { replyShukinStatus } from './commands/ShukinCommand';
 import { addSendButtonReaction } from './messageFunction';
 import { handleCommand } from './commands';
 
