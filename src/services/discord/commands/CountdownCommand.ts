@@ -3,7 +3,7 @@ import { config } from '../../../config';
 import {
   calculateDiffBetweenTodayAndEventDate,
   forceSendCountdownMessage,
-} from '../countdownFunction';
+} from '../functions/CountdownFunctions';
 import { Services } from '../../../types/types';
 
 export async function handleCountdownCommand(message: Message, args: string[], services: Services) {
@@ -34,7 +34,9 @@ export async function handleCountdownCommand(message: Message, args: string[], s
 
   // サブコマンドの存在確認
   if (!args.length) {
-    await message.reply('サブコマンドを指定してください。\n使用可能なサブコマンド: send, days, date, msg, title, channel');
+    await message.reply(
+      'サブコマンドを指定してください。\n使用可能なサブコマンド: send, days, date, msg, title, channel'
+    );
     return;
   }
 
@@ -42,7 +44,9 @@ export async function handleCountdownCommand(message: Message, args: string[], s
   const validSubCommands = ['send', 'days', 'date', 'msg', 'title', 'channel'];
 
   if (!validSubCommands.includes(subCommand)) {
-    await message.reply(`無効なサブコマンドです。\n使用可能なサブコマンド: ${validSubCommands.join(', ')}`);
+    await message.reply(
+      `無効なサブコマンドです。\n使用可能なサブコマンド: ${validSubCommands.join(', ')}`
+    );
     return;
   }
 

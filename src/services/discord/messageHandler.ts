@@ -5,7 +5,7 @@ import { logger } from '../../utils/logger';
 import { remindPracticesToChannel } from '../notion/practiceFunctions';
 import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
 import { replyShukinStatus } from './commands/ShukinCommand';
-import { addSendButtonReaction } from './messageFunction';
+import { addSendButtonReaction } from './functions/MessageFunctions';
 import { handleCommand } from './commands';
 
 export class MessageHandler {

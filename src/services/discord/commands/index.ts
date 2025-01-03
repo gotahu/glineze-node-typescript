@@ -1,12 +1,12 @@
 import { Message } from 'discord.js';
 import { Services } from '../../../types/types';
-import { handleDeleteChannelCommand } from './deleteChannel';
-import { handleCountdownCommand } from './countdown';
-import { handleBreakoutRoomCommand } from '../breakoutRoom';
+import { handleDeleteChannelCommand } from './DeleteChannelCommand';
+import { handleCountdownCommand } from './CountdownCommand';
+import { handleBreakoutRoomCommand } from './BreakoutRoomCommand';
 import { logger } from '../../../utils/logger';
-import { handleLineDiscordCommand } from './lineDiscord';
-import { handleReloadCommand } from './reload';
-import { handleSesameStatusCommand } from './sesame';
+import { handleLineDiscordCommand } from './LINEDiscordCommand';
+import { handleReloadCommand } from './ReloadCommand';
+import { handleSesameStatusCommand } from './SesameCommand';
 
 export const commandMap = new Map<
   string,
