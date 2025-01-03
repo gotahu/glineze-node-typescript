@@ -7,7 +7,7 @@ import {
 import { logger } from '../../../utils/logger';
 import { getRelationPropertyValue } from '../../../utils/notionUtils';
 
-export async function handleShukinAutomation(
+export async function processShukinStatusChange(
   event: NotionAutomationWebhookEvent,
   services: Services
 ) {
@@ -32,7 +32,7 @@ export async function handleShukinAutomation(
     const shukinInfo = shukinService.extractShukinInfo(event.data);
 
     // 集金状況を通知
-    await notifyDiscordMember({ member, shukinInfo, services });
+    await notifyShukinStatusToDiscordMember({ member, shukinInfo, services });
 
     logger.info('handleShukinAutomation: success');
   } catch (error) {
@@ -40,7 +40,7 @@ export async function handleShukinAutomation(
   }
 }
 
-async function notifyDiscordMember({
+async function notifyShukinStatusToDiscordMember({
   member,
   shukinInfo,
   services,
@@ -53,7 +53,8 @@ async function notifyDiscordMember({
   const { shukinService } = notion;
 
   const message =
-    '集金状況が更新されました。\n' + shukinService.formatReplyMessage(member.name, shukinInfo);
+    '集金状況が更新されました。\n' +
+    shukinService.formatShukinStatusMessage(member.name, shukinInfo);
   const discordMember = await discord.client.users.fetch(member.discordUserId);
 
   if (!discordMember) {

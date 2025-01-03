@@ -1,5 +1,4 @@
 import { Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
-import { schedule } from 'node-cron';
 import { config } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
@@ -10,13 +9,6 @@ import { handleReactionAdd } from './discordInteraction';
 import { MessageHandler } from './messageHandler';
 import { SesameDiscordService } from './sesameDiscordService';
 import { handleThreadMembersUpdate } from './threadMember';
-
-// types.ts
-interface DiscordServiceDependencies {
-  notionService: NotionService;
-  lineNotifyService: LINENotifyService;
-  sesameService?: SesameService;
-}
 
 interface MessageContent {
   content: string | EmbedBuilder[];
@@ -30,7 +22,6 @@ export class DiscordService {
 
   private readonly messageHandler: MessageHandler;
   public readonly sesameDiscordService: SesameDiscordService;
-  private sesameSchedulerStarted = false;
 
   private readonly services: Services;
 

@@ -3,7 +3,7 @@ import { NotionAutomationWebhookEvent, Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { areUUIDsEqual } from '../../utils/notionUtils';
 import { handleDuplicateFormEntryRemoval } from '../notion/automation/FormAutomation';
-import { handleShukinAutomation } from '../notion/automation/ShukinAutomation';
+import { processShukinStatusChange } from '../notion/automation/ShukinAutomation';
 
 export class NotionAutomationService {
   constructor(private readonly services: Services) {}
@@ -22,7 +22,7 @@ export class NotionAutomationService {
         const shukinDatabaseId = config.getConfig('shukin_databaseid');
 
         if (areUUIDsEqual(databaseId, shukinDatabaseId)) {
-          handleShukinAutomation(event, this.services);
+          processShukinStatusChange(event, this.services);
         } else {
           handleDuplicateFormEntryRemoval(event, this.services);
         }
