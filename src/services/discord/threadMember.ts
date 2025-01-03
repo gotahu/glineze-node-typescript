@@ -10,25 +10,8 @@ import {
 import { logger } from '../../utils/logger';
 import { setTimeout } from 'timers/promises';
 
-const THREAD_CONFIG = {
-  REACTION_WAIT_TIME: 30_000,
-  MESSAGE_DELAY: 500,
-} as const;
-
-interface ThreadMessages {
-  memberAdded: string;
-  confirmDeletion: string;
-  deletingMembers: (count: number) => string;
-  deletionComplete: string;
-}
-
-const MESSAGES: ThreadMessages = {
-  memberAdded:
-    'スレッドにメンバーが追加されました。誤って追加した場合は、何らかのリアクションをこのメッセージにしてください。このメッセージは30秒後に自動で削除されます。',
-  confirmDeletion: '現在追加された',
-  deletingMembers: (count) => `現在追加された ${count} 人のメンバーを削除します。`,
-  deletionComplete: 'メンバーの削除が完了しました。',
-};
+const REACTION_WAIT_TIME = 30_000;
+const MESSAGE_DELAY = 500;
 
 async function handleThreadMembersUpdate(
   addedMembers: Collection<Snowflake, ThreadMember>,
@@ -37,7 +20,7 @@ async function handleThreadMembersUpdate(
 ): Promise<void> {
   if (addedMembers.size === 0) return;
 
-  await setTimeout(THREAD_CONFIG.MESSAGE_DELAY);
+  await setTimeout(MESSAGE_DELAY);
   const lastMessage = thread.lastMessage;
   if (!lastMessage || lastMessage.author.bot) return;
 
@@ -50,8 +33,10 @@ async function handleThreadMembersUpdate(
 }
 
 async function sendConfirmationMessage(lastMessage: Message) {
-  logger.info('スレッドでのメンバー追加を検知、確認メッセージを送信しました');
-  return await lastMessage.reply(MESSAGES.memberAdded);
+  logger.info('スレッドでのメンバー追加を検知、確認メッセージを送信しました', { debug: true });
+  return await lastMessage.reply(
+    'スレッドにメンバーが追加されました。誤って追加した場合は、何らかのリアクションをこのメッセージにしてください。このメッセージは30秒後に自動で削除されます。'
+  );
 }
 
 async function handleReactionCollection(
@@ -68,7 +53,9 @@ async function handleReactionCollection(
 
   collector.on('end', async () => {
     await replyMessage.delete();
-    logger.info('リアクションの収集が終了しました。スレッドメンバー確認メッセージを削除します。');
+    logger.info('リアクションの収集が終了しました。スレッドメンバー確認メッセージを削除します。', {
+      debug: true,
+    });
   });
 }
 
@@ -76,7 +63,7 @@ function createReactionCollector(replyMessage: Message, lastMessage: Message) {
   const filter = (_: MessageReaction, user: User) => user.id === lastMessage.author.id;
   return replyMessage.createReactionCollector({
     filter,
-    time: THREAD_CONFIG.REACTION_WAIT_TIME,
+    time: REACTION_WAIT_TIME,
   });
 }
 
@@ -84,12 +71,10 @@ async function handleMemberDeletion(
   thread: AnyThreadChannel,
   members: Collection<Snowflake, ThreadMember>
 ) {
-  await thread.send(MESSAGES.deletingMembers(members.size));
-  logger.info('スレッドのメンバーを誤って追加したことを検知しました。ユーザーの削除を行います。', {
-    debug: true,
-  });
+  await thread.send(`現在追加された ${members.size} 人のメンバーを削除します。`);
+  logger.info('スレッドのメンバーを誤って追加したことを検知しました。ユーザーの削除を行います。');
   await removeThreadMembers(thread, members);
-  await thread.send(MESSAGES.deletionComplete);
+  await thread.send('メンバーの削除が完了しました。');
 }
 
 async function removeThreadMembers(
