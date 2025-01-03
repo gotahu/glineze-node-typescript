@@ -3,15 +3,10 @@ import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'disco
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { remindPracticesToChannel } from '../notion/practiceFunctions';
-import { handleBreakoutRoomCommand } from './breakoutRoom';
-import { handleDeleteChannelCommand } from './commands/deletechannel';
-import { handleLineDiscordCommand } from './commands/lineDiscord';
 import { handleNotifyPracticesCommand } from './commands/practice';
-import { reloadConfig } from './commands/reload';
-import { handleSesameStatusCommand } from './commands/sesame';
 import { replyShukinStatus } from './commands/shukin';
 import { addSendButtonReaction } from './messageFunction';
-import { handleCountdownCommand } from './commands/countdown';
+import { handleCommand } from './commands';
 
 export class MessageHandler {
   constructor(private readonly services: Services) {}
@@ -30,8 +25,6 @@ export class MessageHandler {
 
   private async handleDMMessage(message: Message) {
     const { notion, lineNotify } = this.services;
-    const messageContent = message.content;
-    const authorName = message.author.displayName;
     const dmChannel = message.channel as DMChannel;
 
     // 「メッセージを送信中」を表示
@@ -39,13 +32,7 @@ export class MessageHandler {
 
     await lineNotify.relayMessage(message, true);
 
-    if (messageContent === 'リロード') {
-      await reloadConfig(message);
-      return;
-    } else {
-      await replyShukinStatus(notion, message);
-      return;
-    }
+    await replyShukinStatus(notion, message);
   }
 
   /**
@@ -56,14 +43,6 @@ export class MessageHandler {
     const { lineNotify, notion, sesame } = this.services;
 
     await lineNotify.relayMessage(message, true);
-
-    // テストサーバーでのメッセージの場合
-    if (message.guild && message.guild.id === '1258189444888924324') {
-      if (message.content === 'リロード') {
-        await reloadConfig(message);
-        return;
-      }
-    }
 
     // システムメッセージの場合
     if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
@@ -81,30 +60,7 @@ export class MessageHandler {
       return;
     }
 
-    if (message.content.startsWith('!deletechannel')) {
-      await handleDeleteChannelCommand(message);
-      return;
-    }
-
-    if (message.content === 'KEY') {
-      await handleSesameStatusCommand(sesame, message);
-      return;
-    }
-
-    if (message.content.startsWith('!br')) {
-      await handleBreakoutRoomCommand(message);
-      return;
-    }
-
-    if (message.content.startsWith('!countdown')) {
-      await handleCountdownCommand(message, this.services);
-      return;
-    }
-
-    if (message.content.startsWith('!line-discord')) {
-      await handleLineDiscordCommand(message, notion.lineDiscordPairService);
-      return;
-    }
+    await handleCommand(message, this.services);
 
     if (message.content.startsWith('!bashotoriremind')) {
       const channel = message.channel as TextChannel;

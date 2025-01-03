@@ -3,23 +3,17 @@ import { config } from '../../../config';
 import { logger } from '../../../utils/logger';
 
 /**
- * config をリロードします
+ * config をリロードする
  * @param message
- * @returns
+ * @param args
  */
-export async function reloadConfig(message: Message): Promise<void> {
-  const messageContent = message.content;
-  const authorName = message.author.displayName;
+export async function handleReloadCommand(message: Message, args: string[]) {
+  try {
+    await config.initializeConfig();
 
-  if (messageContent === 'リロード') {
-    try {
-      await config.initializeConfig();
-      message.reply('リロードしました。');
-      return;
-    } catch (error) {
-      message.reply('リロードに失敗しました。管理者に連絡してください。');
-      logger.error(`${authorName} が config をリロードしようとしましたが、エラーが発生しました。`);
-      return;
-    }
+    message.reply('config をリロードしました');
+  } catch (error) {
+    message.reply('config リロード時にエラーが発生しました: ' + error);
+    logger.error('config リロード時にエラーが発生しました: ' + error);
   }
 }

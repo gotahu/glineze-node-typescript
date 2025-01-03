@@ -12,19 +12,18 @@ import {
 } from 'discord.js';
 import { logger } from '../../utils/logger';
 
-async function handleBreakoutRoomCommand(message: Message) {
-  const args = message.content.split(' ');
-  if (args.length <= 1) {
+async function handleBreakoutRoomCommand(message: Message, args: string[]) {
+  if (args.length < 1) {
     message.reply({ content: '引数が不足しています' });
     return;
   }
-  const subCommand = args[1];
+  const subCommand = args[0];
   if (subCommand === 'create') {
-    if (args.length <= 2) {
+    if (args.length < 2) {
       message.reply({ content: '引数が不足しています' });
       return;
     }
-    const number = parseInt(args[2]);
+    const number = parseInt(args[1]);
     if (isNaN(number)) {
       message.reply({ content: '引数が不正です' });
       return;

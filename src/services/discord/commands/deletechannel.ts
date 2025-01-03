@@ -1,16 +1,14 @@
 import { Message } from 'discord.js';
 import { logger } from '../../../utils/logger';
 
-export async function handleDeleteChannelCommand(message: Message) {
+export async function handleDeleteChannelCommand(message: Message, args: string[]) {
   try {
-    const args = message.content.split(' ');
-
-    if (args.length < 2) {
+    if (args.length < 1) {
       message.reply('チャンネル名を指定してください');
       return;
     }
 
-    const channelId = args[1];
+    const channelId = args[0];
     const channel = message.guild?.channels.cache.get(channelId);
 
     if (!channel) {
