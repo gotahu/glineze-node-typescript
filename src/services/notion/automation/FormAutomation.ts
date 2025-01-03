@@ -1,4 +1,3 @@
-import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { NotionAutomationWebhookEvent, Services } from '../../../types/types';
 import {
   areUUIDsEqual,
@@ -7,7 +6,7 @@ import {
   queryAllDatabasePages,
 } from '../../../utils/notionUtils';
 
-export async function handleAddRowToFormAutomation(
+export async function handleDuplicateFormEntryRemoval(
   event: NotionAutomationWebhookEvent,
   services: Services
 ) {
