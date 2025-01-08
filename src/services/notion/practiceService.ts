@@ -1,11 +1,12 @@
+import { tz } from '@date-fns/tz';
 import { Client } from '@notionhq/client';
-import { logger } from '../../utils/logger';
-import { Practice } from '../../types/types';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { replaceEnglishDayWithJapanese } from '../../utils/dateUtils';
-import { config } from '../../config';
-import { getRelationPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
 import { addDays, format } from 'date-fns';
+import { config } from '../../config';
+import { Practice } from '../../types/types';
+import { replaceEnglishDayWithJapanese } from '../../utils/dateUtils';
+import { logger } from '../../utils/logger';
+import { getRelationPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
 
 export class PracticeService {
   private client: Client;
@@ -15,7 +16,10 @@ export class PracticeService {
   }
 
   public async retrievePracticesForRelativeDay(daysFromToday: number): Promise<Practice[]> {
-    const targetDate = addDays(new Date(), daysFromToday);
+    // タイムゾーンを日本時間に設定し、日付を取得
+    const targetDate = addDays(new Date(), daysFromToday, { in: tz('Asia/Tokyo') });
+
+    // 日付を yyyy-MM-dd 形式にフォーマット
     const formattedDate = format(targetDate, 'yyyy-MM-dd');
 
     logger.info(`Retrieving practices for date: ${formattedDate}`, { debug: true });
