@@ -1,14 +1,14 @@
 import {
   AnyThreadChannel,
   Collection,
+  Message,
   MessageReaction,
   Snowflake,
   ThreadMember,
   User,
-  Message,
 } from 'discord.js';
-import { logger } from '../../utils/logger';
 import { setTimeout } from 'timers/promises';
+import { logger } from '../../utils/logger';
 
 const REACTION_WAIT_TIME = 30_000;
 const MESSAGE_DELAY = 500;
@@ -33,7 +33,7 @@ async function handleThreadMembersUpdate(
 }
 
 async function sendConfirmationMessage(lastMessage: Message) {
-  logger.info('スレッドでのメンバー追加を検知、確認メッセージを送信しました', { debug: true });
+  logger.info('スレッドでのメンバー追加を検知、確認メッセージを送信しました');
   return await lastMessage.reply(
     'スレッドにメンバーが追加されました。誤って追加した場合は、何らかのリアクションをこのメッセージにしてください。このメッセージは30秒後に自動で削除されます。'
   );
@@ -53,9 +53,7 @@ async function handleReactionCollection(
 
   collector.on('end', async () => {
     await replyMessage.delete();
-    logger.info('リアクションの収集が終了しました。スレッドメンバー確認メッセージを削除します。', {
-      debug: true,
-    });
+    logger.info('リアクションの収集が終了しました。スレッドメンバー確認メッセージを削除します。');
   });
 }
 
