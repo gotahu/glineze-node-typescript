@@ -1,12 +1,12 @@
 import { Message } from 'discord.js';
-import { config } from '../../../config/config';
+import { config } from '../../../config';
 import {
   calculateDiffBetweenTodayAndEventDate,
   forceSendCountdownMessage,
-} from '../countdownFunction';
+} from '../functions/CountdownFunctions';
 import { Services } from '../../../types/types';
 
-export async function handleCountdownCommand(message: Message, services: Services) {
+export async function handleCountdownCommand(message: Message, args: string[], services: Services) {
   // countdown days 日数を取得
   // countdown date カウントダウンを行う日付を取得
   // countdown msg カウントダウンメッセージを取得
@@ -25,15 +25,30 @@ export async function handleCountdownCommand(message: Message, services: Service
   const channelId = config.getConfig('countdown_channelid');
   const sendChannel = channelId ?? config.getConfig('discord_general_channelid');
 
+  // !countdownコマンドの場合は全情報を表示
   if (messageContent === '!countdown') {
     const response = `カウントダウンの情報\n日数: ${daysLeft}\n日付: ${date}\nメッセージ: ${msg}\nタイトル: ${title}\nチャンネル: ${sendChannel}`;
-
     await message.reply(response);
     return;
   }
 
-  const args = message.content.split(' ').slice(1);
+  // サブコマンドの存在確認
+  if (!args.length) {
+    await message.reply(
+      'サブコマンドを指定してください。\n使用可能なサブコマンド: send, days, date, msg, title, channel'
+    );
+    return;
+  }
+
   const subCommand = args[0];
+  const validSubCommands = ['send', 'days', 'date', 'msg', 'title', 'channel'];
+
+  if (!validSubCommands.includes(subCommand)) {
+    await message.reply(
+      `無効なサブコマンドです。\n使用可能なサブコマンド: ${validSubCommands.join(', ')}`
+    );
+    return;
+  }
 
   switch (subCommand) {
     case 'send':

@@ -1,18 +1,19 @@
 import { Message } from 'discord.js';
 import { logger } from '../../../utils/logger';
-import { LINEDiscordPairInfo } from '../../../types/types';
+import { LINEDiscordPairInfo, Services } from '../../../types/types';
 import { LINEDiscordPairService } from '../../notion/lineDiscordPairService';
 
-async function handleLineDiscordCommand(message: Message, service: LINEDiscordPairService) {
-  const args = message.content.split(' ');
-  if (args.length < 2) {
+async function handleLineDiscordCommand(message: Message, args: string[], services: Services) {
+  if (args.length < 1) {
     await message.reply(
       '使用方法: !line-discord <add|status|remove> [line_notify_key] [line_group_id] [--thread] [--include-threads]'
     );
     return;
   }
 
-  const subCommand = args[1];
+  const service = services.notion.lineDiscordPairService;
+
+  const subCommand = args[0];
   let channelId = message.channel.id;
   // スレッドの場合はスレッドIDを使用
   if (message.channel.isThread()) {
@@ -21,7 +22,7 @@ async function handleLineDiscordCommand(message: Message, service: LINEDiscordPa
 
   switch (subCommand) {
     case 'add':
-      if (args.length < 4) {
+      if (args.length < 3) {
         await message.reply(
           '使用方法: !line-discord add <line_notify_key> <line_group_id> [--not-include-threads]'
         );
@@ -34,8 +35,8 @@ async function handleLineDiscordCommand(message: Message, service: LINEDiscordPa
 
       const pairInfo = {
         name: name,
-        lineNotifyKey: args[2],
-        lineGroupId: args[3],
+        lineNotifyKey: args[1],
+        lineGroupId: args[2],
         discordChannelId: channelId,
         includeThreads: !args.includes('--not-include-threads'),
         priority: false,

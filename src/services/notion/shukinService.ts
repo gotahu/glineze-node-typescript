@@ -2,7 +2,8 @@ import { Client } from '@notionhq/client';
 import { logger } from '../../utils/logger';
 import { GlanzeMember, ShukinReply, ShukinInfo } from '../../types/types';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { config } from '../../config/config';
+import { config } from '../../config';
+import { queryAllDatabasePages } from '../../utils/notionUtils';
 
 export class ShukinService {
   private client: Client;
@@ -24,21 +25,24 @@ export class ShukinService {
   public async retrieveShukinStatus(member: GlanzeMember): Promise<ShukinReply> {
     try {
       const databaseId = config.getConfig('shukin_databaseid');
-      const response = await this.client.databases.query({
-        database_id: databaseId,
-        filter: {
-          property: '団員',
-          relation: { contains: member.notionPageId },
-        },
+      const response = await queryAllDatabasePages(this.client, databaseId, {
+        property: '団員',
+        relation: { contains: member.notionPageId },
       });
 
-      if (response.results.length === 0) {
+      if (response.length === 0) {
         throw new Error(ShukinService.ERROR_MESSAGES.NO_DATA_FOUND);
+      } else if (response.length > 1) {
+        // 複数のデータが見つかった場合はエラーログを出す
+        // 処理は継続する
+        logger.error(
+          `retrieveShukinStatus: 団員 ${member.name} に対して、${response.length}件のデータが見つかりました。`
+        );
       }
 
-      const page = response.results[0] as PageObjectResponse;
+      const page = response[0] as PageObjectResponse;
       const shukinList = this.extractShukinInfo(page);
-      const replyMessage = this.formatReplyMessage(member.name, shukinList);
+      const replyMessage = this.formatShukinStatusMessage(member.name, shukinList);
 
       return { status: 'success', message: replyMessage };
     } catch (error) {
@@ -72,7 +76,7 @@ export class ShukinService {
     return shukinList;
   }
 
-  public formatReplyMessage(memberName: string, shukinList: ShukinInfo[]): string {
+  public formatShukinStatusMessage(memberName: string, shukinList: ShukinInfo[]): string {
     let message = `${memberName} さんの集金状況をお知らせします。\n### 集金状況`;
 
     if (shukinList.length === 0) {

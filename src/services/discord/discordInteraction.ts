@@ -5,30 +5,17 @@ import {
   PartialMessage,
   PartialMessageReaction,
   PartialUser,
-  ThreadChannel,
   User,
 } from 'discord.js';
 
 import {
   addNotificationMessage,
-  retrieveNotificationMessages,
   deleteNotificationMessage,
+  retrieveNotificationMessages,
 } from '../notion/notionInteraction';
 
-import { logger } from '../../utils/logger';
 import { Services } from '../../types/types';
-
-async function removeMembersExcept(threadChannel: ThreadChannel, excludeMemberIds: string[]) {
-  try {
-    const members = await threadChannel.members.fetch();
-    const membersToRemove = members.filter((member) => !excludeMemberIds.includes(member.id));
-
-    await Promise.all(membersToRemove.map((member) => threadChannel.members.remove(member.id)));
-  } catch (error) {
-    console.error('Failed to remove members:', error);
-    throw error;
-  }
-}
+import { logger } from '../../utils/logger';
 
 export async function handleReactionAdd(
   reaction: MessageReaction | PartialMessageReaction,

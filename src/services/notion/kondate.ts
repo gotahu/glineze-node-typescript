@@ -9,53 +9,82 @@ import {
   queryAllDatabasePages,
 } from '../../utils/notionUtils';
 
-// 突貫工事で
+interface MealConfig {
+  type: '朝ごはん' | '昼ごはん' | '夕ごはん';
+  checkTime: Date;
+  message: string;
+}
+
+const KONDATE_CONFIG = {
+  DATABASE_ID: '4306f7cc80334f8a9b3333f7b445873a',
+  CHANNEL_ID: '1278820346610450573',
+  NOTIFICATION_WINDOW: 5, // minutes
+  LUNCH_NOTIFICATION_WINDOW: { start: 10, end: 15 }, // minutes
+} as const;
+
+const MEAL_CONFIGS: MealConfig[] = [
+  {
+    type: '朝ごはん',
+    checkTime: set(new Date(), { hours: 6, minutes: 30 }),
+    message: 'おはようございます☀️今日の朝食をお知らせします！',
+  },
+  {
+    type: '昼ごはん',
+    checkTime: new Date(), // 昼食は時間との差分で判定
+    message: 'お昼ご飯だ〜🍙今日の昼食をお知らせします。',
+  },
+  {
+    type: '夕ごはん',
+    checkTime: set(new Date(), { hours: 16, minutes: 50 }),
+    message: '午後の練習お疲れさまでした⭐️今日の夕食をお知らせします！',
+  },
+];
+
+function createMealMessage(mealTime: string, baseMessage: string): string {
+  return `@everyone ${baseMessage}\n${mealTime} を予定しています。`;
+}
+
 export async function fetchKondate(notion: NotionService, discord: DiscordService) {
-  const kondateDatabaseId = '4306f7cc80334f8a9b3333f7b445873a';
-  const discordChannelId = '1278820346610450573';
-  //const discordThreadId = '1278820346610450573';
-  const kondates = await queryAllDatabasePages(notion.client, kondateDatabaseId);
-  console.log(kondates);
+  try {
+    const kondates = await queryAllDatabasePages(notion.client, KONDATE_CONFIG.DATABASE_ID);
+    const now = new Date();
 
-  const am = set(new Date(), { hours: 6, minutes: 30 });
-  const nt = set(new Date(), { hours: 16, minutes: 50 });
+    for (const kondate of kondates) {
+      const kondateDateTime = getDatePropertyValue(kondate, '日付');
+      if (!kondateDateTime || !isSameDay(now, kondateDateTime)) continue;
 
-  const now = new Date();
-  console.log(now);
-
-  for (const kondate of kondates) {
-    const kondateDateTime = getDatePropertyValue(kondate, '日付');
-
-    if (kondateDateTime) {
-      const kondateMenu = '\n' + getStringPropertyValue(kondate, '献立');
-      const mealTime = format(kondateDateTime, 'H:mm');
       const gohanType = getStringPropertyValue(kondate, '時間');
+      const mealConfig = MEAL_CONFIGS.find((config) => config.type === gohanType);
+      if (!mealConfig) continue;
 
-      const title = `## 🍚 ${format(now, 'M月d日(eee)', { locale: ja })} の${gohanType}\n`;
-      let message = '';
+      /*
+       * 昼ごはんの場合は時間との差分で判定
+       * 朝ごはんと夕ごはんの場合は時間との差分で判定
+       */
+      const shouldNotify =
+        gohanType === '昼ごはん'
+          ? differenceInMinutes(kondateDateTime, now) >=
+              KONDATE_CONFIG.LUNCH_NOTIFICATION_WINDOW.start &&
+            differenceInMinutes(kondateDateTime, now) < KONDATE_CONFIG.LUNCH_NOTIFICATION_WINDOW.end
+          : differenceInMinutes(now, mealConfig.checkTime) >= 0 &&
+            differenceInMinutes(now, mealConfig.checkTime) < KONDATE_CONFIG.NOTIFICATION_WINDOW;
 
-      if (differenceInMinutes(now, nt) >= 0 && differenceInMinutes(now, nt) < 5) {
-        if (isSameDay(now, kondateDateTime) && gohanType === '夕ごはん')
-          // 夕食リマインド
-          message = `@everyone 午後の練習お疲れさまでした⭐️今日の夕食をお知らせします！\n夕食の時間は ${mealTime} を予定しています。`;
-      } else if (differenceInMinutes(now, am) >= 0 && differenceInMinutes(now, am) < 5) {
-        if (isSameDay(now, kondateDateTime) && gohanType === '朝ごはん')
-          // 朝食リマインド
-          message = `@everyone おはようございます☀️今日の朝食をお知らせします！\n朝食の時間は ${mealTime} を予定しています。`;
-      } else if (
-        differenceInMinutes(kondateDateTime, now) >= 10 &&
-        differenceInMinutes(kondateDateTime, now) < 15
-      ) {
-        if (isSameDay(now, kondateDateTime) && gohanType === '昼ごはん')
-          // 昼食リマインド
-          message = `@everyone お昼ご飯だ〜🍙今日の昼食をお知らせします。\n昼食の時間は ${mealTime} を予定しています。`;
-      }
+      // 通知する場合
+      if (shouldNotify) {
+        const mealTime = format(kondateDateTime, 'H:mm');
+        const kondateMenu = '\n' + getStringPropertyValue(kondate, '献立');
+        const title = `## 🍚 ${format(now, 'M月d日(eee)', { locale: ja })} の${gohanType}\n`;
+        const message = createMealMessage(mealTime, mealConfig.message);
 
-      if (message) {
-        const channel = (await discord.client.channels.fetch(discordChannelId)) as ThreadChannel;
+        const channel = (await discord.client.channels.fetch(
+          KONDATE_CONFIG.CHANNEL_ID
+        )) as ThreadChannel;
         await channel.send(title + message + kondateMenu);
         return;
       }
     }
+  } catch (error) {
+    console.error('献立の取得・通知処理でエラーが発生しました:', error);
+    throw error;
   }
 }

@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { Practice, Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
@@ -41,7 +41,7 @@ async function fetchRemindablePractices(notion: NotionService): Promise<Practice
     });
 
     if (facilities.length === 0) {
-      logger.info('リマインド対象の施設はありません', { debug: true });
+      logger.info('リマインド日数が設定されている施設は見つかりませんでした', { debug: true });
       return [];
     }
 
@@ -61,6 +61,7 @@ async function fetchRemindablePractices(notion: NotionService): Promise<Practice
       const targetPractices = practices.filter((p) => p.place === facilityName);
 
       if (targetPractices.length > 0) {
+        // リマインド対象の練習を追加
         remindablePractices.push(...targetPractices);
       }
     }
@@ -80,6 +81,8 @@ export async function remindPracticesToChannel(service: Services, channelId: str
       logger.info('リマインド対象の練習はありません', { debug: true });
       return;
     }
+
+    logger.info(`リマインド対象の練習は ${remindablePractices.length} 件です`, { debug: true });
 
     for (const practice of remindablePractices) {
       const place = practice.place;

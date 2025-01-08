@@ -1,9 +1,9 @@
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { NotionAutomationWebhookEvent, Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { areUUIDsEqual } from '../../utils/notionUtils';
-import { handleAddRowToFormAutomation } from '../notion/automation/FormAutomation';
-import { handleShukinAutomation } from '../notion/automation/ShukinAutomation';
+import { handleDuplicateFormEntryRemoval } from '../notion/automation/FormAutomation';
+import { processShukinStatusChange } from '../notion/automation/ShukinAutomation';
 
 export class NotionAutomationService {
   constructor(private readonly services: Services) {}
@@ -22,9 +22,9 @@ export class NotionAutomationService {
         const shukinDatabaseId = config.getConfig('shukin_databaseid');
 
         if (areUUIDsEqual(databaseId, shukinDatabaseId)) {
-          handleShukinAutomation(event, this.services);
+          processShukinStatusChange(event, this.services);
         } else {
-          handleAddRowToFormAutomation(event, this.services);
+          handleDuplicateFormEntryRemoval(event, this.services);
         }
       } else if (event.data.parent.type === 'page_id') {
         // Handle the event for a page

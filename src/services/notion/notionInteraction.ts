@@ -1,4 +1,4 @@
-import { config } from '../../config/config';
+import { config } from '../../config';
 import { NotificationMessage } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionService } from './notionService';

@@ -1,5 +1,8 @@
 import { Client } from '@notionhq/client';
-import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import {
+  PageObjectResponse,
+  QueryDatabaseParameters,
+} from '@notionhq/client/build/src/api-endpoints';
 import { logger } from './logger';
 
 function getStringPropertyValue(page: PageObjectResponse, key: string): string | undefined {
@@ -34,7 +37,7 @@ function getStringPropertyValue(page: PageObjectResponse, key: string): string |
       return property.formula.string;
     }
   } else {
-    throw new Error(`Cannot find property with key: ${key}`);
+    throw new Error(`Cannot get string property with key: ${key}`);
   }
 
   logger.info(`プロパティ ${key} は見つかりましたが、その値が存在しないか空になっています`, {
@@ -108,7 +111,7 @@ async function getRelationPropertyValue(
 async function queryAllDatabasePages(
   client: Client,
   databaseId: string,
-  filter?: any
+  filter?: QueryDatabaseParameters['filter']
 ): Promise<PageObjectResponse[]> {
   let hasMore = true;
   let startCursor = undefined;
