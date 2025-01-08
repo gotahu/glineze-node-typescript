@@ -1,12 +1,13 @@
 import { Message } from 'discord.js';
 import { Services } from '../../../types/types';
-import { handleDeleteChannelCommand } from './DeleteChannelCommand';
-import { handleCountdownCommand } from './CountdownCommand';
-import { handleBreakoutRoomCommand } from './BreakoutRoomCommand';
 import { logger } from '../../../utils/logger';
+import { handleBreakoutRoomCommand } from './BreakoutRoomCommand';
+import { handleCountdownCommand } from './CountdownCommand';
+import { handleDeleteChannelCommand } from './DeleteChannelCommand';
 import { handleLineDiscordCommand } from './LINEDiscordCommand';
 import { handleReloadCommand } from './ReloadCommand';
 import { handleSesameStatusCommand } from './SesameCommand';
+import { handleVersionCommand } from './VersionCommand';
 
 export const commandMap = new Map<
   string,
@@ -18,6 +19,7 @@ export const commandMap = new Map<
   ['line-discord', handleLineDiscordCommand],
   ['reload', handleReloadCommand],
   ['sesame', handleSesameStatusCommand],
+  ['version', handleVersionCommand],
 ]);
 
 /**
