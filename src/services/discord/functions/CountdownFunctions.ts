@@ -1,11 +1,11 @@
+import { tz } from '@date-fns/tz';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { ActivityType, TextChannel } from 'discord.js';
-import { DiscordService } from '../discordService';
-import { isValidDateString } from '../../../utils/dateUtils';
 import { config } from '../../../config';
-import { logger } from '../../../utils/logger';
 import { Services } from '../../../types/types';
-import { tz } from '@date-fns/tz';
+import { isValidDateString } from '../../../utils/dateUtils';
+import { logger } from '../../../utils/logger';
+import { DiscordService } from '../discordService';
 
 // 定数を分離
 const COUNTDOWN_MESSAGES = {
@@ -64,6 +64,10 @@ function isTodayTargetDate(): boolean {
 
   // カウントダウン対象日までの日数を計算
   const daysLeft = calculateDiffBetweenTodayAndEventDate();
+
+  logger.info(`isTodayTargetDate: daysLeft: ${daysLeft}, countdownDays: ${countdownDays}`, {
+    debug: true,
+  });
 
   // カウントダウン通知日に含まれる場合はtrue、それ以外の場合はfalse
   return countdownDays.includes(daysLeft);
@@ -145,9 +149,9 @@ function updateBotProfile(discord: DiscordService): void {
 }
 
 export {
-  updateChannelTopic,
-  updateBotProfile,
-  sendCountdownMessage,
-  forceSendCountdownMessage,
   calculateDiffBetweenTodayAndEventDate,
+  forceSendCountdownMessage,
+  sendCountdownMessage,
+  updateBotProfile,
+  updateChannelTopic,
 };
