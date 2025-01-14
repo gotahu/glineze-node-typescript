@@ -48,7 +48,13 @@ function calculateDiffBetweenTodayAndEventDate(): number {
   const targetDate = startOfDay(parseISO(eventDateString));
   const today = startOfDay(new Date());
 
-  return differenceInDays(targetDate, today, { in: tz('Asia/Tokyo') });
+  console.log(`targetDate: ${targetDate}, today: ${today}`);
+
+  const diff = differenceInDays(targetDate, today, { in: tz('Asia/Tokyo') });
+
+  console.log(`diff: ${diff}`);
+
+  return diff;
 }
 
 /**
