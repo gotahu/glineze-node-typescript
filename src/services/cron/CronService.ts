@@ -82,9 +82,9 @@ export class CronService {
     // カウントダウンを即時更新
     this.runCountdownScheduler();
 
-    // 1 日おきに実行する
+    // 毎日0時1分に実行する
     schedule(
-      '0 0 * * *',
+      '1 0 * * *',
       () => {
         this.runCountdownScheduler();
         this.runSendCountdownMessage();
@@ -121,7 +121,9 @@ export class CronService {
         return;
       }
 
-      logger.info('Sending countdown message (manual or scheduled)');
+      logger.info('runSendCountdownMessage: Sending countdown message (manual or scheduled)', {
+        debug: true,
+      });
       sendCountdownMessage(this.services);
     } catch (error) {
       logger.error(`runSendCountdownMessage: Error sending countdown message: ${error}`);
