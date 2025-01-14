@@ -1,4 +1,4 @@
-import { tz } from '@date-fns/tz';
+import { tz, TZDate } from '@date-fns/tz';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { ActivityType, TextChannel } from 'discord.js';
 import { config } from '../../../config';
@@ -45,8 +45,8 @@ function calculateDiffBetweenTodayAndEventDate(): number {
     throw new Error('無効な日付文字列です');
   }
 
-  const targetDate = startOfDay(parseISO(eventDateString));
-  const today = startOfDay(new Date());
+  const targetDate = startOfDay(new TZDate(parseISO(eventDateString), 'Asia/Tokyo'));
+  const today = startOfDay(new TZDate(new Date(), 'Asia/Tokyo'));
 
   console.log(`targetDate: ${targetDate}, today: ${today}`);
 
