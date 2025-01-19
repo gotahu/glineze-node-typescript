@@ -1,5 +1,5 @@
-import dotenv from 'dotenv';
 import { Client } from '@notionhq/client';
+import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 import { getStringPropertyValue, queryAllDatabasePages } from './utils/notionUtils';
 
@@ -34,7 +34,7 @@ export const config = {
     channelAccessToken: process.env.LINEBOT_CHANNEL_ACCESS_TOKEN || '',
   },
   app: {
-    port: Number(process.env.APP_PORT) || 3001,
+    port: Number(process.env.PORT) || 3001,
   },
   repository: {
     path: process.env.REPOSITORY_PATH || '',
