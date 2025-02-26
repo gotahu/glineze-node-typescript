@@ -5,6 +5,19 @@ import {
 } from '@notionhq/client/build/src/api-endpoints';
 import { logger } from './logger';
 
+export class NotFoundPropertyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundPropertyError';
+  }
+}
+
+export enum StatusPropertyType {
+  TODO = 'To-do',
+  IN_PROGRESS = 'In Progress',
+  COMPLETE = 'Complete',
+}
+
 function getStringPropertyValue(page: PageObjectResponse, key: string): string | undefined {
   const property = page.properties[key];
 
@@ -36,14 +49,88 @@ function getStringPropertyValue(page: PageObjectResponse, key: string): string |
     if (property.type === 'formula' && property.formula && property.formula.type === 'string') {
       return property.formula.string;
     }
+
+    if (property.type === 'status' && property.status) {
+      return property.status.name;
+    }
   } else {
-    throw new Error(`Cannot get string property with key: ${key}`);
+    throw new NotFoundPropertyError(`プロパティ ${key} が見つかりません`);
   }
 
   logger.info(`プロパティ ${key} は見つかりましたが、その値が存在しないか空になっています`, {
     debug: true,
   });
   return undefined;
+}
+
+/**
+ * ステータスプロパティのグループを取得する関数
+ * @param client Notion Client
+ * @param page ページ情報
+ * @param propertyKey プロパティキー
+ * @returns ステータスプロパティのグループ
+ */
+async function getStatusPropertyGroup(
+  client: Client,
+  page: PageObjectResponse,
+  propertyKey: string
+): Promise<StatusPropertyType> {
+  if (page.parent.type === 'database_id') {
+    // page から key に該当するステータスプロパティを取得する
+    let statusId: string;
+    for (const [key, property] of Object.entries(page.properties)) {
+      if (property.type === 'status' && property.status && key === propertyKey) {
+        statusId = property.status.id;
+      }
+    }
+
+    if (!statusId) {
+      throw new Error(`ステータスプロパティ ${propertyKey} が見つかりません`);
+    }
+
+    // ページから親データベースを取得する
+    const databaseId = page.parent.database_id;
+    const database = await client.databases.retrieve({ database_id: databaseId });
+
+    let groupName: StatusPropertyType;
+
+    // データベースのステータスプロパティを取得する
+    for (const [key, property] of Object.entries(database.properties)) {
+      if (property.type === 'status' && property.status && key === propertyKey) {
+        const groups = property.status.groups;
+        for (const group of groups) {
+          if (group.option_ids.includes(statusId)) {
+            groupName = group.name as StatusPropertyType;
+          }
+        }
+      }
+    }
+
+    if (!groupName) {
+      throw new Error(`ステータスプロパティ ${propertyKey} のグループが見つかりません`);
+    }
+
+    return groupName;
+  }
+
+  throw new Error('ページの親がデータベースではありません');
+}
+
+/**
+ * ページのタイトルを取得する関数
+ * @param {PageObjectResponse} page ページ情報
+ * @returns {string} ページのタイトル
+ */
+function getPageTitle(page: PageObjectResponse): string {
+  const properties = page.properties;
+
+  for (const [key, prop] of Object.entries(properties)) {
+    if (prop.type === 'title' && prop.title.length > 0) {
+      return prop.title.map((title) => title.plain_text).join('');
+    }
+  }
+
+  throw new Error('ページタイトルが見つかりません');
 }
 
 function getBooleanPropertyValue(page: PageObjectResponse, key: string): boolean {
@@ -148,11 +235,12 @@ function areUUIDsEqual(uuid1: string, uuid2: string): boolean {
 }
 
 export {
-  getStringPropertyValue,
-  getBooleanPropertyValue,
-  getNumberPropertyValue,
-  getDatePropertyValue,
-  getRelationPropertyValue,
-  queryAllDatabasePages,
   areUUIDsEqual,
+  getBooleanPropertyValue,
+  getDatePropertyValue,
+  getNumberPropertyValue,
+  getPageTitle,
+  getRelationPropertyValue,
+  getStringPropertyValue,
+  queryAllDatabasePages,
 };
