@@ -2,7 +2,6 @@ import { Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel 
 import { config } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { LINENotifyService } from '../lineNotifyService';
 import { NotionService } from '../notion/notionService';
 import { SesameService } from '../sesame/sesameService';
 import { handleReactionAdd } from './discordInteraction';
@@ -25,15 +24,10 @@ export class DiscordService {
 
   private readonly services: Services;
 
-  constructor(_services: {
-    notion: NotionService;
-    lineNotify: LINENotifyService;
-    sesame: SesameService;
-  }) {
+  constructor(_services: { notion: NotionService; sesame: SesameService }) {
     // インスタンスを格納
     this.services = {
       notion: _services.notion,
-      lineNotify: _services.lineNotify,
       discord: this,
       sesame: _services.sesame,
     };
@@ -122,34 +116,5 @@ export class DiscordService {
     threadId?: string
   ): Promise<void> {
     await this.sendContentToChannel({ content: embeds, channelId, threadId });
-  }
-
-  public async sendLINEMessageToDiscord(lineGroupId: string, message: string): Promise<void> {
-    const DEFAULT_CHANNEL_ID = '1037911984399724634';
-
-    if (lineGroupId === 'undefined') {
-      await this.sendStringsToChannel([message], DEFAULT_CHANNEL_ID);
-      return;
-    }
-
-    const discordChannelId = await this.findMatchingDiscordChannel(lineGroupId);
-
-    if (!discordChannelId) {
-      logger.error(
-        `LINE BOTがメッセージを受信しましたが、対応するDiscordチャンネルが見つかりませんでした`
-      );
-      return;
-    }
-
-    await this.sendStringsToChannel([message], discordChannelId);
-  }
-
-  public async findMatchingDiscordChannel(lineGroupId: string): Promise<string | undefined> {
-    const { notion } = this.services;
-    const pairs = await notion.lineDiscordPairService.getLINEDiscordPairs();
-
-    return pairs
-      .filter((pair) => pair.lineGroupId === lineGroupId)
-      .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0))[0]?.discordChannelId;
   }
 }
