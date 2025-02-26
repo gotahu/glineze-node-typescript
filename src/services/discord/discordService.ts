@@ -1,5 +1,4 @@
 import { Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
-import { config } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
@@ -87,7 +86,14 @@ export class DiscordService {
 
   public async start() {
     console.log('Discord BOT のログインを試みます。');
-    await this.client.login(config.discord.botToken);
+    const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+
+    if (!DISCORD_BOT_TOKEN) {
+      console.error('DISCORD_BOT_TOKEN が設定されていません。プログラムを終了します。');
+      process.exit(0);
+    }
+
+    await this.client.login(DISCORD_BOT_TOKEN);
     console.log('Discord BOT のログインが終了しました。');
   }
 
