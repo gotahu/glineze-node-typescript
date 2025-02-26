@@ -10,6 +10,20 @@ import {
 import { config } from '../../config';
 import { logger } from '../../utils/logger';
 
+export async function sendMessageToDiscordWebhook(webhookUrl: string, message: string) {
+  const webhookClient = new WebhookClient({
+    url: webhookUrl,
+  });
+
+  try {
+    webhookClient.send({
+      content: message,
+    });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 export async function relayMessageToDiscordWebhook(message: Message): Promise<void> {
   const webhookClient = new WebhookClient({
     url: config.discord.relayWebhook,

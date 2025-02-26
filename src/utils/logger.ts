@@ -1,7 +1,7 @@
 import { DiscordService } from '../services/discord/discordService';
+import { sendMessageToDiscordWebhook } from '../services/discord/discordWebhook';
 import { postToLINENotify } from '../services/lineNotifyService';
-import { sendDiscordWebhookMessage } from '../services/discord/discordWebhook';
-import { LoggerConfig, LogMessage, LogLevel } from '../types/types';
+import { LoggerConfig, LogLevel, LogMessage } from '../types/types';
 
 export class Logger {
   private static instance: Logger;
@@ -78,7 +78,7 @@ export class Logger {
   private async sendToWebhook(logMessage: LogMessage): Promise<void> {
     try {
       const formattedMessage = `[${logMessage.level}] ${logMessage.message}`;
-      await sendDiscordWebhookMessage(this.config.discordWebhookUrl, formattedMessage);
+      await sendMessageToDiscordWebhook(this.config.discordWebhookUrl, formattedMessage);
     } catch (error) {
       console.error(
         `Failed to send message to Discord webhook: ${error instanceof Error ? error.message : String(error)}`
