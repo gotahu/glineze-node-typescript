@@ -22,6 +22,7 @@ const initializeServices = async () => {
   try {
     // config の初期化
     await config.initializeConfig();
+
     // NotionService
     const notionService = new NotionService();
 

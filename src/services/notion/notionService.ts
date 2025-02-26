@@ -10,6 +10,8 @@ export class NotionService {
   public shukinService: ShukinService;
 
   constructor() {
+    console.log('NotionService の初期化を開始します。');
+
     const NOTION_TOKEN = process.env.NOTION_TOKEN;
 
     if (!NOTION_TOKEN) {
@@ -20,5 +22,7 @@ export class NotionService {
     this.memberService = new MemberService(this.client);
     this.practiceService = new PracticeService(this.client);
     this.shukinService = new ShukinService(this.client);
+
+    console.log('NotionService の初期化が終了しました。');
   }
 }

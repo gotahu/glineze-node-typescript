@@ -25,6 +25,8 @@ export class DiscordService {
   private readonly services: Services;
 
   constructor(_services: { notion: NotionService; sesame: SesameService }) {
+    console.log('DiscordService の初期化を開始します。');
+
     // インスタンスを格納
     this.services = {
       notion: _services.notion,
@@ -60,6 +62,8 @@ export class DiscordService {
 
     // イベントリスナーを初期化
     this.initializeEventListeners();
+
+    console.log('DiscordService の初期化が終了しました。');
   }
 
   private initializeEventListeners(): void {
