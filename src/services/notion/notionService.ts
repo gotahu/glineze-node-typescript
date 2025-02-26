@@ -15,7 +15,8 @@ export class NotionService {
     const NOTION_TOKEN = process.env.NOTION_TOKEN;
 
     if (!NOTION_TOKEN) {
-      throw new Error('NOTION_TOKEN が環境変数に設定されていません。');
+      console.error('NOTION_TOKEN が環境変数に設定されていません。プログラムを終了します。');
+      process.exit(0);
     }
 
     this.client = new Client({ auth: NOTION_TOKEN });
