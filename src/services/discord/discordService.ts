@@ -88,12 +88,12 @@ export class DiscordService {
     console.log('Discord BOT のログインを試みます。');
     const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 
-    console.log(DISCORD_BOT_TOKEN);
-
     if (!DISCORD_BOT_TOKEN) {
       console.error('DISCORD_BOT_TOKEN が設定されていません。プログラムを終了します。');
       process.exit(0);
     }
+
+    console.log(this.client);
 
     await this.client.login(DISCORD_BOT_TOKEN);
     console.log('Discord BOT のログインが終了しました。');
