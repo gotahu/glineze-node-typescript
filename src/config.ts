@@ -27,13 +27,6 @@ export const config = {
       'NOTION_CONFIGURATION_DATABASEID'
     ),
   },
-  lineNotify: {
-    voidToken: process.env.LINE_NOTIFY_VOID_TOKEN || '',
-  },
-  lineBot: {
-    channelSecret: process.env.LINEBOT_CHANNEL_SECRET || '',
-    channelAccessToken: process.env.LINEBOT_CHANNEL_ACCESS_TOKEN || '',
-  },
   app: {
     port: Number(process.env.PORT) || 10000,
   },

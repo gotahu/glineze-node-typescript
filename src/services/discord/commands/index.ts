@@ -4,7 +4,6 @@ import { logger } from '../../../utils/logger';
 import { handleBreakoutRoomCommand } from './BreakoutRoomCommand';
 import { handleCountdownCommand } from './CountdownCommand';
 import { handleDeleteChannelCommand } from './DeleteChannelCommand';
-import { handleLineDiscordCommand } from './LINEDiscordCommand';
 import { handleReloadCommand } from './ReloadCommand';
 import { handleSesameStatusCommand } from './SesameCommand';
 import { handleUpdateBotProfileCommand } from './UpdateBotProfileCommand';
@@ -17,7 +16,6 @@ export const commandMap = new Map<
   ['deletechannel', handleDeleteChannelCommand],
   ['countdown', handleCountdownCommand],
   ['br', handleBreakoutRoomCommand],
-  ['line-discord', handleLineDiscordCommand],
   ['reload', handleReloadCommand],
   ['sesame', handleSesameStatusCommand],
   ['version', handleVersionCommand],

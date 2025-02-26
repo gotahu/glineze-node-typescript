@@ -1,22 +1,11 @@
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { DiscordService } from '../services/discord/discordService';
-import { LINENotifyService } from '../services/lineNotifyService';
 import { NotionService } from '../services/notion/notionService';
 import { SesameService } from '../services/sesame/sesameService';
-
-export type LINEDiscordPairInfo = {
-  name: string;
-  lineGroupId: string;
-  discordChannelId: string;
-  lineNotifyKey: string;
-  priority: boolean;
-  includeThreads: boolean;
-};
 
 export type Services = {
   discord: DiscordService;
   notion: NotionService;
-  lineNotify: LINENotifyService;
   sesame: SesameService;
 };
 

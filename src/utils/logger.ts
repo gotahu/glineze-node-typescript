@@ -1,6 +1,5 @@
 import { DiscordService } from '../services/discord/discordService';
 import { sendMessageToDiscordWebhook } from '../services/discord/discordWebhook';
-import { postToLINENotify } from '../services/lineNotifyService';
 import { LoggerConfig, LogLevel, LogMessage } from '../types/types';
 
 export class Logger {
@@ -64,17 +63,6 @@ export class Logger {
     }
   }
 
-  private async sendToLineNotify(logMessage: LogMessage): Promise<void> {
-    try {
-      const formattedMessage = `[${logMessage.level}] ${logMessage.message}`;
-      await postToLINENotify(this.config.lineNotifyToken, formattedMessage);
-    } catch (error) {
-      console.error(
-        `Failed to send message to LINE Notify: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
   private async sendToWebhook(logMessage: LogMessage): Promise<void> {
     try {
       const formattedMessage = `[${logMessage.level}] ${logMessage.message}`;
@@ -92,11 +80,7 @@ export class Logger {
 
     // debugオプション付きの場合はLINEとWebhookにも送信
     if (metadata?.debug) {
-      await Promise.allSettled([
-        this.sendToLineNotify(logMessage),
-        this.sendToWebhook(logMessage),
-        this.sendToDiscord(logMessage),
-      ]);
+      await Promise.allSettled([this.sendToWebhook(logMessage), this.sendToDiscord(logMessage)]);
     }
   }
 
@@ -112,11 +96,7 @@ export class Logger {
     const logMessage = this.formatLogMessage(LogLevel.ERROR, message, metadata);
     console.error(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 
-    await Promise.allSettled([
-      this.sendToLineNotify(logMessage),
-      this.sendToWebhook(logMessage),
-      this.sendToDiscord(logMessage),
-    ]);
+    await Promise.allSettled([this.sendToWebhook(logMessage), this.sendToDiscord(logMessage)]);
   }
 }
 

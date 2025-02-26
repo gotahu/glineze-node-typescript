@@ -7,7 +7,6 @@ import { handleCommand } from './commands';
 import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
 import { replyShukinStatus } from './commands/ShukinCommand';
 import { relayMessageToDiscordWebhook } from './discordWebhook';
-import { addSendButtonReaction } from './functions/MessageFunctions';
 
 export class MessageHandler {
   constructor(private readonly services: Services) {}
@@ -80,15 +79,6 @@ export class MessageHandler {
       return;
     }
     // それ以外の場合（通常のチャンネルやスレッドでのメッセージ）
-
-    // LINE に送信するかどうかを判定
-    // ペアを取得
-    const pair = await notion.lineDiscordPairService.getLINEDiscordPairFromMessage(message);
-
-    // LINE に送信する場合、セーフガードとして送信用リアクションを追加する
-    if (pair) {
-      addSendButtonReaction(this.services, message);
-    }
   }
 
   /**
@@ -97,26 +87,8 @@ export class MessageHandler {
    * @param newMessage
    */
   public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
-    const { notion } = this.services;
     if (newMessage.channel.type === ChannelType.GuildText) {
-      const notionService = notion;
-
       await relayMessageToDiscordWebhook(newMessage);
-
-      try {
-        // ペアを取得
-        const pair =
-          await notionService.lineDiscordPairService.getLINEDiscordPairFromMessage(newMessage);
-
-        // ペアが存在すれば
-        if (pair) {
-          logger.info('ペアが存在しているメッセージが編集されました');
-          // LINE にもう一度送信できるようにする
-          addSendButtonReaction(this.services, newMessage);
-        }
-      } catch (error) {
-        logger.error('Error in handleMessageUpdate: ' + error);
-      }
     }
   }
 }
