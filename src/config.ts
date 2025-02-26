@@ -35,7 +35,7 @@ export const config = {
     channelAccessToken: process.env.LINEBOT_CHANNEL_ACCESS_TOKEN || '',
   },
   app: {
-    port: Number(process.env.PORT) || 3001,
+    port: Number(process.env.PORT) || 10000,
   },
   repository: {
     path: process.env.REPOSITORY_PATH || '',
