@@ -18,18 +18,22 @@ export class CronService {
   private remindBashotoriStarted = false;
 
   constructor(services: Services) {
+    console.log('CronService の初期化を開始します。');
     this.services = services;
+    console.log('CronService の初期化が終了しました。');
   }
 
   /**
    * スケジューラを開始するメソッド
    */
   public start() {
+    console.log('Cron スケジューラーを起動します……');
     // ここで複数のジョブをスケジュール登録したりする
     this.startSesameScheduler();
     this.startCountdownScheduler();
     this.startNotifyPractice();
     this.startRemindBashotori();
+    console.log('Cron スケジューラーを起動しました。');
   }
 
   /**

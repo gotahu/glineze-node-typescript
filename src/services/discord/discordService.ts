@@ -85,11 +85,13 @@ export class DiscordService {
     }
   }
 
-  public async start(): Promise<void> {
+  public async start() {
+    console.log('Discord BOT のログインを試みます。');
     await this.client.login(config.discord.botToken);
+    console.log('Discord BOT のログインが終了しました。');
   }
 
-  public async sendContentToChannel({ content, channelId }: MessageContent): Promise<void> {
+  public async sendContentToChannel({ content, channelId }: MessageContent) {
     try {
       const channel = this.client.channels.cache.get(channelId) as TextChannel;
 
@@ -110,15 +112,11 @@ export class DiscordService {
     }
   }
 
-  public async sendStringsToChannel(strings: string[], channelId: string): Promise<void> {
+  public async sendStringsToChannel(strings: string[], channelId: string) {
     await Promise.all(strings.map((content) => this.sendContentToChannel({ content, channelId })));
   }
 
-  public async sendEmbedsToChannel(
-    embeds: EmbedBuilder[],
-    channelId: string,
-    threadId?: string
-  ): Promise<void> {
+  public async sendEmbedsToChannel(embeds: EmbedBuilder[], channelId: string, threadId?: string) {
     await this.sendContentToChannel({ content: embeds, channelId, threadId });
   }
 }

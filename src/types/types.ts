@@ -76,13 +76,6 @@ export type NotificationMessage = {
   userId: string[];
 };
 
-export type GASEvent = {
-  type: string;
-  groupid?: string;
-  name?: string;
-  message?: string;
-};
-
 export enum LogLevel {
   DEBUG = 'DEBUG',
   INFO = 'INFO',
