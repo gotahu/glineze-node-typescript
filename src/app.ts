@@ -50,7 +50,7 @@ const initializeServices = async () => {
     cronService.start();
 
     // WebService
-    const WebService = new WebServerService(services);
+    const webServerService = new WebServerService(services);
 
     try {
       logger.info(
