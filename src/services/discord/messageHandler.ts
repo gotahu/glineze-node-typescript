@@ -3,10 +3,11 @@ import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'disco
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { remindPracticesToChannel } from '../notion/practiceFunctions';
+import { handleCommand } from './commands';
 import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
 import { replyShukinStatus } from './commands/ShukinCommand';
+import { relayMessageToDiscordWebhook } from './discordWebhook';
 import { addSendButtonReaction } from './functions/MessageFunctions';
-import { handleCommand } from './commands';
 
 export class MessageHandler {
   constructor(private readonly services: Services) {}
@@ -18,19 +19,19 @@ export class MessageHandler {
 
     if (message.channel.type === ChannelType.DM) {
       await this.handleDMMessage(message);
-    } else {
+    } else if (message.channel) {
       await this.handleGuildMessage(message);
     }
   }
 
   private async handleDMMessage(message: Message) {
-    const { notion, lineNotify } = this.services;
+    const { notion } = this.services;
     const dmChannel = message.channel as DMChannel;
 
     // 「メッセージを送信中」を表示
     dmChannel.sendTyping();
 
-    await lineNotify.relayMessage(message, true);
+    await relayMessageToDiscordWebhook(message);
 
     await replyShukinStatus(notion, message);
   }
@@ -40,9 +41,9 @@ export class MessageHandler {
    * @param message Discord Message
    */
   private async handleGuildMessage(message: Message) {
-    const { lineNotify, notion, sesame } = this.services;
+    const { notion } = this.services;
 
-    await lineNotify.relayMessage(message, true);
+    await relayMessageToDiscordWebhook(message);
 
     // システムメッセージの場合
     if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
@@ -96,12 +97,11 @@ export class MessageHandler {
    * @param newMessage
    */
   public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
-    const { notion, lineNotify } = this.services;
+    const { notion } = this.services;
     if (newMessage.channel.type === ChannelType.GuildText) {
       const notionService = notion;
-      const notifyService = lineNotify;
 
-      await notifyService.relayMessage(newMessage, true);
+      await relayMessageToDiscordWebhook(newMessage);
 
       try {
         // ペアを取得

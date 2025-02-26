@@ -18,6 +18,7 @@ export const config = {
   discord: {
     botToken: validateEnvVar(process.env.DISCORD_BOT_TOKEN, 'DISCORD_BOT_TOKEN'),
     webHook: validateEnvVar(process.env.DISCORD_ERROR_LOG_WEBHOOK, 'DISCORD_ERROR_LOG_WEBHOOK'),
+    relayWebhook: validateEnvVar(process.env.DISCORD_RELAY_WEBHOOK, 'DISCORD_RELAY_WEBHOOK'),
   },
   notion: {
     token: validateEnvVar(process.env.NOTION_TOKEN, 'NOTION_TOKEN'),

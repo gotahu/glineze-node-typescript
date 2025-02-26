@@ -1,6 +1,4 @@
 import axios from 'axios';
-import { CONSTANTS } from '../constants';
-import { logger } from '../utils/logger';
 import {
   Attachment,
   ChannelType,
@@ -12,6 +10,8 @@ import {
   VoiceChannel,
 } from 'discord.js';
 import { config } from '../config';
+import { CONSTANTS } from '../constants';
+import { logger } from '../utils/logger';
 import { LINEDiscordPairService } from './notion/lineDiscordPairService';
 interface AttachmentInfo {
   isImage: boolean;
