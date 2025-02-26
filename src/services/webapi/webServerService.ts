@@ -13,6 +13,8 @@ export class WebServerService {
   private notionAutomation: NotionAutomationService;
 
   constructor(private readonly services: Services) {
+    console.log('WebServerService の初期化を開始します。');
+
     this.notionAutomation = new NotionAutomationService(services);
 
     this.app = express();
@@ -20,6 +22,8 @@ export class WebServerService {
 
     this.setupAPIEndpoints();
     this.start();
+
+    console.log('WebServerService の初期化が終了しました。');
   }
 
   private setupAPIEndpoints() {
@@ -61,6 +65,8 @@ export class WebServerService {
    * サーバーの起動
    */
   private start() {
+    console.log('Glineze API サーバーの起動を試みます……');
+
     const port = config.app.port;
     this.app.listen(port, () => {
       logger.info(`Glineze API サーバーがポート ${port} で起動しました`);

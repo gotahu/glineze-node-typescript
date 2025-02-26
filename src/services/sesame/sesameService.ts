@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { config } from '../../config';
 import {
   SesameAPIResponse,
   SesameDeviceStatus,
@@ -6,7 +7,6 @@ import {
   SesameLockStatus,
 } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { config } from '../../config';
 export class SesameService {
   private sesameApiUrl = '';
   private sesameApiToken = '';
@@ -14,6 +14,8 @@ export class SesameService {
   private sesamePublicKey = '';
 
   constructor() {
+    console.log('SesameService の初期化を開始します。');
+
     this.sesameApiUrl = config.getConfig('sesame_app_api_url');
     this.sesameApiToken = config.getConfig('sesame_app_api_key');
     this.sesameDeviceUUID = config.getConfig('sesame_device_uuid');
@@ -27,6 +29,8 @@ export class SesameService {
     ) {
       throw new Error('Configuration not found for Sesame API');
     }
+
+    console.log('SesameService の初期化が終了しました。');
   }
 
   public async getSesameDeviceStatus(): Promise<SesameDeviceStatus> {
