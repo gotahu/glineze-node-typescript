@@ -1,6 +1,5 @@
-import { Message } from 'discord.js';
-import { SesameService } from '../../sesame/sesameService';
 import { format } from 'date-fns';
+import { Message } from 'discord.js';
 import { Services, StatusMessage } from '../../../types/types';
 import { logger } from '../../../utils/logger';
 

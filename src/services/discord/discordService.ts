@@ -65,7 +65,7 @@ export class DiscordService {
     console.log('DiscordService の初期化が終了しました。');
   }
 
-  private initializeEventListeners(): void {
+  private initializeEventListeners() {
     this.client
       .on('ready', this.handleReady.bind(this))
       .on(Events.MessageCreate, this.messageHandler.handleMessageCreate.bind(this.messageHandler))
@@ -76,7 +76,7 @@ export class DiscordService {
       .on(Events.MessageUpdate, this.messageHandler.handleMessageUpdate.bind(this.messageHandler));
   }
 
-  private handleReady(): void {
+  private handleReady() {
     if (this.client.user) {
       logger.info(`Discord bot が ${this.client.user.tag} として起動しました`);
     } else {
@@ -92,8 +92,6 @@ export class DiscordService {
       console.error('DISCORD_BOT_TOKEN が設定されていません。プログラムを終了します。');
       process.exit(0);
     }
-
-    console.log(this.client);
 
     await this.client.login(DISCORD_BOT_TOKEN);
     console.log('Discord BOT のログインが終了しました。');

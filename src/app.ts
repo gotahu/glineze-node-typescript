@@ -52,19 +52,12 @@ const initializeServices = async () => {
     // WebService
     const webServerService = new WebServerService(services);
 
-    try {
-      logger.info(
-        process.env.NODE_ENV === 'development'
-          ? `開発環境が起動しました`
-          : `本番環境（dockerコンテナ）が起動しました`,
-        {
-          debug: true,
-        }
-      );
-    } catch (error) {
-      // LINE Notify にメッセージを送信できなかった場合
-      console.log(`LINE Notify にメッセージを送信できませんでした: ${error}`);
-    }
+    logger.info(
+      process.env.NODE_ENV === 'development'
+        ? `開発環境が起動しました。`
+        : `本番環境が起動しました。`,
+      { debug: true }
+    );
   } catch (error) {
     logger.error(`アプリの起動に失敗しました: ${error}`);
     process.exit(1);

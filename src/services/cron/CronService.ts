@@ -155,12 +155,14 @@ export class CronService {
 
   private async runNotifyPractice() {
     try {
-      logger.info('Notify practice (manual or scheduled)', { debug: true });
+      logger.info('練習連絡送信の定期実行を開始します。', { debug: true });
 
       const threadId = config.getConfig('practice_remind_threadid');
 
       // 1日後の練習を通知する
       await notifyPractice(this.services, { channelId: threadId, daysFromToday: 1 });
+
+      logger.info('練習連絡送信の定期実行を終了しました。', { debug: true });
     } catch (error) {
       logger.error(`onNotifyPractice: Error notify practice: ${error}`);
     }
