@@ -95,7 +95,7 @@ export class MessageHandler {
     if (newMessage.guild.id === process.env.DISCORD_VOID_GUILD_ID) return;
 
     if (newMessage.channel.type === ChannelType.GuildText) {
-      // await relayMessageToDiscordWebhook(newMessage);
+      await relayMessage(newMessage);
     }
   }
 }
