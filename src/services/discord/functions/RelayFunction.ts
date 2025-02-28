@@ -143,7 +143,7 @@ async function getThreadChannel(message: Message): Promise<ThreadChannel> {
 }
 
 export async function relayMessage(message: Message) {
-  const { content } = message;
+  const { content, author } = message;
 
   try {
     const threadChannel = await getThreadChannel(message);
@@ -153,8 +153,8 @@ export async function relayMessage(message: Message) {
     if (threadChannel) {
       const options = {
         content: content,
-        username: message.author.displayName,
-        avatarURL: message.author.displayAvatarURL(),
+        username: author.globalName ?? message.author.username,
+        avatarURL: author.displayAvatarURL(),
         threadId: threadChannel.id,
         files: message.attachments.map((attachment) => attachment.url),
       };
