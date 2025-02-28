@@ -6,13 +6,15 @@ import { remindPracticesToChannel } from '../notion/practiceFunctions';
 import { handleCommand } from './commands';
 import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
 import { replyShukinStatus } from './commands/ShukinCommand';
-import { relayMessageToDiscordWebhook } from './discordWebhook';
+import { relayMessage } from './functions/RelayFunction';
 
 export class MessageHandler {
   constructor(private readonly services: Services) {}
 
   public async handleMessageCreate(message: Message) {
     if (message.author.bot) return;
+
+    if (message.guild.id === process.env.DISCORD_VOID_GUILD_ID) return;
 
     console.log(message);
 
@@ -30,7 +32,9 @@ export class MessageHandler {
     // 「メッセージを送信中」を表示
     dmChannel.sendTyping();
 
-    await relayMessageToDiscordWebhook(message);
+    // await relayMessageToDiscordWebhook(message);
+
+    await relayMessage(message);
 
     await replyShukinStatus(notion, message);
   }
@@ -42,7 +46,8 @@ export class MessageHandler {
   private async handleGuildMessage(message: Message) {
     const { notion } = this.services;
 
-    await relayMessageToDiscordWebhook(message);
+    // await relayMessageToDiscordWebhook(message);
+    await relayMessage(message);
 
     // システムメッセージの場合
     if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
@@ -87,8 +92,10 @@ export class MessageHandler {
    * @param newMessage
    */
   public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
+    if (newMessage.guild.id === process.env.DISCORD_VOID_GUILD_ID) return;
+
     if (newMessage.channel.type === ChannelType.GuildText) {
-      await relayMessageToDiscordWebhook(newMessage);
+      await relayMessage(newMessage);
     }
   }
 }

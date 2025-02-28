@@ -1,5 +1,5 @@
 import { DiscordService } from '../services/discord/discordService';
-import { sendMessageToDiscordWebhook } from '../services/discord/discordWebhook';
+import { sendMessageToDiscordWebhook } from '../services/discord/functions/WebhookFunctions';
 import { LoggerConfig, LogLevel, LogMessage } from '../types/types';
 
 export class Logger {

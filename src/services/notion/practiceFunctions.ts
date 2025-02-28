@@ -16,9 +16,11 @@ export async function notifyPractice(
     const practices = await practiceService.retrievePracticesForRelativeDay(daysFromToday);
 
     if (practices.length === 0) {
-      logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`, { debug: true });
+      logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`);
       return;
     }
+
+    logger.info(`練習連絡を ${channelId} に送信します`, { debug: true });
 
     // 送信する
     await discord.sendStringsToChannel(
@@ -26,7 +28,7 @@ export async function notifyPractice(
       channelId
     );
 
-    logger.info(`練習のリマインドが正常に完了しました`, { debug: true });
+    logger.info(`練習連絡の送信が正常に完了しました`, { debug: true });
   } catch (err) {
     logger.error('Error in announcePractice: ' + err);
   }

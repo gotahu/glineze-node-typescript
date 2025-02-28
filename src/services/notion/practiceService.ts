@@ -22,7 +22,7 @@ export class PracticeService {
     // 日付を yyyy-MM-dd 形式にフォーマット
     const formattedDate = format(targetDate, 'yyyy-MM-dd');
 
-    logger.info(`Retrieving practices for date: ${formattedDate}`, { debug: true });
+    logger.info(`${formattedDate} の練習を練習DBから取得します。`, { debug: true });
 
     try {
       const databaseId = config.getConfig('practice_databaseid');
@@ -59,6 +59,8 @@ export class PracticeService {
 
         practices.push(practice);
       }
+
+      logger.info(`${practices.length} 件の練習を取得しました。`, { debug: true });
 
       return practices;
     } catch (error) {
