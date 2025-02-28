@@ -44,6 +44,7 @@ export class DiscordService {
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.GuildWebhooks,
       ],
       partials: [
         Partials.Message,
