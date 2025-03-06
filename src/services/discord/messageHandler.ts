@@ -14,13 +14,12 @@ export class MessageHandler {
   public async handleMessageCreate(message: Message) {
     if (message.author.bot) return;
 
-    if (message.guild.id === process.env.DISCORD_VOID_GUILD_ID) return;
-
     console.log(message);
 
     if (message.channel.type === ChannelType.DM) {
       await this.handleDMMessage(message);
     } else if (message.channel) {
+      if (message.guild.id === process.env.DISCORD_VOID_GUILD_ID) return;
       await this.handleGuildMessage(message);
     }
   }
