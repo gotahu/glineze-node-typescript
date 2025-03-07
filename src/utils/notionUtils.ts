@@ -18,6 +18,16 @@ export enum StatusPropertyType {
   COMPLETE = 'Complete',
 }
 
+// ステータスIDとグループ名のキャッシュ
+interface StatusCache {
+  // データベースID + プロパティキー -> ステータスオプションマップ
+  databaseStatusOptions: Map<string, Map<string, StatusPropertyType>>;
+}
+
+const statusCache: StatusCache = {
+  databaseStatusOptions: new Map(),
+};
+
 function getStringPropertyValue(page: PageObjectResponse, key: string): string | undefined {
   const property = page.properties[key];
 
@@ -90,21 +100,37 @@ async function getStatusPropertyGroup(
 
     // ページから親データベースを取得する
     const databaseId = page.parent.database_id;
-    const database = await client.databases.retrieve({ database_id: databaseId });
 
-    let groupName: StatusPropertyType;
+    // キャッシュキーを作成
+    const cacheKey = `${databaseId}_${propertyKey}`;
 
-    // データベースのステータスプロパティを取得する
-    for (const [key, property] of Object.entries(database.properties)) {
-      if (property.type === 'status' && property.status && key === propertyKey) {
-        const groups = property.status.groups;
-        for (const group of groups) {
-          if (group.option_ids.includes(statusId)) {
-            groupName = group.name as StatusPropertyType;
+    // データベースのステータスオプションがキャッシュにあるか確認
+    if (!statusCache.databaseStatusOptions.has(cacheKey)) {
+      // キャッシュにない場合は、データベースを取得してキャッシュに保存
+      logger.info(`ステータスオプションをキャッシュに保存: ${cacheKey}`, { debug: true });
+
+      const database = await client.databases.retrieve({ database_id: databaseId });
+      const optionsMap = new Map<string, StatusPropertyType>();
+
+      // データベースのステータスプロパティを取得する
+      for (const [key, property] of Object.entries(database.properties)) {
+        if (property.type === 'status' && property.status && key === propertyKey) {
+          const groups = property.status.groups;
+          for (const group of groups) {
+            for (const optionId of group.option_ids) {
+              optionsMap.set(optionId, group.name as StatusPropertyType);
+            }
           }
         }
       }
+
+      // キャッシュに保存
+      statusCache.databaseStatusOptions.set(cacheKey, optionsMap);
     }
+
+    // キャッシュからステータスグループを取得
+    const optionsMap = statusCache.databaseStatusOptions.get(cacheKey);
+    const groupName = optionsMap?.get(statusId);
 
     if (!groupName) {
       throw new Error(`ステータスプロパティ ${propertyKey} のグループが見つかりません`);
@@ -234,13 +260,47 @@ function areUUIDsEqual(uuid1: string, uuid2: string): boolean {
   return normalizedUUID1 === normalizedUUID2;
 }
 
+/**
+ * ステータスプロパティのキャッシュをクリアする関数
+ * @param databaseId データベースID (省略時は全てのキャッシュをクリア)
+ * @param propertyKey プロパティキー (省略時はデータベースの全てのキャッシュをクリア)
+ */
+function clearStatusPropertyCache(databaseId?: string, propertyKey?: string): void {
+  if (!databaseId) {
+    // 全てのキャッシュをクリア
+    statusCache.databaseStatusOptions.clear();
+    logger.info('全てのステータスプロパティキャッシュをクリアしました', { debug: true });
+    return;
+  }
+
+  if (!propertyKey) {
+    // 特定のデータベースのキャッシュをクリア
+    for (const key of statusCache.databaseStatusOptions.keys()) {
+      if (key.startsWith(`${databaseId}_`)) {
+        statusCache.databaseStatusOptions.delete(key);
+      }
+    }
+    logger.info(`データベース ${databaseId} のステータスプロパティキャッシュをクリアしました`, {
+      debug: true,
+    });
+    return;
+  }
+
+  // 特定のデータベースと特定のプロパティのキャッシュをクリア
+  const cacheKey = `${databaseId}_${propertyKey}`;
+  statusCache.databaseStatusOptions.delete(cacheKey);
+  logger.info(`キャッシュをクリア: ${cacheKey}`, { debug: true });
+}
+
 export {
   areUUIDsEqual,
+  clearStatusPropertyCache,
   getBooleanPropertyValue,
   getDatePropertyValue,
   getNumberPropertyValue,
   getPageTitle,
   getRelationPropertyValue,
+  getStatusPropertyGroup,
   getStringPropertyValue,
   queryAllDatabasePages,
 };
