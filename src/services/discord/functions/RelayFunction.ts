@@ -16,7 +16,7 @@ function generateParentChannelName(message: Message) {
   const { guild, channel } = message;
 
   if (channel.isDMBased()) {
-    return 'DM';
+    return 'dm';
   } else {
     return guild.name.replaceAll(' ', '-').toLowerCase();
   }
