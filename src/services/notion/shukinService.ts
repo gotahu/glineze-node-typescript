@@ -1,22 +1,28 @@
 import { Client } from '@notionhq/client';
-import { logger } from '../../utils/logger';
-import { GlanzeMember, ShukinReply, ShukinInfo } from '../../types/types';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { config } from '../../config';
-import { queryAllDatabasePages } from '../../utils/notionUtils';
+import { GlanzeMember, ShukinInfo, ShukinReply } from '../../types/types';
+import { logger } from '../../utils/logger';
+import {
+  getStatusPropertyGroup,
+  queryAllDatabasePages,
+  StatusPropertyType,
+} from '../../utils/notionUtils';
 
 export class ShukinService {
   private client: Client;
 
-  private static readonly ERROR_MESSAGES = {
+  private readonly ERROR_MESSAGES = {
     NO_DATA_FOUND:
       'Notion上の集金DBにあなたのデータが見つかりませんでした。マネジに連絡してください。',
   };
 
-  private static readonly STATUS_NOTES = [
-    '（受取済）（振込済）の場合、パトマネさんが受け取ったあと、会計さんが確認中です。',
-    '（受取確認済）（振込確認済）の場合、会計さんの確認まで全て終了しています。',
+  private readonly STATUS_NOTES = [
+    '内容に相違がある場合、パトマネさんに確認をしてください。',
+    'もう一度確認したい場合は、何らかのメッセージをこの DM に送信してください。',
   ];
+
+  private readonly PARTITION_LINE = '=============================';
 
   constructor(client: Client) {
     this.client = client;
@@ -31,7 +37,7 @@ export class ShukinService {
       });
 
       if (response.length === 0) {
-        throw new Error(ShukinService.ERROR_MESSAGES.NO_DATA_FOUND);
+        throw new Error(this.ERROR_MESSAGES.NO_DATA_FOUND);
       } else if (response.length > 1) {
         // 複数のデータが見つかった場合はエラーログを出す
         // 処理は継続する
@@ -41,7 +47,7 @@ export class ShukinService {
       }
 
       const page = response[0] as PageObjectResponse;
-      const shukinList = this.extractShukinInfo(page);
+      const shukinList = await this.extractShukinInfo(page);
       const replyMessage = this.formatShukinStatusMessage(member.name, shukinList);
 
       return { status: 'success', message: replyMessage };
@@ -51,7 +57,7 @@ export class ShukinService {
     }
   }
 
-  public extractShukinInfo(page: PageObjectResponse): ShukinInfo[] {
+  public async extractShukinInfo(page: PageObjectResponse): Promise<ShukinInfo[]> {
     const shukinList: ShukinInfo[] = [];
 
     for (const [key, prop] of Object.entries(page.properties)) {
@@ -62,8 +68,9 @@ export class ShukinService {
         if (statusProp && statusProp.type === 'status' && statusProp.status) {
           shukinList.push({
             shukinName: key,
-            shukinAmount: `${prop.number}円`,
+            shukinAmount: `${prop.number.toLocaleString()}円`,
             shukinStatus: statusProp.status.name,
+            shukinStatusPropertyType: await getStatusPropertyGroup(this.client, page, statusKey),
           });
         } else {
           throw new Error(
@@ -77,20 +84,36 @@ export class ShukinService {
   }
 
   public formatShukinStatusMessage(memberName: string, shukinList: ShukinInfo[]): string {
-    let message = `${memberName} さんの集金状況をお知らせします。\n### 集金状況`;
+    let message = `${this.PARTITION_LINE}\n## ${memberName} さんの集金状況\n`;
 
-    if (shukinList.length === 0) {
-      message += '\n- 集金対象がありません。';
-    } else {
-      shukinList.forEach((info) => {
-        message += `\n- ${info.shukinName}：${info.shukinAmount}（${info.shukinStatus}）`;
-      });
+    const groups = [
+      { name: '⚠️未払い', group: StatusPropertyType.TODO },
+      { name: '🔄会計確認中', group: StatusPropertyType.IN_PROGRESS },
+      { name: '✅支払済', group: StatusPropertyType.COMPLETE },
+    ];
+
+    for (const group of groups) {
+      const filteredShukinList = shukinList.filter(
+        (shukin) => shukin.shukinStatusPropertyType === group.group
+      );
+
+      message += `### ${group.name}\n`;
+      if (filteredShukinList.length > 0) {
+        filteredShukinList.forEach((shukin) => {
+          message += `- ${shukin.shukinName}: ${shukin.shukinAmount}\n`;
+        });
+      } else {
+        message += `この項目の集金はありません。\n`;
+      }
     }
 
-    message += '\n### 注意事項';
-    ShukinService.STATUS_NOTES.forEach((note) => {
-      message += `\n- ${note}`;
+    message += '\n';
+
+    this.STATUS_NOTES.forEach((note) => {
+      message += `${note}\n`;
     });
+
+    message += this.PARTITION_LINE;
 
     return message;
   }

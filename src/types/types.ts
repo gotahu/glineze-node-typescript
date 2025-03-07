@@ -2,6 +2,7 @@ import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { DiscordService } from '../services/discord/discordService';
 import { NotionService } from '../services/notion/notionService';
 import { SesameService } from '../services/sesame/sesameService';
+import { StatusPropertyType } from '../utils/notionUtils';
 
 export type Services = {
   discord: DiscordService;
@@ -49,6 +50,7 @@ export type ShukinInfo = {
   shukinName: string;
   shukinAmount: string;
   shukinStatus: string;
+  shukinStatusPropertyType: StatusPropertyType;
 };
 
 export type Practice = {
