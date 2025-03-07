@@ -29,7 +29,7 @@ export async function processShukinStatusChange(
     const member = await memberService.retrieveGlanzeMemberFromNotionPage(memberRelation[0]);
 
     // 集金状況を取得
-    const shukinInfo = shukinService.extractShukinInfo(event.data);
+    const shukinInfo = await shukinService.extractShukinInfo(event.data);
 
     // 集金状況を通知
     await notifyShukinStatusToDiscordMember({ member, shukinInfo, services });
