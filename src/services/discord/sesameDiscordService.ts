@@ -1,5 +1,5 @@
 import { ChannelType, VoiceChannel } from 'discord.js';
-import { Services, SesameDeviceStatus, SesameLockStatus, StatusMessage } from '../../types/types';
+import { Services, SesameDeviceStatus, SesameLockStatus } from '../../types/types';
 import { logger } from '../../utils/logger';
 
 export class SesameDiscordService {
@@ -50,6 +50,8 @@ export class SesameDiscordService {
    */
   public async updateSesameStatusVoiceChannel(guildId: string, lockStatus: SesameLockStatus) {
     try {
+      const { sesame } = this.services;
+
       var voiceChannel = this.retrieveSesameStatusVoiceChannel(guildId);
 
       // ボイスチャンネルが見つからなかった場合は新規作成
@@ -71,7 +73,7 @@ export class SesameDiscordService {
       this.updateChannelPermission(voiceChannel);
 
       // ボイスチャンネルの名前を取得
-      const channelName = StatusMessage[lockStatus];
+      const channelName = `倉庫｜${sesame.getSesameDeviceStatusMessage(lockStatus)}`;
 
       // ボイスチャンネルの名前を更新
       if (voiceChannel.name !== channelName) {

@@ -1,5 +1,6 @@
 import { Message } from 'discord.js';
 import { config } from '../../../config';
+import { Services } from '../../../types/types';
 import { logger } from '../../../utils/logger';
 
 /**
@@ -7,9 +8,13 @@ import { logger } from '../../../utils/logger';
  * @param message
  * @param args
  */
-export async function handleReloadCommand(message: Message, args: string[]) {
+export async function handleReloadCommand(message: Message, args: string[], services: Services) {
   try {
     await config.initializeConfig();
+
+    // セサミの施錠状態のメッセージも更新する
+    const { sesame } = services;
+    sesame.loadSesameDeviceStatusMessage();
 
     message.reply('config をリロードしました');
   } catch (error) {
