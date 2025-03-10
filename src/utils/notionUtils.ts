@@ -1,4 +1,4 @@
-import { Client } from '@notionhq/client';
+import { APIResponseError, Client } from '@notionhq/client';
 import {
   PageObjectResponse,
   QueryDatabaseParameters,
@@ -226,25 +226,40 @@ async function queryAllDatabasePages(
   databaseId: string,
   filter?: QueryDatabaseParameters['filter']
 ): Promise<PageObjectResponse[]> {
-  let hasMore = true;
-  let startCursor = undefined;
-  const allResults = [] as PageObjectResponse[];
+  try {
+    let hasMore = true;
+    let startCursor = undefined;
+    const allResults = [] as PageObjectResponse[];
 
-  while (hasMore) {
-    const response = await client.databases.query({
-      database_id: databaseId,
-      start_cursor: startCursor,
-      filter: filter,
-    });
+    while (hasMore) {
+      const response = await client.databases.query({
+        database_id: databaseId,
+        start_cursor: startCursor,
+        filter: filter,
+      });
 
-    const results = response.results as PageObjectResponse[];
-    allResults.push(...results);
+      const results = response.results as PageObjectResponse[];
+      allResults.push(...results);
 
-    hasMore = response.has_more;
-    startCursor = response.next_cursor ?? undefined;
+      hasMore = response.has_more;
+      startCursor = response.next_cursor ?? undefined;
+    }
+
+    return allResults;
+  } catch (error) {
+    // APIResponseError かどうかをチェック
+    if (error instanceof APIResponseError) {
+      if (error.status === 404) {
+        throw new Error(
+          `Notion データベースが見つかりません: ${databaseId}\nデータベースが存在しないか、BOT にデータベースを読み書きする権限が与えられていない可能性があります。\nhttps://www.notion.so/chorglanze/1b21ea2409888007977ad23654285ece?pvs=4 をご覧ください。`
+        );
+
+        return [];
+      }
+    }
+
+    throw error;
   }
-
-  return allResults;
 }
 
 /**
