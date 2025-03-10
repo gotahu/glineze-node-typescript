@@ -73,7 +73,7 @@ export class SesameDiscordService {
       this.updateChannelPermission(voiceChannel);
 
       // ボイスチャンネルの名前を取得
-      const channelName = `倉庫｜${sesame.getSesameDeviceStatusMessage(lockStatus)}`;
+      const channelName = `倉庫｜${sesame.getSesameLockStatusMessage(lockStatus)}`;
 
       // ボイスチャンネルの名前を更新
       if (voiceChannel.name !== channelName) {

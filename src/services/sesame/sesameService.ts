@@ -36,16 +36,16 @@ export class SesameService {
       throw new Error('Configuration not found for Sesame API');
     }
 
-    this.loadSesameDeviceStatusMessage();
+    this.loadSesameLockStatusMessage();
 
     console.log('SesameService の初期化が終了しました。');
   }
 
-  public getSesameDeviceStatusMessage(status: SesameLockStatus): string {
+  public getSesameLockStatusMessage(status: SesameLockStatus): string {
     return this.lockStatusMessage[status];
   }
 
-  public loadSesameDeviceStatusMessage() {
+  public loadSesameLockStatusMessage() {
     this.lockStatusMessage = {
       [SesameLockStatus.Locked]: config.getConfig('sesame_message_when_locked'),
       [SesameLockStatus.Unlocked]: config.getConfig('sesame_message_when_unlocked'),

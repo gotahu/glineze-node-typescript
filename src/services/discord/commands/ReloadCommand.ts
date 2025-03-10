@@ -14,7 +14,7 @@ export async function handleReloadCommand(message: Message, args: string[], serv
 
     // セサミの施錠状態のメッセージも更新する
     const { sesame } = services;
-    sesame.loadSesameDeviceStatusMessage();
+    sesame.loadSesameLockStatusMessage();
 
     message.reply('config をリロードしました');
   } catch (error) {
