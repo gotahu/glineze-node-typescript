@@ -13,6 +13,12 @@ export class SesameService {
   private sesameDeviceUUID = '';
   private sesamePublicKey = '';
 
+  private lockStatusMessage = {
+    [SesameLockStatus.Locked]: '倉庫｜🔐施錠中',
+    [SesameLockStatus.Unlocked]: '倉庫｜🈳解錠中',
+    [SesameLockStatus.Error]: '倉庫｜🔄取得中',
+  };
+
   constructor() {
     console.log('SesameService の初期化を開始します。');
 
@@ -30,7 +36,21 @@ export class SesameService {
       throw new Error('Configuration not found for Sesame API');
     }
 
+    this.loadSesameDeviceStatusMessage();
+
     console.log('SesameService の初期化が終了しました。');
+  }
+
+  public getSesameDeviceStatusMessage(status: SesameLockStatus): string {
+    return this.lockStatusMessage[status];
+  }
+
+  public loadSesameDeviceStatusMessage() {
+    this.lockStatusMessage = {
+      [SesameLockStatus.Locked]: config.getConfig('sesame_message_when_locked'),
+      [SesameLockStatus.Unlocked]: config.getConfig('sesame_message_when_unlocked'),
+      [SesameLockStatus.Error]: config.getConfig('sesame_message_when_loading'),
+    };
   }
 
   public async getSesameDeviceStatus(): Promise<SesameDeviceStatus> {

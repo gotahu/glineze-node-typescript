@@ -35,12 +35,6 @@ export enum SesameLockStatus {
   Error = 3,
 }
 
-export const StatusMessage = {
-  [SesameLockStatus.Locked]: '倉庫｜🔐施錠中',
-  [SesameLockStatus.Unlocked]: '倉庫｜🔓解錠中',
-  [SesameLockStatus.Error]: '倉庫｜🔄取得中',
-};
-
 export type ShukinReply = {
   status: 'success' | 'error';
   message: string;
