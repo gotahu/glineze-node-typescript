@@ -14,7 +14,7 @@ export class NotFoundPropertyError extends Error {
 
 export enum StatusPropertyType {
   TODO = 'To-do',
-  IN_PROGRESS = 'In Progress',
+  IN_PROGRESS = 'In progress',
   COMPLETE = 'Complete',
 }
 
