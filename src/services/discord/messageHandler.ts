@@ -31,11 +31,13 @@ export class MessageHandler {
     // 「メッセージを送信中」を表示
     dmChannel.sendTyping();
 
-    // await relayMessageToDiscordWebhook(message);
-
     await relayMessage(message);
 
-    await replyShukinStatus(notion, message);
+    if (message.content.startsWith('!')) {
+      await handleCommand(message, this.services);
+    } else {
+      await replyShukinStatus(notion, message);
+    }
   }
 
   /**
