@@ -34,7 +34,11 @@ export class MessageHandler {
     await relayMessage(message);
 
     if (message.content.startsWith('!')) {
-      await handleCommand(message, this.services);
+      const commandRecognized = await handleCommand(message, this.services);
+      // コマンドが認識されなかった場合は、replyShukinStatusを呼び出す
+      if (!commandRecognized) {
+        await replyShukinStatus(notion, message);
+      }
     } else {
       await replyShukinStatus(notion, message);
     }
