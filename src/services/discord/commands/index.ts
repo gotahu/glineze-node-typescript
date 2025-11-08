@@ -24,12 +24,13 @@ export const commandMap = new Map<
 
 /**
  * メッセージからコマンドを判定し、対応する関数を実行する
+ * @returns コマンドが認識されて実行された場合はtrue、そうでない場合はfalse
  */
-export async function handleCommand(message: Message, services: Services): Promise<void> {
+export async function handleCommand(message: Message, services: Services): Promise<boolean> {
   const content = message.content.trim();
 
   // 先頭が '!' でなければコマンドとして扱わない
-  if (!content.startsWith('!')) return;
+  if (!content.startsWith('!')) return false;
 
   // "!countdown send" のように、文字列をパース
   const [commandWithBang, ...args] = content.slice(1).split(' ');
@@ -40,9 +41,13 @@ export async function handleCommand(message: Message, services: Services): Promi
   if (executor) {
     try {
       await executor(message, args, services);
+      return true;
     } catch (error) {
       logger.error(`コマンド実行時にエラーが発生しました: ${error}`);
       await message.reply('コマンド実行時にエラーが発生しました。管理者に連絡してください。');
+      return true; // エラーでもコマンドは認識されたのでtrueを返す
     }
   }
+
+  return false; // コマンドが見つからなかった場合はfalse
 }

@@ -1,9 +1,9 @@
 import { Client } from '@notionhq/client';
-import { logger } from '../../utils/logger';
-import { GlanzeMember } from '../../types/types';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { config } from '../../config';
-import { getStringPropertyValue } from '../../utils/notionUtils';
+import { GlanzeMember } from '../../types/types';
+import { logger } from '../../utils/logger';
+import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
 
 export class MemberService {
   private client: Client;
@@ -43,20 +43,17 @@ export class MemberService {
   ): Promise<GlanzeMember | undefined> {
     try {
       const databaseId = config.getConfig('discord_and_notion_pairs_databaseid');
-      const response = await this.client.databases.query({
-        database_id: databaseId,
-        filter: {
-          property: 'Discord',
-          rich_text: { equals: discordId },
-        },
+      const pages = await queryAllDatabasePages(this.client, databaseId, {
+        property: 'Discord',
+        rich_text: { equals: discordId },
       });
 
-      if (response.results.length === 0) {
+      if (pages.length === 0) {
         logger.error(`No GlanzeMember found for Discord ID: ${discordId}`);
         return undefined;
       }
 
-      const page = response.results[0] as PageObjectResponse;
+      const page = pages[0] as PageObjectResponse;
 
       return this.retrieveGlanzeMemberFromNotionPage(page);
     } catch (error) {
