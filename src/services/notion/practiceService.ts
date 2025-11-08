@@ -1,12 +1,15 @@
 import { tz } from '@date-fns/tz';
 import { Client } from '@notionhq/client';
-import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { addDays, format } from 'date-fns';
 import { config } from '../../config';
 import { Practice } from '../../types/types';
 import { replaceEnglishDayWithJapanese } from '../../utils/dateUtils';
 import { logger } from '../../utils/logger';
-import { getRelationPropertyValue, getStringPropertyValue } from '../../utils/notionUtils';
+import {
+  getRelationPropertyValue,
+  getStringPropertyValue,
+  queryAllDatabasePages,
+} from '../../utils/notionUtils';
 
 export class PracticeService {
   private client: Client;
@@ -26,12 +29,10 @@ export class PracticeService {
 
     try {
       const databaseId = config.getConfig('practice_databaseid');
-      const response = await this.client.databases.query({
-        database_id: databaseId,
-        filter: { property: '日付', date: { equals: formattedDate } },
+      const pages = await queryAllDatabasePages(this.client, databaseId, {
+        property: '日付',
+        date: { equals: formattedDate },
       });
-
-      const pages = response.results as PageObjectResponse[];
       const practices: Practice[] = [];
 
       for (const page of pages) {

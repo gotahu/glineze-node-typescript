@@ -1,7 +1,7 @@
 import { APIResponseError, Client } from '@notionhq/client';
 import {
   PageObjectResponse,
-  QueryDatabaseParameters,
+  QueryDataSourceParameters,
 } from '@notionhq/client/build/src/api-endpoints';
 import { logger } from './logger';
 
@@ -109,7 +109,7 @@ async function getStatusPropertyGroup(
       // キャッシュにない場合は、データベースを取得してキャッシュに保存
       logger.info(`ステータスオプションをキャッシュに保存: ${cacheKey}`, { debug: true });
 
-      const database = await client.databases.retrieve({ database_id: databaseId });
+      const database = await client.dataSources.retrieve({ data_source_id: databaseId });
       const optionsMap = new Map<string, StatusPropertyType>();
 
       // データベースのステータスプロパティを取得する
@@ -224,18 +224,29 @@ async function getRelationPropertyValue(
 async function queryAllDatabasePages(
   client: Client,
   databaseId: string,
-  filter?: QueryDatabaseParameters['filter']
+  filter?: QueryDataSourceParameters['filter']
 ): Promise<PageObjectResponse[]> {
   try {
+    // データベースIDからデータソースIDを取得
+    const database = await client.databases.retrieve({ database_id: databaseId });
+
+    if (!('data_sources' in database) || database.data_sources.length === 0) {
+      throw new Error(`データベース ${databaseId} にデータソースが見つかりません。`);
+    }
+
+    // 最初のデータソースIDを使用
+    const dataSourceId = database.data_sources[0].id;
+
     let hasMore = true;
     let startCursor = undefined;
     const allResults = [] as PageObjectResponse[];
 
     while (hasMore) {
-      const response = await client.databases.query({
-        database_id: databaseId,
+      const response = await client.dataSources.query({
+        data_source_id: dataSourceId,
         start_cursor: startCursor,
         filter: filter,
+        result_type: 'page',
       });
 
       const results = response.results as PageObjectResponse[];
@@ -253,8 +264,6 @@ async function queryAllDatabasePages(
         throw new Error(
           `Notion データベースが見つかりません: ${databaseId}\nデータベースが存在しないか、BOT にデータベースを読み書きする権限が与えられていない可能性があります。\nhttps://www.notion.so/chorglanze/1b21ea2409888007977ad23654285ece?pvs=4 をご覧ください。`
         );
-
-        return [];
       }
     }
 
