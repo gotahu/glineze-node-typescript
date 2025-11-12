@@ -85,7 +85,7 @@ async function getStatusPropertyGroup(
   page: PageObjectResponse,
   propertyKey: string
 ): Promise<StatusPropertyType> {
-  if (page.parent.type === 'database_id') {
+  if (page.parent.type === 'data_source_id') {
     // page から key に該当するステータスプロパティを取得する
     let statusId: string;
     for (const [key, property] of Object.entries(page.properties)) {
