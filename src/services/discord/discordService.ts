@@ -68,7 +68,7 @@ export class DiscordService {
 
   private initializeEventListeners() {
     this.client
-      .on('ready', this.handleReady.bind(this))
+      .on(Events.ClientReady, this.handleReady.bind(this))
       .on(Events.MessageCreate, this.messageHandler.handleMessageCreate.bind(this.messageHandler))
       .on(Events.MessageReactionAdd, (reaction, user) =>
         handleReactionAdd(reaction, user, this.services)

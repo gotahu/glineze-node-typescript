@@ -29,12 +29,17 @@ export class ShukinService {
   }
 
   public async retrieveShukinStatus(member: GlanzeMember): Promise<ShukinReply> {
+    logger.info(`Starting retrieveShukinStatus for member: ${member.name} (Notion Page ID: ${member.notionPageId})`);
     try {
       const databaseId = config.getConfig('shukin_databaseid');
+      logger.info(`Using databaseId for shukin: ${databaseId}`);
+      
+      logger.debug(`Executing queryAllDatabasePages for member: ${member.name}`);
       const response = await queryAllDatabasePages(this.client, databaseId, {
         property: '団員',
         relation: { contains: member.notionPageId },
       });
+      logger.info(`queryAllDatabasePages result: found ${response.length} pages for member: ${member.name}`);
 
       if (response.length === 0) {
         throw new Error(this.ERROR_MESSAGES.NO_DATA_FOUND);
@@ -50,14 +55,16 @@ export class ShukinService {
       const shukinList = await this.extractShukinInfo(page);
       const replyMessage = this.formatShukinStatusMessage(member.name, shukinList);
 
+      logger.info(`Successfully completed retrieveShukinStatus for member: ${member.name}`);
       return { status: 'success', message: replyMessage };
-    } catch (error) {
-      logger.error(`Failed to retrieve shukin status: ${error}`);
+    } catch (error: any) {
+      logger.error(`Failed to retrieve shukin status for member ${member.name}: ${error.stack || error}`);
       return { status: 'error', message: error.message };
     }
   }
 
   public async extractShukinInfo(page: PageObjectResponse): Promise<ShukinInfo[]> {
+    logger.debug(`Starting extractShukinInfo for page ID: ${page.id}`);
     const shukinList: ShukinInfo[] = [];
 
     for (const [key, prop] of Object.entries(page.properties)) {
@@ -80,10 +87,12 @@ export class ShukinService {
       }
     }
 
+    logger.debug(`Successfully extracted ${shukinList.length} shukin items from page ID: ${page.id}`);
     return shukinList;
   }
 
   public formatShukinStatusMessage(memberName: string, shukinList: ShukinInfo[]): string {
+    logger.debug(`Formatting shukin status message for member: ${memberName} with ${shukinList.length} items`);
     let message = `${this.PARTITION_LINE}\n## ${memberName} さんの集金状況\n`;
 
     const groups = [
