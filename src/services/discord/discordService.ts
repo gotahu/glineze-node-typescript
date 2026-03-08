@@ -23,6 +23,12 @@ export class DiscordService {
 
   private readonly services: Services;
 
+  public stats = {
+    dailyMessages: new Map<string, number>(),
+    dailyReactions: new Map<string, number>(),
+    popularEmojis: new Map<string, number>(),
+  };
+
   constructor(_services: { notion: NotionService; sesame: SesameService }) {
     console.log('DiscordService の初期化を開始します。');
 
@@ -235,5 +241,22 @@ export class DiscordService {
 
   public async sendEmbedsToChannel(embeds: EmbedBuilder[], channelId: string, threadId?: string) {
     await this.sendContentToChannel({ content: embeds, channelId, threadId });
+  }
+
+  public incrementMessageCount() {
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const current = this.stats.dailyMessages.get(today) || 0;
+    this.stats.dailyMessages.set(today, current + 1);
+  }
+
+  public incrementReactionCount() {
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const current = this.stats.dailyReactions.get(today) || 0;
+    this.stats.dailyReactions.set(today, current + 1);
+  }
+
+  public recordEmojiUsage(emojiName: string) {
+    const current = this.stats.popularEmojis.get(emojiName) || 0;
+    this.stats.popularEmojis.set(emojiName, current + 1);
   }
 }
