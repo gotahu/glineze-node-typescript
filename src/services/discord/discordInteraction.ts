@@ -16,8 +16,14 @@ export async function handleReactionAdd(
   user: User | PartialUser,
   services: Services
 ) {
-  const { notion } = services;
+  const { notion, discord } = services;
   if (user.bot) return;
+
+  // React count and emoji usage tracking
+  discord.incrementReactionCount();
+  if (reaction.emoji.name) {
+    discord.recordEmojiUsage(reaction.emoji.name);
+  }
 
   reaction.message.fetch().then((message) => {
     logger.info(

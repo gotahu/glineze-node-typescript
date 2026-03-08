@@ -14,6 +14,8 @@ export class MessageHandler {
   public async handleMessageCreate(message: Message) {
     if (message.author.bot) return;
 
+    this.services.discord.incrementMessageCount();
+
     console.log(message);
 
     if (message.channel.type === ChannelType.DM) {
