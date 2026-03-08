@@ -98,8 +98,8 @@ async function getStatusPropertyGroup(
       throw new Error(`ステータスプロパティ ${propertyKey} が見つかりません`);
     }
 
-    // ページから親データベースを取得する
-    const databaseId = page.parent.database_id;
+    // ページから親データソースを取得する
+    const databaseId = page.parent.data_source_id;
 
     // キャッシュキーを作成
     const cacheKey = `${databaseId}_${propertyKey}`;
