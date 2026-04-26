@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
 import { SesameService } from '../sesame/sesameService';
 import { handleReactionAdd } from './discordInteraction';
+import { updateBotProfile } from './functions/CountdownFunctions';
 import { MessageHandler } from './messageHandler';
 import { SesameDiscordService } from './sesameDiscordService';
 import { handleThreadMembersUpdate } from './threadMember';
@@ -103,7 +104,7 @@ export class DiscordService {
   private handleReady() {
     if (this.client.user) {
       logger.info(`Discord bot が ${this.client.user.tag} として起動しました`);
-      this.client.user.setActivity('Sesame', { type: ActivityType.Playing });
+      updateBotProfile(this);
     } else {
       logger.error('Discord bot を起動できませんでした');
     }
