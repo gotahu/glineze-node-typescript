@@ -50,7 +50,8 @@ async function fetchRemindablePractices(notion: NotionService): Promise<Practice
     const remindablePractices = [];
     for (const facility of facilities) {
       const facilityName = getStringPropertyValue(facility, 'タイトル');
-      const daysFromToday = Number.parseInt(getStringPropertyValue(facility, 'リマインド'));
+      const remindStr = getStringPropertyValue(facility, 'リマインド');
+      const daysFromToday = remindStr ? Number.parseInt(remindStr) : NaN;
 
       if (daysFromToday === undefined || Number.isNaN(daysFromToday)) {
         logger.error(`リマインド日数が取得できませんでした: ${facilityName}`);
@@ -71,6 +72,7 @@ async function fetchRemindablePractices(notion: NotionService): Promise<Practice
     return remindablePractices;
   } catch (err) {
     logger.error('Error in fetchRemindablePractices: ' + err);
+    return [];
   }
 }
 

@@ -2,6 +2,8 @@ import { Client } from '@notionhq/client';
 import { MemberService } from './memberService';
 import { PracticeService } from './practiceService';
 import { ShukinService } from './shukinService';
+import { env } from '../../env';
+import { logger } from '../../utils/logger';
 
 export class NotionService {
   public client: Client;
@@ -10,12 +12,12 @@ export class NotionService {
   public shukinService: ShukinService;
 
   constructor() {
-    console.log('NotionService の初期化を開始します。');
+    logger.info('NotionService の初期化を開始します。');
 
-    const NOTION_TOKEN = process.env.NOTION_TOKEN;
+    const NOTION_TOKEN = env.NOTION_TOKEN;
 
     if (!NOTION_TOKEN) {
-      console.error('NOTION_TOKEN が環境変数に設定されていません。プログラムを終了します。');
+      logger.error('NOTION_TOKEN が環境変数に設定されていません。プログラムを終了します。');
       process.exit(0);
     }
 
@@ -24,6 +26,6 @@ export class NotionService {
     this.practiceService = new PracticeService(this.client);
     this.shukinService = new ShukinService(this.client);
 
-    console.log('NotionService の初期化が終了しました。');
+    logger.info('NotionService の初期化が終了しました。');
   }
 }

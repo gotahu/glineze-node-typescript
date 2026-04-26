@@ -1,4 +1,5 @@
 import { config } from './config';
+import { env } from './env';
 import { CronService } from './services/cron/CronService';
 import { DiscordService } from './services/discord/discordService';
 import { NotionService } from './services/notion/notionService';
@@ -9,7 +10,7 @@ import { logger } from './utils/logger';
 
 // メイン処理
 const main = async () => {
-  console.log('glineze アプリケーションを起動します');
+  logger.info('glineze アプリケーションを起動します');
 
   // サービスの初期化
   await initializeServices();
@@ -38,6 +39,16 @@ const initializeServices = async () => {
     // DiscordService（Client を起動する）
     await discordService.start();
 
+    // Logger の Discord 出力を紐付け
+    logger.on('discordLog', async (logMessage) => {
+      try {
+        const formattedMessage = `[${logMessage.level}] [${logMessage.timestamp.toISOString()}] ${logMessage.message}`;
+        await discordService.sendStringsToChannel([formattedMessage], logger.getLoggerChannelId());
+      } catch (err) {
+        console.error('Failed to route log to DiscordService:', err);
+      }
+    });
+
     // サービスを束ねる
     services = {
       notion: notionService,
@@ -53,7 +64,7 @@ const initializeServices = async () => {
     const webServerService = new WebServerService(services);
 
     logger.info(
-      process.env.NODE_ENV === 'development'
+      env.NODE_ENV === 'development'
         ? `開発環境が起動しました。`
         : `本番環境が起動しました。`,
       { debug: true }
@@ -70,5 +81,5 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 main().then(() => {
-  console.log('glineze アプリケーションが起動しました');
+  logger.info('glineze アプリケーションが起動しました');
 });

@@ -10,7 +10,7 @@ export class SesameDiscordService {
    * @param guildId
    * @returns {VoiceChannel}
    */
-  public retrieveSesameStatusVoiceChannel(guildId: string): VoiceChannel {
+  public retrieveSesameStatusVoiceChannel(guildId: string): VoiceChannel | null {
     try {
       const { discord } = this.services;
       const guild = discord.client.guilds.cache.get(guildId);
@@ -52,7 +52,7 @@ export class SesameDiscordService {
     try {
       const { sesame } = this.services;
 
-      var voiceChannel = this.retrieveSesameStatusVoiceChannel(guildId);
+      let voiceChannel = this.retrieveSesameStatusVoiceChannel(guildId);
 
       // ボイスチャンネルが見つからなかった場合は新規作成
       if (!voiceChannel) {

@@ -7,6 +7,7 @@ import {
   ThreadAutoArchiveDuration,
   ThreadChannel,
 } from 'discord.js';
+import { env } from '../../../env';
 import { logger } from '../../../utils/logger';
 import { getWebhookInChannel } from './WebhookFunctions';
 
@@ -15,7 +16,7 @@ const parentChannelMap = new Map<string, TextChannel>();
 function generateParentChannelName(message: Message) {
   const { guild, channel } = message;
 
-  if (channel.isDMBased()) {
+  if (channel.isDMBased() || !guild) {
     return 'dm';
   } else {
     return guild.name.replaceAll(' ', '-').toLowerCase();
@@ -29,11 +30,11 @@ function generateThreadName(message: Message) {
 
   if (channel.isThread()) {
     const parent = channel.parent;
-    channelName = `${parent.name}>${channel.name}`;
+    channelName = parent ? `${parent.name}>${channel.name}` : `unknown>${channel.name}`;
   } else if (channel.isDMBased()) {
     channelName = message.author.displayName;
   } else {
-    channelName = channel.name;
+    channelName = channel.name || 'unknown';
   }
 
   return channelName;
@@ -45,11 +46,11 @@ function retrieveParentChannel(channelName: string, guild: Guild) {
   }
 
   try {
-    let channel = guild.channels.cache.find((c) => c.name === channelName) as TextChannel;
+    let channel = guild.channels.cache.find((c) => c?.name === channelName) as TextChannel | undefined;
 
     if (!channel) {
       guild.channels.fetch().then((channels) => {
-        channel = channels.find((c) => c.name === channelName) as TextChannel;
+        channel = channels.find((c) => c?.name === channelName) as TextChannel | undefined;
       });
     }
 
@@ -65,8 +66,8 @@ function retrieveParentChannel(channelName: string, guild: Guild) {
   return null;
 }
 
-async function getRelayGuild(client: Client): Promise<Guild> {
-  const guild = await client.guilds.fetch(process.env.DISCORD_VOID_GUILD_ID);
+async function getRelayGuild(client: Client): Promise<Guild | null> {
+  const guild = await client.guilds.fetch(env.DISCORD_VOID_GUILD_ID || '').catch(() => null);
 
   if (!guild) {
     logger.error('DISCORD_VOID_GUILD_ID からギルドを取得できませんでした');
@@ -78,15 +79,17 @@ async function getRelayGuild(client: Client): Promise<Guild> {
 
 async function getRelayGuildMember(client: Client) {
   const guild = await getRelayGuild(client);
+  if (!guild) return [];
 
   const members = await guild.members.fetch();
 
   return members;
 }
 
-async function getParentChannel(message: Message): Promise<TextChannel> {
+async function getParentChannel(message: Message): Promise<TextChannel | null> {
   try {
     const guild = await getRelayGuild(message.client);
+    if (!guild) return null;
 
     // TextChannel を取得
     const parentChannelName = generateParentChannelName(message);
@@ -108,11 +111,13 @@ async function getParentChannel(message: Message): Promise<TextChannel> {
   } catch (error) {
     console.error(`getParentChannel: ` + error);
   }
+  return null;
 }
 
-async function getThreadChannel(message: Message): Promise<ThreadChannel> {
+async function getThreadChannel(message: Message): Promise<ThreadChannel | null> {
   try {
     const parentChannel = await getParentChannel(message);
+    if (!parentChannel) return null;
 
     // ThreadChannel を取得
     const threadName = generateThreadName(message);
@@ -140,6 +145,7 @@ async function getThreadChannel(message: Message): Promise<ThreadChannel> {
   } catch (error) {
     console.error('getThreadChannel: ' + error);
   }
+  return null;
 }
 
 export async function relayMessage(message: Message) {
@@ -147,6 +153,7 @@ export async function relayMessage(message: Message) {
 
   try {
     const threadChannel = await getThreadChannel(message);
+    if (!threadChannel) return;
 
     const webhook = await getWebhookInChannel(threadChannel);
 

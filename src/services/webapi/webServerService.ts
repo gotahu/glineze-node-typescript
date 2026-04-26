@@ -19,7 +19,7 @@ export class WebServerService {
   };
 
   constructor(private readonly services: Services) {
-    console.log('WebServerService の初期化を開始します。');
+    logger.info('WebServerService の初期化を開始します。');
 
     this.notionAutomation = new NotionAutomationService(services);
 
@@ -29,7 +29,7 @@ export class WebServerService {
     this.setupAPIEndpoints();
     this.start();
 
-    console.log('WebServerService の初期化が終了しました。');
+    logger.info('WebServerService の初期化が終了しました。');
   }
 
   private setupAPIEndpoints() {
@@ -52,7 +52,7 @@ export class WebServerService {
     // https://<proxy-url>/glineze/automation への POST リクエスト
     this.app.post('/automation', async (req, res) => {
       try {
-        console.log(req);
+        logger.debug('Received webhook request to /automation');
 
         if (!req.body) {
           logger.error('Invalid request: missing body');
@@ -82,7 +82,7 @@ export class WebServerService {
    * サーバーの起動
    */
   private start() {
-    console.log('Glineze API サーバーの起動を試みます……');
+    logger.info('Glineze API サーバーの起動を試みます……');
 
     const port = config.app.port;
     this.app.listen(port, () => {
@@ -111,14 +111,17 @@ export class WebServerService {
     const todayCount = this.requestStats.daily.get(today) || 0;
 
     const discordStatus = this.services.discord?.client?.isReady() ? '🟢 Online' : '🔴 Offline';
-    
+
     // Discord Stats
     const discordDailyMessages = this.services.discord?.stats.dailyMessages.get(today) || 0;
     const discordDailyReactions = this.services.discord?.stats.dailyReactions.get(today) || 0;
     const popularEmojis = Array.from(this.services.discord?.stats.popularEmojis.entries() || [])
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5) // Top 5
-      .map(([emoji, count]) => `<span style="display:inline-block; background:#eef2f5; padding:4px 8px; border-radius:4px; margin:2px;">${emoji} ${count}</span>`)
+      .map(
+        ([emoji, count]) =>
+          `<span style="display:inline-block; background:#eef2f5; padding:4px 8px; border-radius:4px; margin:2px;">${emoji} ${count}</span>`
+      )
       .join('');
 
     return `

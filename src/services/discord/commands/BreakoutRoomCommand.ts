@@ -10,6 +10,9 @@ import {
 } from '../functions/BreakoutRoomFunctions';
 
 export async function handleBreakoutRoomCommand(message: Message, args: string[]) {
+  if (!message.guild) {
+    return;
+  }
   if (args.length < 1) {
     message.reply({ content: '引数が不足しています' });
     return;
