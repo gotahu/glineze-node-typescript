@@ -1,4 +1,5 @@
-import { Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
+import { env } from '../../env';
+import { ActivityType, Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
@@ -30,7 +31,7 @@ export class DiscordService {
   };
 
   constructor(_services: { notion: NotionService; sesame: SesameService }) {
-    console.log('DiscordService の初期化を開始します。');
+    logger.info('DiscordService の初期化を開始します。');
 
     // インスタンスを格納
     this.services = {
@@ -69,7 +70,7 @@ export class DiscordService {
     // イベントリスナーを初期化
     this.initializeEventListeners();
 
-    console.log('DiscordService の初期化が終了しました。');
+    logger.info('DiscordService の初期化が終了しました。');
   }
 
   private initializeEventListeners() {
@@ -80,7 +81,7 @@ export class DiscordService {
         handleReactionAdd(reaction, user, this.services)
       )
       .on(Events.ThreadMembersUpdate, handleThreadMembersUpdate)
-      .on(Events.MessageUpdate, this.messageHandler.handleMessageUpdate.bind(this.messageHandler))
+      .on(Events.MessageUpdate, (oldMsg, newMsg) => this.messageHandler.handleMessageUpdate(oldMsg, newMsg))
       .on('error', (error) => {
         logger.error(`Discord Client エラー: ${error.message}`, { error });
         console.error('Discord Client エラーの詳細:', error);
@@ -102,20 +103,20 @@ export class DiscordService {
   private handleReady() {
     if (this.client.user) {
       logger.info(`Discord bot が ${this.client.user.tag} として起動しました`);
+      this.client.user.setActivity('Sesame', { type: ActivityType.Playing });
     } else {
       logger.error('Discord bot を起動できませんでした');
     }
   }
 
-  public async start() {
+  public async start(): Promise<void> {
     const LOGIN_TIMEOUT_MS = 15000; // 30秒のタイムアウト
-    console.log('Discord BOT のログインを試みます。');
+    logger.info('Discord BOT のログインを試みます。');
 
-    const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+    const DISCORD_BOT_TOKEN = env.DISCORD_BOT_TOKEN;
 
     if (!DISCORD_BOT_TOKEN) {
       const errorMsg = 'DISCORD_BOT_TOKEN が設定されていません。プログラムを終了します。';
-      console.error(errorMsg);
       logger.error(errorMsg);
       process.exit(0);
     }
@@ -124,19 +125,14 @@ export class DiscordService {
     const tokenParts = DISCORD_BOT_TOKEN.split('.');
     if (tokenParts.length !== 3) {
       const errorMsg = `DISCORD_BOT_TOKEN の形式が正しくありません。トークンは3つの部分に分割される必要がありますが、${tokenParts.length}つの部分しかありません。`;
-      console.error(errorMsg);
       logger.error(errorMsg);
       throw new Error(errorMsg);
     }
 
-    console.log(`トークンの形式チェック: OK (長さ: ${DISCORD_BOT_TOKEN.length}文字)`);
     logger.info(`Discord ログイン開始: トークン長 ${DISCORD_BOT_TOKEN.length}文字`);
 
     try {
       // ログイン前の状態を確認
-      console.log(
-        `ログイン前の状態: ready=${this.client.isReady()}, ws.status=${this.client.ws.status}`
-      );
       logger.info(
         `ログイン前の状態: ready=${this.client.isReady()}, ws.status=${this.client.ws.status}`
       );
@@ -156,23 +152,16 @@ export class DiscordService {
       await Promise.race([loginPromise, timeoutPromise]);
 
       // ログイン後の状態を確認
-      console.log(
-        `ログイン後の状態: ready=${this.client.isReady()}, ws.status=${this.client.ws.status}`
-      );
       logger.info(
         `ログイン後の状態: ready=${this.client.isReady()}, ws.status=${this.client.ws.status}`
       );
 
       if (this.client.user) {
-        console.log(
-          `Discord BOT のログインが成功しました: ${this.client.user.tag} (ID: ${this.client.user.id})`
-        );
         logger.info(
           `Discord BOT のログインが成功しました: ${this.client.user.tag} (ID: ${this.client.user.id})`
         );
       } else {
         const warningMsg = 'ログインは成功しましたが、client.user が設定されていません。';
-        console.warn(warningMsg);
         void logger.info(warningMsg);
       }
     } catch (error) {
@@ -216,10 +205,14 @@ export class DiscordService {
 
   public async sendContentToChannel({ content, channelId }: MessageContent) {
     try {
-      const channel = this.client.channels.cache.get(channelId) as TextChannel;
+      let channel = this.client.channels.cache.get(channelId);
 
-      if (!channel?.isTextBased()) {
-        throw new Error('Channel is not a TextChannel');
+      if (!channel) {
+        channel = (await this.client.channels.fetch(channelId)) ?? undefined;
+      }
+
+      if (!channel?.isSendable()) {
+        throw new Error('Channel is not a TextChannel or is not sendable');
       }
 
       if (Array.isArray(content) && content[0] instanceof EmbedBuilder) {
@@ -228,9 +221,9 @@ export class DiscordService {
         await channel.send(content);
       }
 
-      logger.info(`Content sent to ${channel.isThread ? 'thread' : 'channel'}`);
+      logger.info(`Content sent to ${channel.isThread() ? 'thread' : 'channel'}`);
     } catch (error) {
-      logger.error(`Error sending content:, ${error}`);
+      console.error(`Error sending content: ${error}`);
       throw error;
     }
   }

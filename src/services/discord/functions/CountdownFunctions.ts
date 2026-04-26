@@ -146,7 +146,7 @@ function updateBotProfile(discord: DiscordService): void {
     const eventTitle = config.getConfig('countdown_title');
     const { message } = calculateEventStatus(calculateDiffBetweenTodayAndEventDate(), eventTitle);
 
-    discord.client.user.setActivity(message, { type: ActivityType.Custom });
+    discord.client.user?.setActivity(message, { type: ActivityType.Custom });
     logger.info(`ボットのステータスを更新しました: ${message}`);
   } catch (error) {
     logger.error('ボットプロフィールの更新に失敗しました', { error });

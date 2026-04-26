@@ -1,13 +1,14 @@
-import { DiscordService } from '../services/discord/discordService';
+import { EventEmitter } from 'events';
+import { env } from '../env';
 import { sendMessageToDiscordWebhook } from '../services/discord/functions/WebhookFunctions';
 import { LoggerConfig, LogLevel, LogMessage } from '../types/types';
 
-export class Logger {
+export class Logger extends EventEmitter {
   private static instance: Logger;
   private readonly config: LoggerConfig;
-  private discordService?: DiscordService; // 後から注入されるDiscordService
 
   private constructor(config: LoggerConfig) {
+    super();
     this.config = config;
   }
 
@@ -15,20 +16,16 @@ export class Logger {
     if (!Logger.instance) {
       Logger.instance = new Logger({
         loggerChannelId: '1273731421663395973',
-        lineNotifyToken: process.env.LINE_NOTIFY_VOID_TOKEN,
-        discordWebhookUrl: process.env.DISCORD_ERROR_LOG_WEBHOOK,
-        enableDebugOutput: process.env.NODE_ENV !== 'production',
+        lineNotifyToken: env.LINE_NOTIFY_VOID_TOKEN || '',
+        discordWebhookUrl: env.DISCORD_ERROR_LOG_WEBHOOK,
+        enableDebugOutput: env.NODE_ENV !== 'production',
       });
     }
     return Logger.instance;
   }
 
-  /**
-   * DiscordServiceを後から注入するメソッド
-   * DiscordServiceが完全に初期化されてから呼び出してください。
-   */
-  public setDiscordService(discordService: DiscordService): void {
-    this.discordService = discordService;
+  public getLoggerChannelId(): string {
+    return this.config.loggerChannelId;
   }
 
   private formatLogMessage(
@@ -44,23 +41,9 @@ export class Logger {
     };
   }
 
-  private async sendToDiscord(logMessage: LogMessage): Promise<void> {
-    // DiscordService が未初期化ならDiscordへの送信はスキップ
-    if (!this.discordService) {
-      return;
-    }
-
-    try {
-      const formattedMessage = `[${logMessage.level}] [${logMessage.timestamp.toISOString()}] ${logMessage.message}`;
-      await this.discordService.sendStringsToChannel(
-        [formattedMessage],
-        this.config.loggerChannelId
-      );
-    } catch (error) {
-      console.error(
-        `Failed to send message to Discord: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+  private emitDiscordLog(logMessage: LogMessage): void {
+    // Instead of using DiscordService directly, emit an event so app.ts can handle it
+    this.emit('discordLog', logMessage);
   }
 
   private async sendToWebhook(logMessage: LogMessage): Promise<void> {
@@ -78,9 +61,9 @@ export class Logger {
     const logMessage = this.formatLogMessage(LogLevel.INFO, message, metadata);
     console.log(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 
-    // debugオプション付きの場合はLINEとWebhookにも送信
     if (metadata?.debug) {
-      await Promise.allSettled([this.sendToWebhook(logMessage), this.sendToDiscord(logMessage)]);
+      this.emitDiscordLog(logMessage);
+      await this.sendToWebhook(logMessage);
     }
   }
 
@@ -89,14 +72,15 @@ export class Logger {
 
     const logMessage = this.formatLogMessage(LogLevel.DEBUG, message, metadata);
     console.log(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
-    await this.sendToDiscord(logMessage);
+    this.emitDiscordLog(logMessage);
   }
 
   public async error(message: string, metadata?: Record<string, unknown>): Promise<void> {
     const logMessage = this.formatLogMessage(LogLevel.ERROR, message, metadata);
     console.error(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 
-    await Promise.allSettled([this.sendToWebhook(logMessage), this.sendToDiscord(logMessage)]);
+    this.emitDiscordLog(logMessage);
+    await this.sendToWebhook(logMessage);
   }
 }
 

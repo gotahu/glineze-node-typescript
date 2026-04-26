@@ -26,8 +26,9 @@ export async function handleReactionAdd(
   }
 
   reaction.message.fetch().then((message) => {
+    const guildName = reaction.message.guild ? reaction.message.guild.name : 'DM';
     logger.info(
-      `${reaction.message.guild} で ${user.tag} が ${reaction.emoji.name} を ${message.cleanContent.slice(0, 50)} に対してリアクションしました`
+      `${guildName} で ${user.tag} が ${reaction.emoji.name} を ${message.cleanContent.slice(0, 50)} に対してリアクションしました`
     );
   });
 
@@ -53,7 +54,7 @@ export async function handleReactionAdd(
       const channelId = reaction.message.channelId;
       // チャンネルIDからチャンネルを取得
       const channel = await reaction.client.channels.fetch(channelId);
-      if (!channel.isTextBased()) throw new Error('This channel is not a text channel.');
+      if (!channel || !channel.isTextBased()) throw new Error('This channel is not a text channel.');
 
       // メッセージIDからメッセージを取得
       const targetMessage = await channel.messages.fetch(reactedMessageId);

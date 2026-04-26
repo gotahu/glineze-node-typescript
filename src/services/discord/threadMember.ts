@@ -3,6 +3,8 @@ import {
   Collection,
   Message,
   MessageReaction,
+  PartialThreadMember,
+  ReadonlyCollection,
   Snowflake,
   ThreadMember,
   User,
@@ -14,8 +16,8 @@ const REACTION_WAIT_TIME = 30_000;
 const MESSAGE_DELAY = 500;
 
 async function handleThreadMembersUpdate(
-  addedMembers: Collection<Snowflake, ThreadMember>,
-  removedMembers: Collection<Snowflake, ThreadMember>,
+  addedMembers: ReadonlyCollection<Snowflake, ThreadMember>,
+  removedMembers: ReadonlyCollection<Snowflake, ThreadMember | PartialThreadMember>,
   thread: AnyThreadChannel
 ): Promise<void> {
   if (addedMembers.size === 0) return;
@@ -43,7 +45,7 @@ async function handleReactionCollection(
   replyMessage: Message,
   lastMessage: Message,
   thread: AnyThreadChannel,
-  addedMembers: Collection<Snowflake, ThreadMember>
+  addedMembers: ReadonlyCollection<Snowflake, ThreadMember>
 ) {
   const collector = createReactionCollector(replyMessage, lastMessage);
 
@@ -67,7 +69,7 @@ function createReactionCollector(replyMessage: Message, lastMessage: Message) {
 
 async function handleMemberDeletion(
   thread: AnyThreadChannel,
-  members: Collection<Snowflake, ThreadMember>
+  members: ReadonlyCollection<Snowflake, ThreadMember>
 ) {
   await thread.send(`現在追加された ${members.size} 人のメンバーを削除します。`);
   logger.info('スレッドのメンバーを誤って追加したことを検知しました。ユーザーの削除を行います。');
@@ -77,17 +79,17 @@ async function handleMemberDeletion(
 
 async function removeThreadMembers(
   thread: AnyThreadChannel,
-  members: Collection<Snowflake, ThreadMember>
+  members: ReadonlyCollection<Snowflake, ThreadMember>
 ) {
   for (const member of members.values()) {
     if (!member.partial) {
       try {
         await thread.members.remove(member.id);
-        logger.info(`メンバー ${member.user.displayName} をスレッドから削除しました。`, {
+        logger.info(`メンバー ${member.user?.displayName || 'unknown'} をスレッドから削除しました。`, {
           debug: true,
         });
       } catch (error) {
-        logger.error(`メンバー ${member.user.displayName} の削除に失敗しました。`);
+        logger.error(`メンバー ${member.user?.displayName || 'unknown'} の削除に失敗しました。`);
       }
     }
   }

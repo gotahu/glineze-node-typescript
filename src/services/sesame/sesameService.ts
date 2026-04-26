@@ -20,7 +20,7 @@ export class SesameService {
   };
 
   constructor() {
-    console.log('SesameService の初期化を開始します。');
+    logger.info('SesameService の初期化を開始します。');
 
     this.sesameApiUrl = config.getConfig('sesame_app_api_url');
     this.sesameApiToken = config.getConfig('sesame_app_api_key');
@@ -38,7 +38,7 @@ export class SesameService {
 
     this.loadSesameLockStatusMessage();
 
-    console.log('SesameService の初期化が終了しました。');
+    logger.info('SesameService の初期化が終了しました。');
   }
 
   public getSesameLockStatusMessage(status: SesameLockStatus): string {
@@ -61,7 +61,7 @@ export class SesameService {
       return {
         lockStatus: SesameLockStatus.Error,
         latestType: 0,
-        timestamp: null,
+        timestamp: new Date(0),
       };
     } else {
       // 履歴がある場合
@@ -110,7 +110,7 @@ export class SesameService {
       });
 
       if (response.status == 200) {
-        console.log(response.data);
+        logger.debug(`Sesame API response: ${JSON.stringify(response.data)}`);
 
         if (this.isSesameAPIResponse(response.data)) {
           return response.data.histories;
@@ -118,12 +118,13 @@ export class SesameService {
           throw new Error('Invalid Sesame API response');
         }
       }
+      return [];
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const response = error.response;
         logger.error(`Sesame API Error: ${response?.status} - ${error.message}`);
       } else {
-        logger.error(`Sesame API Error: ${error.message}`);
+        logger.error(`Sesame API Error: ${error instanceof Error ? error.message : String(error)}`);
       }
 
       return [];

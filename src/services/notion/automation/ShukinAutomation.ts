@@ -36,7 +36,7 @@ export async function processShukinStatusChange(
 
     logger.info('handleShukinAutomation: success');
   } catch (error) {
-    logger.error('handleShukinAutomation: error', error);
+    logger.error('handleShukinAutomation: error', { error });
   }
 }
 

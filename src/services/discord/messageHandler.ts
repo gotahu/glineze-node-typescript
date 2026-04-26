@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'discord.js';
+import { env } from '../../env';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
+import { PartialMessage } from 'discord.js';
 import { remindPracticesToChannel } from '../notion/practiceFunctions';
 import { handleCommand } from './commands';
 import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
@@ -21,7 +23,7 @@ export class MessageHandler {
     if (message.channel.type === ChannelType.DM) {
       await this.handleDMMessage(message);
     } else if (message.channel) {
-      if (message.guild.id === process.env.DISCORD_VOID_GUILD_ID) return;
+      if (message.guild?.id === env.DISCORD_VOID_GUILD_ID) return;
       await this.handleGuildMessage(message);
     }
   }
@@ -66,7 +68,7 @@ export class MessageHandler {
     if (
       message.content.includes('練習連絡') &&
       message.mentions.has(message.client.user) &&
-      message.mentions.members.size === 1 // これを追加しないと @everyone や @全員 に反応してしまう
+      message.mentions.members?.size === 1 // これを追加しないと @everyone や @全員 に反応してしまう
     ) {
       await handleNotifyPracticesCommand(notion, message);
       return;
@@ -98,11 +100,12 @@ export class MessageHandler {
    * @param oldMessage
    * @param newMessage
    */
-  public async handleMessageUpdate(oldMessage: Message, newMessage: Message): Promise<void> {
-    if (newMessage.guild.id === process.env.DISCORD_VOID_GUILD_ID) return;
+  public async handleMessageUpdate(oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage): Promise<void> {
+    if (newMessage.guild?.id === env.DISCORD_VOID_GUILD_ID) return;
 
     if (newMessage.channel.type === ChannelType.GuildText) {
-      await relayMessage(newMessage);
+      const fullMsg = newMessage.partial ? await newMessage.fetch() : newMessage;
+      await relayMessage(fullMsg);
     }
   }
 }

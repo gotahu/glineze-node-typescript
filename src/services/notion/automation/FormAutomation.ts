@@ -35,7 +35,7 @@ export async function handleDuplicateFormEntryRemoval(
   const pages = await queryAllDatabasePages(notion.client, databaseId, {
     property: '名前',
     title: {
-      equals: name,
+      equals: name || '',
     },
   });
 

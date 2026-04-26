@@ -1,38 +1,25 @@
 import { Client } from '@notionhq/client';
-import dotenv from 'dotenv';
+import { env } from './env';
 import { logger } from './utils/logger';
 import { getStringPropertyValue, queryAllDatabasePages } from './utils/notionUtils';
-
-dotenv.config();
-
-// バリデーション関数
-function validateEnvVar(value: string | undefined, name: string): string {
-  if (!value) {
-    throw new Error(`${name} is not defined in the environment variables.`);
-  }
-  return value;
-}
 
 // 設定オブジェクト
 export const config = {
   discord: {
-    botToken: validateEnvVar(process.env.DISCORD_BOT_TOKEN, 'DISCORD_BOT_TOKEN'),
-    webHook: validateEnvVar(process.env.DISCORD_ERROR_LOG_WEBHOOK, 'DISCORD_ERROR_LOG_WEBHOOK'),
-    relayWebhook: validateEnvVar(process.env.DISCORD_RELAY_WEBHOOK, 'DISCORD_RELAY_WEBHOOK'),
+    botToken: env.DISCORD_BOT_TOKEN,
+    webHook: env.DISCORD_ERROR_LOG_WEBHOOK,
+    relayWebhook: env.DISCORD_RELAY_WEBHOOK,
   },
   notion: {
-    token: validateEnvVar(process.env.NOTION_TOKEN, 'NOTION_TOKEN'),
-    configurationDatabaseId: validateEnvVar(
-      process.env.NOTION_CONFIGURATION_DATABASEID,
-      'NOTION_CONFIGURATION_DATABASEID'
-    ),
+    token: env.NOTION_TOKEN,
+    configurationDatabaseId: env.NOTION_CONFIGURATION_DATABASEID,
   },
   app: {
-    port: Number(process.env.PORT) || 10000,
+    port: env.PORT,
   },
   repository: {
-    path: process.env.REPOSITORY_PATH || '',
-    branch: process.env.BRANCH || 'refs/heads/main',
+    path: env.REPOSITORY_PATH,
+    branch: env.BRANCH,
   },
   notionConfigs: new Map<string, string>(),
 
@@ -55,7 +42,7 @@ export const config = {
         }
       }
 
-      console.log(this.notionConfigs);
+      logger.debug(`Loaded configs: ${JSON.stringify(Object.fromEntries(this.notionConfigs), null, 2)}`);
       logger.info('Config を Notion から読み込み、初期化が完了しました。');
     } catch (error) {
       logger.error(`Config の初期化に失敗しました: ${error}`);
