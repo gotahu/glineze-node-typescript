@@ -15,15 +15,21 @@ export class MessageHandler {
 
   public async handleMessageCreate(message: Message) {
     try {
-      if (message.author.bot) return;
+      if (message.author.bot) {
+        if (message.channel.isDMBased()) {
+          logger.info(
+            `DM message ignored: author is bot, channel=${message.channel.id}, author=${message.author.tag}`
+          );
+        }
+        return;
+      }
 
       this.services.discord.incrementMessageCount();
 
-      logger.info(
-        `message received: channel=${message.channel.id}, author=${message.author.tag}, dm=${message.channel.isDMBased()}`
-      );
-
       if (message.channel.isDMBased()) {
+        logger.info(
+          `DM message received: channel=${message.channel.id}, author=${message.author.tag}`
+        );
         await this.handleDMMessage(message);
       } else if (message.channel) {
         if (message.guild?.id === env.DISCORD_VOID_GUILD_ID) return;
@@ -38,6 +44,10 @@ export class MessageHandler {
     const { notion } = this.services;
     const dmChannel = message.channel as DMChannel;
 
+    logger.info(
+      `DM handling started: message=${message.id}, channel=${message.channel.id}, author=${message.author.tag}, contentLength=${message.content.length}`
+    );
+
     // 「メッセージを送信中」を表示
     await dmChannel.sendTyping().catch((error) => {
       logger.error(`DM typing indicator failed: ${error}`);
@@ -48,7 +58,9 @@ export class MessageHandler {
     });
 
     if (message.content.startsWith('!')) {
+      logger.info(`DM command handling started: message=${message.id}`);
       const commandRecognized = await handleCommand(message, this.services);
+      logger.info(`DM command handling finished: message=${message.id}, recognized=${commandRecognized}`);
       // コマンドが認識されなかった場合は、replyShukinStatusを呼び出す
       if (!commandRecognized) {
         await replyShukinStatus(notion, message);
@@ -56,6 +68,8 @@ export class MessageHandler {
     } else {
       await replyShukinStatus(notion, message);
     }
+
+    logger.info(`DM handling finished: message=${message.id}`);
   }
 
   /**
