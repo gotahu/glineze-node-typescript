@@ -14,17 +14,23 @@ export class MessageHandler {
   constructor(private readonly services: Services) {}
 
   public async handleMessageCreate(message: Message) {
-    if (message.author.bot) return;
+    try {
+      if (message.author.bot) return;
 
-    this.services.discord.incrementMessageCount();
+      this.services.discord.incrementMessageCount();
 
-    console.log(message);
+      logger.info(
+        `message received: channel=${message.channel.id}, author=${message.author.tag}, dm=${message.channel.isDMBased()}`
+      );
 
-    if (message.channel.type === ChannelType.DM) {
-      await this.handleDMMessage(message);
-    } else if (message.channel) {
-      if (message.guild?.id === env.DISCORD_VOID_GUILD_ID) return;
-      await this.handleGuildMessage(message);
+      if (message.channel.isDMBased()) {
+        await this.handleDMMessage(message);
+      } else if (message.channel) {
+        if (message.guild?.id === env.DISCORD_VOID_GUILD_ID) return;
+        await this.handleGuildMessage(message);
+      }
+    } catch (error) {
+      logger.error(`message create handling failed: ${error}`);
     }
   }
 
@@ -33,9 +39,13 @@ export class MessageHandler {
     const dmChannel = message.channel as DMChannel;
 
     // 「メッセージを送信中」を表示
-    dmChannel.sendTyping();
+    await dmChannel.sendTyping().catch((error) => {
+      logger.error(`DM typing indicator failed: ${error}`);
+    });
 
-    await relayMessage(message);
+    void relayMessage(message).catch((error) => {
+      logger.error(`DM relay failed: ${error}`);
+    });
 
     if (message.content.startsWith('!')) {
       const commandRecognized = await handleCommand(message, this.services);
