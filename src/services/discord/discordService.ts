@@ -1,5 +1,5 @@
 import { env } from '../../env';
-import { ActivityType, Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
+import { ActivityType, ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
@@ -14,6 +14,17 @@ interface MessageContent {
   content: string | EmbedBuilder[];
   channelId: string;
   threadId?: string;
+}
+
+interface RawMessageCreateData {
+  id?: string;
+  guild_id?: string;
+  channel_id?: string;
+  content?: string;
+  author?: {
+    id?: string;
+    bot?: boolean;
+  };
 }
 
 // discordService.ts
@@ -77,6 +88,18 @@ export class DiscordService {
   private initializeEventListeners() {
     this.client
       .on(Events.ClientReady, this.handleReady.bind(this))
+      .on(Events.Raw, (packet) => {
+        if (packet.t !== 'MESSAGE_CREATE') return;
+
+        const data = packet.d as RawMessageCreateData;
+        if (data.guild_id) return;
+
+        this.primeDMChannelFromRawMessage(data);
+
+        logger.info(
+          `raw DM MESSAGE_CREATE: id=${data.id}, channel=${data.channel_id}, author=${data.author?.id}, authorBot=${data.author?.bot ?? false}, contentLength=${data.content?.length ?? 0}`
+        );
+      })
       .on(Events.MessageCreate, this.messageHandler.handleMessageCreate.bind(this.messageHandler))
       .on(Events.MessageReactionAdd, (reaction, user) =>
         handleReactionAdd(reaction, user, this.services)
@@ -99,6 +122,21 @@ export class DiscordService {
         void logger.info('Discord Client が再接続中です');
         console.log('Discord Client が再接続中です');
       });
+  }
+
+  private primeDMChannelFromRawMessage(data: RawMessageCreateData) {
+    if (data.guild_id || !data.channel_id || !data.author?.id) return;
+    if (this.client.channels.cache.has(data.channel_id)) return;
+
+    const channelManager = this.client.channels as unknown as {
+      _add(data: { id: string; type: ChannelType.DM; recipients: NonNullable<RawMessageCreateData['author']>[] }): unknown;
+    };
+
+    channelManager._add({
+      id: data.channel_id,
+      type: ChannelType.DM,
+      recipients: [data.author],
+    });
   }
 
   private handleReady() {
