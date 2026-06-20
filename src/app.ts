@@ -58,7 +58,7 @@ const initializeServices = async () => {
 
     // CronService
     const cronService = new CronService(services);
-    cronService.start();
+    await cronService.start();
 
     // WebService
     const webServerService = new WebServerService(services);

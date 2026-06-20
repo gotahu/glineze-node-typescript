@@ -1,6 +1,5 @@
 // src/services/cron/cronService.ts
 
-import { schedule } from 'node-cron';
 import { config } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
@@ -16,6 +15,7 @@ export class CronService {
   private countDownSchedulerStarted = false;
   private notifyPracticeStarted = false;
   private remindBashotoriStarted = false;
+  private schedule!: typeof import('node-cron').schedule;
 
   constructor(services: Services) {
     logger.info('CronService の初期化を開始します。');
@@ -26,8 +26,11 @@ export class CronService {
   /**
    * スケジューラを開始するメソッド
    */
-  public start() {
+  public async start(): Promise<void> {
     logger.info('Cron スケジューラーを起動します……');
+    const { schedule } = await import('node-cron');
+    this.schedule = schedule;
+
     // ここで複数のジョブをスケジュール登録したりする
     this.startSesameScheduler();
     this.startCountdownScheduler();
@@ -49,7 +52,7 @@ export class CronService {
     logger.info('Starting Sesame status scheduler');
 
     // 5 分おきに実行する
-    schedule('*/5 * * * *', async () => {
+    this.schedule('*/5 * * * *', async () => {
       await this.runSesameScheduler();
     });
   }
@@ -87,7 +90,7 @@ export class CronService {
     this.runCountdownScheduler();
 
     // 毎日0時1分に実行する
-    schedule(
+    this.schedule(
       '1 0 * * *',
       () => {
         this.runCountdownScheduler();
@@ -144,7 +147,7 @@ export class CronService {
     logger.info('Starting Notify practice scheduler');
 
     // 毎日17時に実行する
-    schedule(
+    this.schedule(
       '0 17 * * *',
       () => {
         this.runNotifyPractice();
@@ -178,7 +181,7 @@ export class CronService {
     logger.info('Starting Remind Bashotori scheduler');
 
     // 毎日8時に実行する
-    schedule(
+    this.schedule(
       '0 8 * * *',
       () => {
         this.runRemindBashotori();
