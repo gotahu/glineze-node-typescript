@@ -6,6 +6,12 @@ import { logger } from '../../utils/logger';
 import { sendCountdownMessage, updateBotProfile } from '../discord/functions/CountdownFunctions';
 import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
 
+type CronSchedule = (
+  expression: string,
+  task: () => void | Promise<void>,
+  options?: { timezone?: string }
+) => void;
+
 /**
  * 定期実行タスクを一元管理するクラス
  */
@@ -15,7 +21,7 @@ export class CronService {
   private countDownSchedulerStarted = false;
   private notifyPracticeStarted = false;
   private remindBashotoriStarted = false;
-  private schedule!: typeof import('node-cron').schedule;
+  private schedule!: CronSchedule;
 
   constructor(services: Services) {
     logger.info('CronService の初期化を開始します。');
