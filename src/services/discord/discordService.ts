@@ -27,6 +27,9 @@ interface RawMessageCreateData {
   };
 }
 
+const DAILY_STATS_RETENTION_DAYS = 14;
+const POPULAR_EMOJI_LIMIT = 100;
+
 // discordService.ts
 export class DiscordService {
   public readonly client: Client;
@@ -279,16 +282,38 @@ export class DiscordService {
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
     const current = this.stats.dailyMessages.get(today) || 0;
     this.stats.dailyMessages.set(today, current + 1);
+    this.pruneDailyStats(this.stats.dailyMessages);
   }
 
   public incrementReactionCount() {
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
     const current = this.stats.dailyReactions.get(today) || 0;
     this.stats.dailyReactions.set(today, current + 1);
+    this.pruneDailyStats(this.stats.dailyReactions);
   }
 
   public recordEmojiUsage(emojiName: string) {
     const current = this.stats.popularEmojis.get(emojiName) || 0;
     this.stats.popularEmojis.set(emojiName, current + 1);
+
+    if (this.stats.popularEmojis.size > POPULAR_EMOJI_LIMIT) {
+      const leastUsed = [...this.stats.popularEmojis.entries()].sort(
+        (left, right) => left[1] - right[1]
+      )[0];
+      if (leastUsed) {
+        this.stats.popularEmojis.delete(leastUsed[0]);
+      }
+    }
+  }
+
+  private pruneDailyStats(stats: Map<string, number>) {
+    if (stats.size <= DAILY_STATS_RETENTION_DAYS) return;
+
+    const oldestKeys = [...stats.keys()]
+      .sort()
+      .slice(0, stats.size - DAILY_STATS_RETENTION_DAYS);
+    for (const key of oldestKeys) {
+      stats.delete(key);
+    }
   }
 }
