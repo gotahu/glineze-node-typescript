@@ -1,4 +1,5 @@
-import express, { Express } from 'express';
+import express, { Express, Request } from 'express';
+import { Server } from 'node:http';
 import { config } from '../../config';
 import {
   isNotionAutomationWebhookEvent,
@@ -7,12 +8,21 @@ import {
 } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionAutomationService } from './notionAutomationService';
+import {
+  ServiceHealth,
+  STATUS_PAGE_HTML,
+  StatusSnapshot,
+} from './statusPage';
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAILY_STATS_RETENTION_DAYS = 14;
 
 export class WebServerService {
-  private app: Express;
-  private notionAutomation: NotionAutomationService;
+  private readonly app: Express;
+  private readonly notionAutomation: NotionAutomationService;
+  private server?: Server;
 
-  private requestStats = {
+  private readonly requestStats = {
     total: 0,
     daily: new Map<string, number>(),
     startTime: new Date(),
@@ -22,178 +32,244 @@ export class WebServerService {
     logger.info('WebServerService の初期化を開始します。');
 
     this.notionAutomation = new NotionAutomationService(services);
-
     this.app = express();
-    this.app.use('/automation', express.json());
 
+    this.configureMiddleware();
     this.setupAPIEndpoints();
     this.start();
 
     logger.info('WebServerService の初期化が終了しました。');
   }
 
-  private setupAPIEndpoints() {
-    // リクエストのカウント用ミドルウェア
+  private configureMiddleware() {
+    this.app.disable('x-powered-by');
     this.app.use((req, res, next) => {
-      this.incrementRequestCount();
+      res.set({
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'no-referrer',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+      });
+
+      if (!this.isMonitoringRequest(req)) {
+        this.incrementRequestCount();
+      }
       next();
     });
+    this.app.use('/automation', express.json({ limit: '256kb' }));
+  }
 
-    // ステータスページへのルート
-    this.app.get('/', (req, res) => {
-      res.send(this.generateStatusHtml());
+  private setupAPIEndpoints() {
+    this.app.get('/', (_req, res) => {
+      res
+        .set({
+          'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
+          'Content-Security-Policy':
+            "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        })
+        .type('html')
+        .send(STATUS_PAGE_HTML);
     });
 
-    // https://<proxy-url>/api/ への GET リクエスト
-    this.app.get('/health', (req, res) => {
-      res.send('This app is running').end();
+    this.app.get('/api/status', (_req, res) => {
+      res
+        .set({
+          'Cache-Control': 'no-store',
+          'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+        })
+        .json(this.createStatusSnapshot());
     });
 
-    // https://<proxy-url>/glineze/automation への POST リクエスト
-    this.app.post('/automation', async (req, res) => {
+    this.app.get('/assets/status-operational.png', (_req, res) => {
+      res
+        .set('Cache-Control', 'public, max-age=31536000, immutable')
+        .sendFile('status-operational.png', { root: `${process.cwd()}/dist/assets` });
+    });
+
+    this.app.get('/health', (_req, res) => {
+      res.set('Cache-Control', 'no-store').status(200).type('text').send('This app is running');
+    });
+
+    this.app.post('/automation', (req, res) => {
       try {
         logger.debug('Received webhook request to /automation');
 
         if (!req.body) {
-          logger.error('Invalid request: missing body');
-          res.status(400).send('Invalid request: missing body');
+          res.status(400).json({ error: 'missing_body' });
           return;
         }
 
         if (!isNotionAutomationWebhookEvent(req.body)) {
-          logger.error('Invalid request: invalid body');
-          res.status(400).send('Invalid request: invalid body');
+          res.status(400).json({ error: 'invalid_body' });
           return;
         }
 
         const event: NotionAutomationWebhookEvent = req.body;
-
         this.notionAutomation.handleNotionAutomationWebhookEvent(event);
-
         res.status(200).end();
       } catch (error) {
         logger.error(`Error in API endpoint: ${error}`);
-        res.status(500).end();
+        res.status(500).json({ error: 'internal_error' });
       }
     });
+
+    this.app.use((_req, res) => {
+      res.status(404).json({ error: 'not_found' });
+    });
+
+    this.app.use(
+      (
+        error: unknown,
+        _req: express.Request,
+        res: express.Response,
+        _next: express.NextFunction
+      ) => {
+        const status =
+          typeof error === 'object' && error !== null && 'status' in error
+            ? Number((error as { status?: unknown }).status)
+            : 500;
+
+        logger.error(
+          `Web server request failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+        if (!res.headersSent) {
+          if (status === 400) {
+            res.status(400).json({ error: 'invalid_json' });
+          } else if (status === 413) {
+            res.status(413).json({ error: 'payload_too_large' });
+          } else {
+            res.status(500).json({ error: 'internal_error' });
+          }
+        }
+      }
+    );
   }
 
-  /**
-   * サーバーの起動
-   */
   private start() {
     logger.info('Glineze API サーバーの起動を試みます……');
 
     const port = config.app.port;
-    this.app.listen(port, () => {
+    this.server = this.app.listen(port, () => {
       logger.info(`Glineze API サーバーがポート ${port} で起動しました`);
     });
+
+    this.server.requestTimeout = 15_000;
+    this.server.headersTimeout = 16_000;
+    this.server.keepAliveTimeout = 5_000;
+  }
+
+  public async stop(): Promise<void> {
+    if (!this.server) return;
+
+    const server = this.server;
+    this.server = undefined;
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
+  private isMonitoringRequest(req: Request): boolean {
+    return (
+      req.method === 'GET' &&
+      (req.path === '/' || req.path === '/api/status' || req.path === '/health')
+    );
   }
 
   private incrementRequestCount() {
     this.requestStats.total++;
-    // 日本時間 (JST) での日付を取得
-    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const currentCount = this.requestStats.daily.get(today) || 0;
-    this.requestStats.daily.set(today, currentCount + 1);
+    const today = this.getJstDateKey();
+    this.requestStats.daily.set(today, (this.requestStats.daily.get(today) ?? 0) + 1);
+    this.pruneDailyStats();
   }
 
-  private generateStatusHtml(): string {
-    const memory = process.memoryUsage();
-    const uptimeSeconds = Math.floor(process.uptime());
-    const days = Math.floor(uptimeSeconds / 86400);
-    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
-    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-    const seconds = uptimeSeconds % 60;
-    const uptimeString = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  private pruneDailyStats() {
+    if (this.requestStats.daily.size <= DAILY_STATS_RETENTION_DAYS) return;
 
-    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const todayCount = this.requestStats.daily.get(today) || 0;
+    const oldestKeys = [...this.requestStats.daily.keys()]
+      .sort()
+      .slice(0, this.requestStats.daily.size - DAILY_STATS_RETENTION_DAYS);
+    for (const key of oldestKeys) {
+      this.requestStats.daily.delete(key);
+    }
+  }
 
-    const discordStatus = this.services.discord?.client?.isReady() ? '🟢 Online' : '🔴 Offline';
+  private getJstDateKey(): string {
+    return new Date(Date.now() + JST_OFFSET_MS).toISOString().slice(0, 10);
+  }
 
-    // Discord Stats
-    const discordDailyMessages = this.services.discord?.stats.dailyMessages.get(today) || 0;
-    const discordDailyReactions = this.services.discord?.stats.dailyReactions.get(today) || 0;
-    const popularEmojis = Array.from(this.services.discord?.stats.popularEmojis.entries() || [])
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5) // Top 5
-      .map(
-        ([emoji, count]) =>
-          `<span style="display:inline-block; background:#eef2f5; padding:4px 8px; border-radius:4px; margin:2px;">${emoji} ${count}</span>`
-      )
-      .join('');
+  private createStatusSnapshot(): StatusSnapshot {
+    const today = this.getJstDateKey();
+    const discordOnline = this.services.discord.client.isReady();
+    const services = this.createServiceHealth(discordOnline);
 
-    return `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glineze Status</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
-        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 6px; border-left: 4px solid #3498db; }
-        .stat-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #7f8c8d; text-transform: uppercase; }
-        .stat-card .value { font-size: 24px; font-weight: bold; color: #2c3e50; }
-        .status-online { color: #27ae60; font-weight: bold; }
-        .status-offline { color: #e74c3c; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Glineze Board Status</h1>
-        
-        <div class="stat-grid">
-            <div class="stat-card">
-                <h3>Discord Status</h3>
-                <div class="value ${discordStatus.includes('Online') ? 'status-online' : 'status-offline'}">${discordStatus}</div>
-            </div>
-            <div class="stat-card">
-                <h3>Discord Messages (Today)</h3>
-                <div class="value">${discordDailyMessages}</div>
-            </div>
-            <div class="stat-card">
-                <h3>Discord Reactions (Today)</h3>
-                <div class="value">${discordDailyReactions}</div>
-            </div>
-            <div class="stat-card" style="grid-column: 1 / -1;">
-                <h3>Popular Emojis (Since Startup)</h3>
-                <div style="font-size: 18px; margin-top: 10px;">
-                    ${popularEmojis || '<span style="color:#95a5a6; font-size:14px;">No emojis used yet</span>'}
-                </div>
-            </div>
-        </div>
-        
-        <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 40px;">System Status</h2>
-        <div class="stat-grid">
-            <div class="stat-card">
-                <h3>Web Uptime</h3>
-                <div class="value">${uptimeString}</div>
-            </div>
-            <div class="stat-card">
-                <h3>Web Requests (Today)</h3>
-                <div class="value">${todayCount}</div>
-            </div>
-            <div class="stat-card">
-                <h3>Web Requests (Total)</h3>
-                <div class="value">${this.requestStats.total}</div>
-            </div>
-            <div class="stat-card">
-                <h3>Memory Usage (RSS)</h3>
-                <div class="value">${Math.round(memory.rss / 1024 / 1024)} MB</div>
-            </div>
-            <div class="stat-card">
-                <h3>Started At</h3>
-                <div class="value" style="font-size: 16px;">${this.requestStats.startTime.toLocaleString('ja-JP')}</div>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-    `;
+    return {
+      generatedAt: new Date().toISOString(),
+      overall: services.some((service) => service.state === 'offline')
+        ? 'offline'
+        : services.some((service) => service.state === 'degraded')
+          ? 'degraded'
+          : 'operational',
+      services,
+      system: {
+        uptimeSeconds: Math.floor(process.uptime()),
+        requestsToday: this.requestStats.daily.get(today) ?? 0,
+        requestsTotal: this.requestStats.total,
+        memoryRssBytes: process.memoryUsage().rss,
+        startedAt: this.requestStats.startTime.toISOString(),
+      },
+      activity: {
+        discordMessagesToday: this.services.discord.stats.dailyMessages.get(today) ?? 0,
+        discordReactionsToday: this.services.discord.stats.dailyReactions.get(today) ?? 0,
+        popularReactions: [...this.services.discord.stats.popularEmojis.entries()]
+          .sort((left, right) => right[1] - left[1])
+          .slice(0, 5)
+          .map(([emoji, count]) => ({ emoji, count })),
+      },
+    };
+  }
+
+  private createServiceHealth(discordOnline: boolean): ServiceHealth[] {
+    return [
+      {
+        id: 'discord',
+        name: 'Discord',
+        state: discordOnline ? 'operational' : 'offline',
+        label: discordOnline ? '正常' : '停止',
+        detail: discordOnline ? '接続中' : '未接続',
+        meta: discordOnline ? 'Gateway ready' : '再接続を待機',
+      },
+      {
+        id: 'web-api',
+        name: 'Web API',
+        state: 'operational',
+        label: '正常',
+        detail: '稼働中',
+        meta: 'HTTP 200 OK',
+      },
+      {
+        id: 'notion-automation',
+        name: 'Notion 自動化',
+        state: 'operational',
+        label: '正常',
+        detail: '受付可能',
+        meta: 'Webhook ready',
+      },
+      {
+        id: 'sesame',
+        name: 'Sesame 連携',
+        state: discordOnline ? 'operational' : 'degraded',
+        label: discordOnline ? '正常' : '確認中',
+        detail: '定期更新',
+        meta: '5分間隔',
+      },
+      {
+        id: 'webhook',
+        name: 'Webhook API',
+        state: 'operational',
+        label: '正常',
+        detail: '待機中',
+        meta: '/automation',
+      },
+    ];
   }
 }
