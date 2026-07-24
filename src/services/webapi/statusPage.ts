@@ -576,7 +576,7 @@ export const STATUS_PAGE_HTML = `<!doctype html>
     <p class="live-region" id="live-region" aria-live="polite"></p>
   </main>
 
-  <script>
+  <script data-cfasync="false">
     (() => {
       const numberFormatter = new Intl.NumberFormat('ja-JP');
       const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
