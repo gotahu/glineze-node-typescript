@@ -1,3 +1,4 @@
+# Deployment path: GitHub Actions -> Tailscale -> Coolify
 name: Deploy glineze to Coolify
 
 on:
