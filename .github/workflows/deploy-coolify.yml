@@ -1,0 +1,49 @@
+name: Deploy glineze to Coolify
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: glineze-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Trigger Coolify build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Join the tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:github-actions-oshigla
+
+      - name: Trigger glineze deployment
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_URL: https://shin-vps.tail5e9310.ts.net
+          COOLIFY_APP_UUID: nutycxtdmjtsqikvswk7wkcd
+        run: |
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-all-errors \
+            --connect-timeout 10 \
+            --max-time 60 \
+            --request POST \
+            "${COOLIFY_URL}/api/v1/deploy" \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"uuid\":\"${COOLIFY_APP_UUID}\",\"force\":false}"
