@@ -11,6 +11,10 @@ const envSchema = z.object({
   DISCORD_RELAY_WEBHOOK: z.string().url(),
   NOTION_TOKEN: z.string().min(1),
   NOTION_CONFIGURATION_DATABASEID: z.string().min(1),
+  NOTION_AUTOMATION_VERIFICATION_TOKEN: z.string().min(1),
+  NOTION_AUTOMATION_ALLOWED_AUTOMATION_IDS: z.string().min(1),
+  NOTION_AUTOMATION_ALLOWED_ACTION_IDS: z.string().min(1),
+  NOTION_AUTOMATION_ALLOWED_DATABASE_IDS: z.string().min(1),
   REPOSITORY_PATH: z.string().default(''),
   BRANCH: z.string().default('refs/heads/main'),
   LINE_NOTIFY_VOID_TOKEN: z.string().optional(),
@@ -25,3 +29,10 @@ if (!_env.success) {
 }
 
 export const env = _env.data;
+
+export function parseCommaSeparatedIds(value: string): string[] {
+  return value
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}

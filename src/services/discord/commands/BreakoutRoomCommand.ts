@@ -2,7 +2,7 @@
 // ba remove
 // ba random
 
-import { Message } from 'discord.js';
+import { Message, PermissionFlagsBits } from 'discord.js';
 import {
   createBreakoutRooms,
   removeBreakoutRooms,
@@ -31,6 +31,16 @@ export async function handleBreakoutRoomCommand(message: Message, args: string[]
     await createBreakoutRooms(message.guild, number);
     return;
   } else if (subCommand === 'remove') {
+    if (!message.member?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+      await message.reply({ content: 'この操作には「チャンネルの管理」権限が必要です' });
+      return;
+    }
+    if (args[1] !== 'confirm') {
+      await message.reply({
+        content: '全てのブレイクアウトルームを削除するには `!br remove confirm` を実行してください',
+      });
+      return;
+    }
     await removeBreakoutRooms(message.guild);
     return;
   } else if (subCommand === 'random') {

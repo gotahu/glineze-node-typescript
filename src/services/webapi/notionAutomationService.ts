@@ -4,34 +4,42 @@ import { logger } from '../../utils/logger';
 import { areUUIDsEqual } from '../../utils/notionUtils';
 import { handleDuplicateFormEntryRemoval } from '../notion/automation/FormAutomation';
 import { processShukinStatusChange } from '../notion/automation/ShukinAutomation';
+import { NotionWebhookSecurity } from './notionWebhookSecurity';
+
+export class UnsupportedNotionWebhookResourceError extends Error {}
 
 export class NotionAutomationService {
-  constructor(private readonly services: Services) {}
+  constructor(
+    private readonly services: Services,
+    private readonly webhookSecurity: NotionWebhookSecurity
+  ) {}
 
-  public handleNotionAutomationWebhookEvent(event: NotionAutomationWebhookEvent) {
+  public async handleNotionAutomationWebhookEvent(event: NotionAutomationWebhookEvent) {
     logger.info('Notion Automation: Webhook event received');
-    console.log(event);
 
-    // Handle the event
-    if (event.data.parent) {
-      if (event.data.parent.type === 'database_id') {
-        // Handle the event for a database
-        logger.info('Notion Automation: Database event received');
+    const page = await this.services.notion.client.pages.retrieve({ page_id: event.data.id });
+    if (!('parent' in page) || page.parent.type !== 'database_id') {
+      throw new UnsupportedNotionWebhookResourceError(
+        'Notion automation event did not resolve to a database page'
+      );
+    }
+    if (!this.webhookSecurity.isAllowedDatabase(page.parent.database_id)) {
+      throw new UnsupportedNotionWebhookResourceError(
+        'Notion automation event resolved outside the configured database allowlist'
+      );
+    }
 
-        const databaseId = event.data.parent.database_id;
-        const shukinDatabaseId = config.getConfig('shukin_databaseid');
+    const authoritativeDatabaseId = page.parent.database_id;
+    const authoritativeEvent: NotionAutomationWebhookEvent = { ...event, data: page };
 
-        if (areUUIDsEqual(databaseId, shukinDatabaseId)) {
-          processShukinStatusChange(event, this.services);
-        } else {
-          handleDuplicateFormEntryRemoval(event, this.services);
-        }
-      } else if (event.data.parent.type === 'page_id') {
-        // Handle the event for a page
-        logger.info('Notion Automation: Page event received');
+    logger.info('Notion Automation: Database event received');
 
-        // nothing implemented yet
-      }
+    const shukinDatabaseId = config.getConfig('shukin_databaseid');
+
+    if (areUUIDsEqual(authoritativeDatabaseId, shukinDatabaseId)) {
+      await processShukinStatusChange(authoritativeEvent, this.services);
+    } else {
+      await handleDuplicateFormEntryRemoval(authoritativeEvent, this.services);
     }
   }
 }

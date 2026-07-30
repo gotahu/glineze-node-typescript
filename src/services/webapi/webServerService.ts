@@ -1,18 +1,19 @@
 import express, { Express, Request } from 'express';
 import { Server } from 'node:http';
 import { config } from '../../config';
+import { env, parseCommaSeparatedIds } from '../../env';
 import {
   isNotionAutomationWebhookEvent,
   NotionAutomationWebhookEvent,
   Services,
 } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { NotionAutomationService } from './notionAutomationService';
 import {
-  ServiceHealth,
-  STATUS_PAGE_HTML,
-  StatusSnapshot,
-} from './statusPage';
+  NotionAutomationService,
+  UnsupportedNotionWebhookResourceError,
+} from './notionAutomationService';
+import { NotionWebhookSecurity } from './notionWebhookSecurity';
+import { ServiceHealth, STATUS_PAGE_HTML, StatusSnapshot } from './statusPage';
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAILY_STATS_RETENTION_DAYS = 14;
@@ -20,6 +21,7 @@ const DAILY_STATS_RETENTION_DAYS = 14;
 export class WebServerService {
   private readonly app: Express;
   private readonly notionAutomation: NotionAutomationService;
+  private readonly notionWebhookSecurity: NotionWebhookSecurity;
   private server?: Server;
 
   private readonly requestStats = {
@@ -31,7 +33,13 @@ export class WebServerService {
   constructor(private readonly services: Services) {
     logger.info('WebServerService の初期化を開始します。');
 
-    this.notionAutomation = new NotionAutomationService(services);
+    this.notionWebhookSecurity = new NotionWebhookSecurity({
+      verificationToken: env.NOTION_AUTOMATION_VERIFICATION_TOKEN,
+      allowedAutomationIds: parseCommaSeparatedIds(env.NOTION_AUTOMATION_ALLOWED_AUTOMATION_IDS),
+      allowedActionIds: parseCommaSeparatedIds(env.NOTION_AUTOMATION_ALLOWED_ACTION_IDS),
+      allowedDatabaseIds: parseCommaSeparatedIds(env.NOTION_AUTOMATION_ALLOWED_DATABASE_IDS),
+    });
+    this.notionAutomation = new NotionAutomationService(services, this.notionWebhookSecurity);
     this.app = express();
 
     this.configureMiddleware();
@@ -56,7 +64,15 @@ export class WebServerService {
       }
       next();
     });
-    this.app.use('/automation', express.json({ limit: '256kb' }));
+    this.app.use(
+      '/automation',
+      express.json({
+        limit: '256kb',
+        verify: (req, _res, body) => {
+          (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(body);
+        },
+      })
+    );
   }
 
   private setupAPIEndpoints() {
@@ -90,9 +106,17 @@ export class WebServerService {
       res.set('Cache-Control', 'no-store').status(200).type('text').send('This app is running');
     });
 
-    this.app.post('/automation', (req, res) => {
+    this.app.post('/automation', async (req, res) => {
+      let reservedEventId: string | undefined;
       try {
         logger.debug('Received webhook request to /automation');
+
+        const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+        const signature = req.get('X-Notion-Signature');
+        if (!rawBody || !this.notionWebhookSecurity.verifySignature(rawBody, signature)) {
+          res.status(401).json({ error: 'invalid_signature' });
+          return;
+        }
 
         if (!req.body) {
           res.status(400).json({ error: 'missing_body' });
@@ -105,9 +129,27 @@ export class WebServerService {
         }
 
         const event: NotionAutomationWebhookEvent = req.body;
-        this.notionAutomation.handleNotionAutomationWebhookEvent(event);
+        const authorization = this.notionWebhookSecurity.reserveEvent(event);
+        if (authorization === 'unsupported_source') {
+          res.status(403).json({ error: 'unsupported_source' });
+          return;
+        }
+        if (authorization === 'replay') {
+          res.status(200).end();
+          return;
+        }
+
+        reservedEventId = event.source.event_id;
+        await this.notionAutomation.handleNotionAutomationWebhookEvent(event);
         res.status(200).end();
       } catch (error) {
+        if (error instanceof UnsupportedNotionWebhookResourceError) {
+          logger.error(`Rejected Notion webhook resource: ${error.message}`);
+          res.status(403).json({ error: 'unsupported_resource' });
+          return;
+        }
+
+        if (reservedEventId) this.notionWebhookSecurity.releaseEvent(reservedEventId);
         logger.error(`Error in API endpoint: ${error}`);
         res.status(500).json({ error: 'internal_error' });
       }
@@ -124,6 +166,7 @@ export class WebServerService {
         res: express.Response,
         _next: express.NextFunction
       ) => {
+        void _next;
         const status =
           typeof error === 'object' && error !== null && 'status' in error
             ? Number((error as { status?: unknown }).status)
