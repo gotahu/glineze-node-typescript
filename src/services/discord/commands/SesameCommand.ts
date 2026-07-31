@@ -10,6 +10,10 @@ export async function handleSesameStatusCommand(
 ) {
   try {
     const { sesame } = services;
+    if (!sesame) {
+      await message.reply('Sesame 連携は停止中です');
+      return;
+    }
     const status = await sesame.getSesameDeviceStatus();
     const dateStr = format(new Date(status.timestamp), 'yyyy-MM-dd HH:mm:ss');
     message.reply(

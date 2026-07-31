@@ -3,7 +3,7 @@ export const STATUS_REFRESH_INTERVAL_MS = 15_000;
 export type ServiceHealth = {
   id: string;
   name: string;
-  state: 'operational' | 'degraded' | 'offline';
+  state: 'operational' | 'degraded' | 'offline' | 'disabled';
   label: string;
   detail: string;
   meta: string;
@@ -321,6 +321,7 @@ export const STATUS_PAGE_HTML = `<!doctype html>
 
     .service-row[data-state="degraded"] .service-state { color: var(--amber); }
     .service-row[data-state="offline"] .service-state { color: var(--red); }
+    .service-row[data-state="disabled"] .service-state { color: var(--muted); }
 
     .service-detail {
       display: grid;

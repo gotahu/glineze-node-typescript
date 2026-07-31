@@ -5,7 +5,7 @@ import { SesameService } from '../services/sesame/sesameService';
 export type Services = {
   discord: DiscordService;
   notion: NotionService;
-  sesame: SesameService;
+  sesame?: SesameService;
 };
 
 export * from './discord';

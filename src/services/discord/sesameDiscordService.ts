@@ -51,6 +51,10 @@ export class SesameDiscordService {
   public async updateSesameStatusVoiceChannel(guildId: string, lockStatus: SesameLockStatus) {
     try {
       const { sesame } = this.services;
+      if (!sesame) {
+        logger.info('Sesame integration is disabled');
+        return;
+      }
 
       let voiceChannel = this.retrieveSesameStatusVoiceChannel(guildId);
 

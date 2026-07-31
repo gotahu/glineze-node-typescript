@@ -1,5 +1,5 @@
 import { env } from '../../env';
-import { ActivityType, ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, Partials, TextChannel } from 'discord.js';
+import { ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
@@ -35,7 +35,7 @@ export class DiscordService {
   public readonly client: Client;
 
   private readonly messageHandler: MessageHandler;
-  public readonly sesameDiscordService: SesameDiscordService;
+  public readonly sesameDiscordService?: SesameDiscordService;
 
   private readonly services: Services;
 
@@ -45,7 +45,7 @@ export class DiscordService {
     popularEmojis: new Map<string, number>(),
   };
 
-  constructor(_services: { notion: NotionService; sesame: SesameService }) {
+  constructor(_services: { notion: NotionService; sesame?: SesameService }) {
     logger.info('DiscordService の初期化を開始します。');
 
     // インスタンスを格納
@@ -56,7 +56,9 @@ export class DiscordService {
     };
 
     // SesameDiscordService を初期化
-    this.sesameDiscordService = new SesameDiscordService(this.services);
+    if (_services.sesame) {
+      this.sesameDiscordService = new SesameDiscordService(this.services);
+    }
 
     const options = {
       intents: [
@@ -108,7 +110,9 @@ export class DiscordService {
         handleReactionAdd(reaction, user, this.services)
       )
       .on(Events.ThreadMembersUpdate, handleThreadMembersUpdate)
-      .on(Events.MessageUpdate, (oldMsg, newMsg) => this.messageHandler.handleMessageUpdate(oldMsg, newMsg))
+      .on(Events.MessageUpdate, (oldMsg, newMsg) =>
+        this.messageHandler.handleMessageUpdate(oldMsg, newMsg)
+      )
       .on('error', (error) => {
         logger.error(`Discord Client エラー: ${error.message}`, { error });
         console.error('Discord Client エラーの詳細:', error);
@@ -132,7 +136,11 @@ export class DiscordService {
     if (this.client.channels.cache.has(data.channel_id)) return;
 
     const channelManager = this.client.channels as unknown as {
-      _add(data: { id: string; type: ChannelType.DM; recipients: NonNullable<RawMessageCreateData['author']>[] }): unknown;
+      _add(data: {
+        id: string;
+        type: ChannelType.DM;
+        recipients: NonNullable<RawMessageCreateData['author']>[];
+      }): unknown;
     };
 
     channelManager._add({
@@ -309,9 +317,7 @@ export class DiscordService {
   private pruneDailyStats(stats: Map<string, number>) {
     if (stats.size <= DAILY_STATS_RETENTION_DAYS) return;
 
-    const oldestKeys = [...stats.keys()]
-      .sort()
-      .slice(0, stats.size - DAILY_STATS_RETENTION_DAYS);
+    const oldestKeys = [...stats.keys()].sort().slice(0, stats.size - DAILY_STATS_RETENTION_DAYS);
     for (const key of oldestKeys) {
       stats.delete(key);
     }

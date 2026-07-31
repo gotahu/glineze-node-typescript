@@ -20,8 +20,8 @@ const DAILY_STATS_RETENTION_DAYS = 14;
 
 export class WebServerService {
   private readonly app: Express;
-  private readonly notionAutomation: NotionAutomationService;
-  private readonly notionWebhookSecurity: NotionWebhookSecurity;
+  private readonly notionAutomation?: NotionAutomationService;
+  private readonly notionWebhookSecurity?: NotionWebhookSecurity;
   private server?: Server;
 
   private readonly requestStats = {
@@ -33,13 +33,26 @@ export class WebServerService {
   constructor(private readonly services: Services) {
     logger.info('WebServerService の初期化を開始します。');
 
-    this.notionWebhookSecurity = new NotionWebhookSecurity({
-      verificationToken: env.NOTION_AUTOMATION_VERIFICATION_TOKEN,
-      allowedAutomationIds: parseCommaSeparatedIds(env.NOTION_AUTOMATION_ALLOWED_AUTOMATION_IDS),
-      allowedActionIds: parseCommaSeparatedIds(env.NOTION_AUTOMATION_ALLOWED_ACTION_IDS),
-      allowedDatabaseIds: parseCommaSeparatedIds(env.NOTION_AUTOMATION_ALLOWED_DATABASE_IDS),
-    });
-    this.notionAutomation = new NotionAutomationService(services, this.notionWebhookSecurity);
+    if (env.NOTION_AUTOMATION_ENABLED) {
+      const verificationToken = env.NOTION_AUTOMATION_VERIFICATION_TOKEN;
+      const allowedAutomationIds = env.NOTION_AUTOMATION_ALLOWED_AUTOMATION_IDS;
+      const allowedActionIds = env.NOTION_AUTOMATION_ALLOWED_ACTION_IDS;
+      const allowedDatabaseIds = env.NOTION_AUTOMATION_ALLOWED_DATABASE_IDS;
+
+      if (!verificationToken || !allowedAutomationIds || !allowedActionIds || !allowedDatabaseIds) {
+        throw new Error('Notion automation configuration is incomplete');
+      }
+
+      this.notionWebhookSecurity = new NotionWebhookSecurity({
+        verificationToken,
+        allowedAutomationIds: parseCommaSeparatedIds(allowedAutomationIds),
+        allowedActionIds: parseCommaSeparatedIds(allowedActionIds),
+        allowedDatabaseIds: parseCommaSeparatedIds(allowedDatabaseIds),
+      });
+      this.notionAutomation = new NotionAutomationService(services, this.notionWebhookSecurity);
+    } else {
+      logger.info('Notion automation is disabled');
+    }
     this.app = express();
 
     this.configureMiddleware();
@@ -64,15 +77,17 @@ export class WebServerService {
       }
       next();
     });
-    this.app.use(
-      '/automation',
-      express.json({
-        limit: '256kb',
-        verify: (req, _res, body) => {
-          (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(body);
-        },
-      })
-    );
+    if (env.NOTION_AUTOMATION_ENABLED) {
+      this.app.use(
+        '/automation',
+        express.json({
+          limit: '256kb',
+          verify: (req, _res, body) => {
+            (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(body);
+          },
+        })
+      );
+    }
   }
 
   private setupAPIEndpoints() {
@@ -106,54 +121,63 @@ export class WebServerService {
       res.set('Cache-Control', 'no-store').status(200).type('text').send('This app is running');
     });
 
-    this.app.post('/automation', async (req, res) => {
-      let reservedEventId: string | undefined;
-      try {
-        logger.debug('Received webhook request to /automation');
+    const notionAutomation = this.notionAutomation;
+    const notionWebhookSecurity = this.notionWebhookSecurity;
 
-        const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
-        const signature = req.get('X-Notion-Signature');
-        if (!rawBody || !this.notionWebhookSecurity.verifySignature(rawBody, signature)) {
-          res.status(401).json({ error: 'invalid_signature' });
-          return;
-        }
+    if (!notionAutomation || !notionWebhookSecurity) {
+      this.app.post('/automation', (_req, res) => {
+        res.status(503).json({ error: 'service_disabled' });
+      });
+    } else {
+      this.app.post('/automation', async (req, res) => {
+        let reservedEventId: string | undefined;
+        try {
+          logger.debug('Received webhook request to /automation');
 
-        if (!req.body) {
-          res.status(400).json({ error: 'missing_body' });
-          return;
-        }
+          const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+          const signature = req.get('X-Notion-Signature');
+          if (!rawBody || !notionWebhookSecurity.verifySignature(rawBody, signature)) {
+            res.status(401).json({ error: 'invalid_signature' });
+            return;
+          }
 
-        if (!isNotionAutomationWebhookEvent(req.body)) {
-          res.status(400).json({ error: 'invalid_body' });
-          return;
-        }
+          if (!req.body) {
+            res.status(400).json({ error: 'missing_body' });
+            return;
+          }
 
-        const event: NotionAutomationWebhookEvent = req.body;
-        const authorization = this.notionWebhookSecurity.reserveEvent(event);
-        if (authorization === 'unsupported_source') {
-          res.status(403).json({ error: 'unsupported_source' });
-          return;
-        }
-        if (authorization === 'replay') {
+          if (!isNotionAutomationWebhookEvent(req.body)) {
+            res.status(400).json({ error: 'invalid_body' });
+            return;
+          }
+
+          const event: NotionAutomationWebhookEvent = req.body;
+          const authorization = notionWebhookSecurity.reserveEvent(event);
+          if (authorization === 'unsupported_source') {
+            res.status(403).json({ error: 'unsupported_source' });
+            return;
+          }
+          if (authorization === 'replay') {
+            res.status(200).end();
+            return;
+          }
+
+          reservedEventId = event.source.event_id;
+          await notionAutomation.handleNotionAutomationWebhookEvent(event);
           res.status(200).end();
-          return;
-        }
+        } catch (error) {
+          if (error instanceof UnsupportedNotionWebhookResourceError) {
+            logger.error(`Rejected Notion webhook resource: ${error.message}`);
+            res.status(403).json({ error: 'unsupported_resource' });
+            return;
+          }
 
-        reservedEventId = event.source.event_id;
-        await this.notionAutomation.handleNotionAutomationWebhookEvent(event);
-        res.status(200).end();
-      } catch (error) {
-        if (error instanceof UnsupportedNotionWebhookResourceError) {
-          logger.error(`Rejected Notion webhook resource: ${error.message}`);
-          res.status(403).json({ error: 'unsupported_resource' });
-          return;
+          if (reservedEventId) notionWebhookSecurity.releaseEvent(reservedEventId);
+          logger.error(`Error in API endpoint: ${error}`);
+          res.status(500).json({ error: 'internal_error' });
         }
-
-        if (reservedEventId) this.notionWebhookSecurity.releaseEvent(reservedEventId);
-        logger.error(`Error in API endpoint: ${error}`);
-        res.status(500).json({ error: 'internal_error' });
-      }
-    });
+      });
+    }
 
     this.app.use((_req, res) => {
       res.status(404).json({ error: 'not_found' });
@@ -292,25 +316,25 @@ export class WebServerService {
       {
         id: 'notion-automation',
         name: 'Notion 自動化',
-        state: 'operational',
-        label: '正常',
-        detail: '受付可能',
-        meta: 'Webhook ready',
+        state: env.NOTION_AUTOMATION_ENABLED ? 'operational' : 'disabled',
+        label: env.NOTION_AUTOMATION_ENABLED ? '正常' : '停止',
+        detail: env.NOTION_AUTOMATION_ENABLED ? '受付可能' : '無効化済み',
+        meta: env.NOTION_AUTOMATION_ENABLED ? 'Webhook ready' : 'Feature disabled',
       },
       {
         id: 'sesame',
         name: 'Sesame 連携',
-        state: discordOnline ? 'operational' : 'degraded',
-        label: discordOnline ? '正常' : '確認中',
-        detail: '定期更新',
-        meta: '5分間隔',
+        state: env.SESAME_ENABLED ? (discordOnline ? 'operational' : 'degraded') : 'disabled',
+        label: env.SESAME_ENABLED ? (discordOnline ? '正常' : '確認中') : '停止',
+        detail: env.SESAME_ENABLED ? '定期更新' : '無効化済み',
+        meta: env.SESAME_ENABLED ? '5分間隔' : 'Feature disabled',
       },
       {
         id: 'webhook',
         name: 'Webhook API',
-        state: 'operational',
-        label: '正常',
-        detail: '待機中',
+        state: env.NOTION_AUTOMATION_ENABLED ? 'operational' : 'disabled',
+        label: env.NOTION_AUTOMATION_ENABLED ? '正常' : '停止',
+        detail: env.NOTION_AUTOMATION_ENABLED ? '待機中' : '受付停止',
         meta: '/automation',
       },
     ];

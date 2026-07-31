@@ -38,7 +38,11 @@ export class CronService {
     this.schedule = schedule;
 
     // ここで複数のジョブをスケジュール登録したりする
-    this.startSesameScheduler();
+    if (this.services.sesame && this.services.discord.sesameDiscordService) {
+      this.startSesameScheduler();
+    } else {
+      logger.info('Sesame status scheduler is disabled');
+    }
     this.startCountdownScheduler();
     this.startNotifyPractice();
     this.startRemindBashotori();
@@ -69,11 +73,17 @@ export class CronService {
   private async runSesameScheduler() {
     try {
       const { discord, sesame } = this.services;
+      const sesameDiscordService = discord.sesameDiscordService;
+
+      if (!sesame || !sesameDiscordService) {
+        logger.info('Sesame status scheduler skipped because the integration is disabled');
+        return;
+      }
 
       logger.info('Updating Sesame status (manual or scheduled)');
       sesame.getSesameDeviceStatus().then((deviceStatus) => {
         logger.debug(`Device status: ${JSON.stringify(deviceStatus, null, 2)}`);
-        discord.sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
+        sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
       });
     } catch (error) {
       logger.error(`onSesameScheduler: Error updating Sesame status: ${error}`);

@@ -27,8 +27,9 @@ const initializeServices = async () => {
     // NotionService
     const notionService = new NotionService();
 
-    // SesameService
-    const sesameService = new SesameService();
+    // SesameService (disabled by default)
+    const sesameService = env.SESAME_ENABLED ? new SesameService() : undefined;
+    if (!sesameService) logger.info('Sesame integration is disabled');
 
     // DiscordService
     const discordService = new DiscordService({
@@ -61,12 +62,10 @@ const initializeServices = async () => {
     await cronService.start();
 
     // WebService
-    const webServerService = new WebServerService(services);
+    new WebServerService(services);
 
     logger.info(
-      env.NODE_ENV === 'development'
-        ? `開発環境が起動しました。`
-        : `本番環境が起動しました。`,
+      env.NODE_ENV === 'development' ? `開発環境が起動しました。` : `本番環境が起動しました。`,
       { debug: true }
     );
   } catch (error) {

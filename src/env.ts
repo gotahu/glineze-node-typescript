@@ -3,6 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const booleanEnvironmentVariable = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(10000),
@@ -11,10 +16,12 @@ const envSchema = z.object({
   DISCORD_RELAY_WEBHOOK: z.string().url(),
   NOTION_TOKEN: z.string().min(1),
   NOTION_CONFIGURATION_DATABASEID: z.string().min(1),
-  NOTION_AUTOMATION_VERIFICATION_TOKEN: z.string().min(1),
-  NOTION_AUTOMATION_ALLOWED_AUTOMATION_IDS: z.string().min(1),
-  NOTION_AUTOMATION_ALLOWED_ACTION_IDS: z.string().min(1),
-  NOTION_AUTOMATION_ALLOWED_DATABASE_IDS: z.string().min(1),
+  SESAME_ENABLED: booleanEnvironmentVariable,
+  NOTION_AUTOMATION_ENABLED: booleanEnvironmentVariable,
+  NOTION_AUTOMATION_VERIFICATION_TOKEN: z.string().min(1).optional(),
+  NOTION_AUTOMATION_ALLOWED_AUTOMATION_IDS: z.string().min(1).optional(),
+  NOTION_AUTOMATION_ALLOWED_ACTION_IDS: z.string().min(1).optional(),
+  NOTION_AUTOMATION_ALLOWED_DATABASE_IDS: z.string().min(1).optional(),
   REPOSITORY_PATH: z.string().default(''),
   BRANCH: z.string().default('refs/heads/main'),
   LINE_NOTIFY_VOID_TOKEN: z.string().optional(),

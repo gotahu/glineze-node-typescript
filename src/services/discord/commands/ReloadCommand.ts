@@ -13,8 +13,7 @@ export async function handleReloadCommand(message: Message, args: string[], serv
     await config.initializeConfig();
 
     // セサミの施錠状態のメッセージも更新する
-    const { sesame } = services;
-    sesame.loadSesameLockStatusMessage();
+    services.sesame?.loadSesameLockStatusMessage();
 
     message.reply('config をリロードしました');
   } catch (error) {
