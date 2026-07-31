@@ -7,7 +7,6 @@ import { getStringPropertyValue, queryAllDatabasePages } from './utils/notionUti
 export const config = {
   discord: {
     botToken: env.DISCORD_BOT_TOKEN,
-    webHook: env.DISCORD_ERROR_LOG_WEBHOOK,
     relayWebhook: env.DISCORD_RELAY_WEBHOOK,
   },
   notion: {

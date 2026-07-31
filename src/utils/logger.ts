@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import { env } from '../env';
-import { sendMessageToDiscordWebhook } from '../services/discord/functions/WebhookFunctions';
 import { LoggerConfig, LogLevel, LogMessage } from '../types/types';
 
 export class Logger extends EventEmitter {
@@ -17,7 +16,6 @@ export class Logger extends EventEmitter {
       Logger.instance = new Logger({
         loggerChannelId: '1273731421663395973',
         lineNotifyToken: env.LINE_NOTIFY_VOID_TOKEN || '',
-        discordWebhookUrl: env.DISCORD_ERROR_LOG_WEBHOOK,
         enableDebugOutput: env.NODE_ENV !== 'production',
       });
     }
@@ -46,24 +44,12 @@ export class Logger extends EventEmitter {
     this.emit('discordLog', logMessage);
   }
 
-  private async sendToWebhook(logMessage: LogMessage): Promise<void> {
-    try {
-      const formattedMessage = `[${logMessage.level}] ${logMessage.message}`;
-      await sendMessageToDiscordWebhook(this.config.discordWebhookUrl, formattedMessage);
-    } catch (error) {
-      console.error(
-        `Failed to send message to Discord webhook: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
   public async info(message: string, metadata?: Record<string, unknown>): Promise<void> {
     const logMessage = this.formatLogMessage(LogLevel.INFO, message, metadata);
     console.log(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 
     if (metadata?.debug) {
       this.emitDiscordLog(logMessage);
-      await this.sendToWebhook(logMessage);
     }
   }
 
@@ -80,7 +66,6 @@ export class Logger extends EventEmitter {
     console.error(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 
     this.emitDiscordLog(logMessage);
-    await this.sendToWebhook(logMessage);
   }
 }
 

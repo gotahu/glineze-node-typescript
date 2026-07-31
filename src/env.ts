@@ -12,7 +12,6 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(10000),
   DISCORD_BOT_TOKEN: z.string().min(1),
-  DISCORD_ERROR_LOG_WEBHOOK: z.string().url(),
   DISCORD_RELAY_WEBHOOK: z.string().url(),
   NOTION_TOKEN: z.string().min(1),
   NOTION_CONFIGURATION_DATABASEID: z.string().min(1),

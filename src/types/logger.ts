@@ -14,6 +14,5 @@ export interface LogMessage {
 export interface LoggerConfig {
   loggerChannelId: string;
   lineNotifyToken: string;
-  discordWebhookUrl: string;
   enableDebugOutput: boolean;
 }

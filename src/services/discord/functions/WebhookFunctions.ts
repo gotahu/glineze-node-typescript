@@ -1,4 +1,4 @@
-import { TextChannel, ThreadChannel, Webhook, WebhookClient } from 'discord.js';
+import { TextChannel, ThreadChannel, Webhook } from 'discord.js';
 
 const cacheWebhooks = new Map<string, Webhook>();
 
@@ -24,18 +24,4 @@ async function getWebhook(channel: ThreadChannel) {
   if (webhook) cacheWebhooks.set(channel.id, webhook);
 
   return webhook;
-}
-
-export async function sendMessageToDiscordWebhook(webhookUrl: string, message: string) {
-  const webhookClient = new WebhookClient({
-    url: webhookUrl,
-  });
-
-  try {
-    webhookClient.send({
-      content: message,
-    });
-  } catch (error) {
-    console.error(error);
-  }
 }
