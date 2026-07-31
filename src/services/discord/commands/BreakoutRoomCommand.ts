@@ -44,6 +44,16 @@ export async function handleBreakoutRoomCommand(message: Message, args: string[]
     await removeBreakoutRooms(message.guild);
     return;
   } else if (subCommand === 'random') {
+    if (!message.member?.permissions.has(PermissionFlagsBits.MoveMembers)) {
+      await message.reply({ content: 'この操作には「メンバーを移動」権限が必要です' });
+      return;
+    }
+    if (args.length !== 2 || args[1] !== 'confirm') {
+      await message.reply({
+        content: 'メンバーを移動するには `!br random confirm` を実行してください',
+      });
+      return;
+    }
     await randomBreakoutRooms(message);
     return;
   }
