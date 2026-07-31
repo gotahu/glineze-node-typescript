@@ -40,18 +40,21 @@ function generateThreadName(message: Message) {
   return channelName;
 }
 
-function retrieveParentChannel(channelName: string, guild: Guild) {
+async function retrieveParentChannel(channelName: string, guild: Guild) {
   if (parentChannelMap.has(channelName)) {
     return parentChannelMap.get(channelName);
   }
 
   try {
-    let channel = guild.channels.cache.find((c) => c?.name === channelName) as TextChannel | undefined;
+    let channel = guild.channels.cache.find(
+      (c) => c.type === ChannelType.GuildText && c.name === channelName
+    ) as TextChannel | undefined;
 
     if (!channel) {
-      guild.channels.fetch().then((channels) => {
-        channel = channels.find((c) => c?.name === channelName) as TextChannel | undefined;
-      });
+      const channels = await guild.channels.fetch();
+      channel = channels.find(
+        (c) => c?.type === ChannelType.GuildText && c.name === channelName
+      ) as TextChannel | undefined;
     }
 
     if (channel) {
@@ -67,7 +70,13 @@ function retrieveParentChannel(channelName: string, guild: Guild) {
 }
 
 async function getRelayGuild(client: Client): Promise<Guild | null> {
-  const guild = await client.guilds.fetch(env.DISCORD_VOID_GUILD_ID || '').catch(() => null);
+  const guildId = env.DISCORD_VOID_GUILD_ID?.trim();
+  if (!guildId || !/^\d{17,20}$/.test(guildId)) {
+    logger.error('DISCORD_VOID_GUILD_ID が未設定または不正なため、メッセージを中継できません');
+    return null;
+  }
+
+  const guild = await client.guilds.fetch({ guild: guildId }).catch(() => null);
 
   if (!guild) {
     logger.error('DISCORD_VOID_GUILD_ID からギルドを取得できませんでした');
@@ -95,7 +104,7 @@ async function getParentChannel(message: Message): Promise<TextChannel | null> {
     const parentChannelName = generateParentChannelName(message);
     console.log('Parent Channel Name:', parentChannelName);
 
-    let parentChannel = retrieveParentChannel(parentChannelName, guild);
+    let parentChannel = await retrieveParentChannel(parentChannelName, guild);
 
     // TextChannel がない場合は作成
     if (!parentChannel) {
