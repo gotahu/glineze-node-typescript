@@ -1,16 +1,17 @@
 import { config } from '../../config';
-import { NotionAutomationWebhookEvent, Services } from '../../types/types';
+import type { ServiceContainer } from '../../bootstrap/ServiceContainer';
+import { processShukinStatusChange } from '../../features/collection/ShukinAutomation';
+import { NotionAutomationWebhookEvent } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { areUUIDsEqual } from '../../utils/notionUtils';
 import { handleDuplicateFormEntryRemoval } from '../notion/automation/FormAutomation';
-import { processShukinStatusChange } from '../notion/automation/ShukinAutomation';
 import { NotionWebhookSecurity } from './notionWebhookSecurity';
 
 export class UnsupportedNotionWebhookResourceError extends Error {}
 
 export class NotionAutomationService {
   constructor(
-    private readonly services: Services,
+    private readonly services: ServiceContainer,
     private readonly webhookSecurity: NotionWebhookSecurity
   ) {}
 
@@ -34,7 +35,7 @@ export class NotionAutomationService {
 
     logger.info('Notion Automation: Database event received');
 
-    const shukinDatabaseId = config.getConfig('shukin_databaseid');
+    const shukinDatabaseId = config.get('shukin_databaseid');
 
     if (areUUIDsEqual(authoritativeDatabaseId, shukinDatabaseId)) {
       await processShukinStatusChange(authoritativeEvent, this.services);

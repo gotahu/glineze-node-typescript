@@ -2,9 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const { PermissionFlagsBits } = require('discord.js');
-const {
-  handleBreakoutRoomCommand,
-} = require('../dist/services/discord/commands/BreakoutRoomCommand.js');
+const { handleCommand } = require('../dist/services/discord/commands/index.js');
 
 function makeMessage(canManageChannels) {
   const deletedChannels = [];
@@ -33,6 +31,7 @@ function makeMessage(canManageChannels) {
   return {
     deletedChannels,
     message: {
+      content: '!br remove confirm',
       guild: { channels: { cache: channels } },
       member: {
         permissions: {
@@ -53,29 +52,28 @@ function makeMessage(canManageChannels) {
 test('rejects breakout-room removal from a member without channel-management permission', async () => {
   const { deletedChannels, message, replies } = makeMessage(false);
 
-  await handleBreakoutRoomCommand(message, ['remove', 'confirm']);
+  await handleCommand(message, {});
 
   assert.deepEqual(deletedChannels, []);
-  assert.deepEqual(replies, [{ content: 'この操作には「チャンネルの管理」権限が必要です' }]);
+  assert.deepEqual(replies, ['この操作には「チャンネルの管理」権限が必要です']);
 });
 
 test('requires explicit confirmation from an authorized member', async () => {
   const { deletedChannels, message, replies } = makeMessage(true);
+  message.content = '!br remove';
 
-  await handleBreakoutRoomCommand(message, ['remove']);
+  await handleCommand(message, {});
 
   assert.deepEqual(deletedChannels, []);
   assert.deepEqual(replies, [
-    {
-      content: '全てのブレイクアウトルームを削除するには `!br remove confirm` を実行してください',
-    },
+    '全てのブレイクアウトルームを削除するには `!br remove confirm` を実行してください',
   ]);
 });
 
 test('preserves confirmed breakout-room removal for an authorized member', async () => {
   const { deletedChannels, message, replies } = makeMessage(true);
 
-  await handleBreakoutRoomCommand(message, ['remove', 'confirm']);
+  await handleCommand(message, {});
 
   assert.deepEqual(deletedChannels, ['BR-1']);
   assert.deepEqual(replies, []);

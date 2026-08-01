@@ -4,7 +4,7 @@ const test = require('node:test');
 const { ChannelType, Collection } = require('discord.js');
 const { env } = require('../dist/env.js');
 const { logger } = require('../dist/utils/logger.js');
-const { relayMessage } = require('../dist/services/discord/functions/RelayFunction.js');
+const { relayMessage } = require('../dist/features/relay/RelayFunction.js');
 
 test('does not fetch a guild list when DISCORD_VOID_GUILD_ID is missing', async (t) => {
   const originalGuildId = env.DISCORD_VOID_GUILD_ID;

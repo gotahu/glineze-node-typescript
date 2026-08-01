@@ -8,13 +8,13 @@ import {
   User,
 } from 'discord.js';
 
-import { Services } from '../../types/types';
+import type { ServiceContainer } from '../../bootstrap/ServiceContainer';
 import { logger } from '../../utils/logger';
 
 export async function handleReactionAdd(
   reaction: MessageReaction | PartialMessageReaction,
   user: User | PartialUser,
-  services: Services
+  services: ServiceContainer
 ) {
   const { discord } = services;
   if (user.bot) return;
@@ -25,12 +25,15 @@ export async function handleReactionAdd(
     discord.recordEmojiUsage(reaction.emoji.name);
   }
 
-  reaction.message.fetch().then((message) => {
+  try {
+    const message = await reaction.message.fetch();
     const guildName = reaction.message.guild ? reaction.message.guild.name : 'DM';
     logger.info(
       `${guildName} で ${user.tag} が ${reaction.emoji.name} を ${message.cleanContent.slice(0, 50)} に対してリアクションしました`
     );
-  });
+  } catch (error) {
+    logger.error(`リアクション対象メッセージの取得に失敗しました: ${error}`);
+  }
 
   const reactedMessage = reaction.message.partial
     ? await fetchPartialMessage(reaction.message)
@@ -67,7 +70,7 @@ export async function handleReactionAdd(
       // BOTが送信したメッセージを削除する
       await targetMessage.delete();
     } catch (error) {
-      console.error('Failed to delete the message:', error);
+      logger.error(`Failed to delete the message: ${error}`);
     }
   }
 }

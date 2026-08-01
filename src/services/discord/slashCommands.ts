@@ -2,29 +2,29 @@ import {
   AutocompleteInteraction,
   ChannelType,
   ChatInputCommandInteraction,
-  GuildMember,
-  Message,
-  PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
+import type { ServiceContainer } from '../../bootstrap/ServiceContainer';
 import { config } from '../../config';
-import { Services } from '../../types/types';
+import { handleBreakoutRoomCommand } from '../../features/breakout/BreakoutRoomCommand';
+import { handleCountdownCommand } from '../../features/countdown/CountdownCommand';
+import { updateBotProfile } from '../../features/countdown/CountdownFunctions';
+import { remindPracticesToChannel } from '../../features/practice/practiceUseCases';
+import { handleSesameStatusCommand } from '../../features/sesame/SesameCommand';
+import { CommandHandler } from '../../features/commands/CommandContext';
+import { getRequiredCommandPermission } from '../../features/commands/commandPermissions';
 import { logger } from '../../utils/logger';
-import { remindPracticesToChannel } from '../notion/practiceFunctions';
-import { handleBreakoutRoomCommand } from './commands/BreakoutRoomCommand';
-import { handleCountdownCommand } from './commands/CountdownCommand';
+import { createInteractionCommandContext, getDiscordPermissionBit } from './commandAdapters';
 import { handleDeleteChannelCommand } from './commands/DeleteChannelCommand';
 import { handleReloadCommand } from './commands/ReloadCommand';
-import { handleSesameStatusCommand } from './commands/SesameCommand';
 import { handleUpdateBotProfileCommand } from './commands/UpdateBotProfileCommand';
 import { handleVersionCommand } from './commands/VersionCommand';
-import { updateBotProfile } from './functions/CountdownFunctions';
 
 const slashCommands = [
   new SlashCommandBuilder()
     .setName('config')
     .setDescription('Bot の設定を確認・変更します（管理者専用）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(getDiscordPermissionBit('administrator'))
     .addSubcommand((command) =>
       command.setName('list').setDescription('設定キーと現在値の一覧を表示します')
     )
@@ -129,7 +129,7 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('reminders')
     .setDescription('練習連絡と場所取り通知の送信先を設定します（管理者専用）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(getDiscordPermissionBit('administrator'))
     .addSubcommand((command) =>
       command
         .setName('setup')
@@ -197,7 +197,7 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('delete-channel')
     .setDescription('指定したチャンネルを削除します（チャンネル管理権限が必要）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
+    .setDefaultMemberPermissions(getDiscordPermissionBit('manageChannels'))
     .addChannelOption((option) =>
       option.setName('channel').setDescription('削除するチャンネル').setRequired(true)
     )
@@ -207,7 +207,7 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('reload')
     .setDescription('Notion から Bot 設定を再読み込みします（管理者専用）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(getDiscordPermissionBit('administrator')),
   new SlashCommandBuilder().setName('sesame').setDescription('Sesame の現在の施錠状態を表示します'),
   new SlashCommandBuilder()
     .setName('version')
@@ -215,11 +215,11 @@ const slashCommands = [
   new SlashCommandBuilder()
     .setName('update-bot-profile')
     .setDescription('カウントダウンに合わせて Bot のプロフィールを更新します')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+    .setDefaultMemberPermissions(getDiscordPermissionBit('manageGuild')),
   new SlashCommandBuilder()
     .setName('practice-remind')
     .setDescription('このチャンネルへ場所取りのリマインドを送信します')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+    .setDefaultMemberPermissions(getDiscordPermissionBit('manageMessages')),
 ];
 
 export const slashCommandData = slashCommands.map((command) => command.toJSON());
@@ -255,10 +255,13 @@ function splitMessage(content: string, maxLength = 1900): string[] {
   return chunks;
 }
 
-async function handleConfigCommand(interaction: ChatInputCommandInteraction, services: Services) {
+async function handleConfigCommand(
+  interaction: ChatInputCommandInteraction,
+  services: ServiceContainer
+) {
   const subcommand = interaction.options.getSubcommand();
   if (subcommand === 'list') {
-    const lines = [...config.getAllConfigs()]
+    const lines = [...config.getAll()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, value]) => {
         const displayed = displayValue(key, value);
@@ -273,7 +276,7 @@ async function handleConfigCommand(interaction: ChatInputCommandInteraction, ser
 
   const key = interaction.options.getString('key', true);
   if (subcommand === 'get') {
-    const value = config.getAllConfigs().get(key);
+    const value = config.getAll().get(key);
     if (value === undefined) {
       await interaction.editReply(`設定キー \`${key}\` は存在しません。`);
       return;
@@ -285,7 +288,7 @@ async function handleConfigCommand(interaction: ChatInputCommandInteraction, ser
   }
 
   const value = interaction.options.getString('value', true);
-  await config.setConfig(key, value);
+  await config.set(key, value);
   services.sesame?.reloadConfiguration();
   await interaction.editReply(`設定 \`${key}\` を更新しました。`);
 }
@@ -307,7 +310,10 @@ export function normalizeNotifyDays(value: string): string | undefined {
   return [...new Set(values.map(Number))].sort((left, right) => right - left).join(',');
 }
 
-async function handleCountdownSetup(interaction: ChatInputCommandInteraction, services: Services) {
+async function handleCountdownSetup(
+  interaction: ChatInputCommandInteraction,
+  services: ServiceContainer
+) {
   const date = interaction.options.getString('date', true);
   const title = interaction.options.getString('title', true).trim();
   const channel = interaction.options.getChannel('channel');
@@ -335,16 +341,18 @@ async function handleCountdownSetup(interaction: ChatInputCommandInteraction, se
     return;
   }
 
-  await config.setConfig('countdown_date', date);
-  await config.setConfig('countdown_title', title);
-  if (channel) await config.setConfig('countdown_channelid', channel.id);
-  if (notifyDays) await config.setConfig('countdown_notify_days', notifyDays);
-  if (message) await config.setConfig('countdown_message', message);
+  await config.updateMany([
+    { key: 'countdown_date', value: date },
+    { key: 'countdown_title', value: title },
+    ...(channel ? [{ key: 'countdown_channelid', value: channel.id }] : []),
+    ...(notifyDays ? [{ key: 'countdown_notify_days', value: notifyDays }] : []),
+    ...(message ? [{ key: 'countdown_message', value: message }] : []),
+  ]);
 
   updateBotProfile(services.discord);
 
-  const currentChannelId = channel?.id ?? config.getConfig('countdown_channelid');
-  const currentNotifyDays = notifyDays ?? config.getConfig('countdown_notify_days');
+  const currentChannelId = channel?.id ?? config.get('countdown_channelid');
+  const currentNotifyDays = notifyDays ?? config.get('countdown_notify_days').join(',');
   await interaction.editReply(
     [
       'カウントダウン設定を更新しました。',
@@ -361,8 +369,10 @@ async function handleRemindersSetup(interaction: ChatInputCommandInteraction) {
   const practiceChannel = interaction.options.getChannel('practice-channel', true);
   const placeChannel = interaction.options.getChannel('place-channel', true);
 
-  await config.setConfig('practice_remind_threadid', practiceChannel.id);
-  await config.setConfig('bashotori_remind_threadid', placeChannel.id);
+  await config.updateMany([
+    { key: 'practice_remind_threadid', value: practiceChannel.id },
+    { key: 'bashotori_remind_threadid', value: placeChannel.id },
+  ]);
 
   await interaction.editReply(
     [
@@ -373,26 +383,9 @@ async function handleRemindersSetup(interaction: ChatInputCommandInteraction) {
   );
 }
 
-function createMessageAdapter(interaction: ChatInputCommandInteraction, content: string) {
-  let responseSent = false;
-  return {
-    message: {
-      content,
-      guild: interaction.guild,
-      member: interaction.member as GuildMember | null,
-      channel: interaction.channel,
-      reply: async (response: Parameters<ChatInputCommandInteraction['editReply']>[0]) => {
-        responseSent = true;
-        return interaction.editReply(response);
-      },
-    } as unknown as Message,
-    didRespond: () => responseSent,
-  };
-}
-
 export async function handleSlashCommand(
   interaction: ChatInputCommandInteraction,
-  services: Services
+  services: ServiceContainer
 ): Promise<void> {
   const requestedSubcommand = interaction.options.getSubcommand(false);
   const ephemeral =
@@ -403,10 +396,14 @@ export async function handleSlashCommand(
   await interaction.deferReply({ ephemeral });
 
   try {
-    const requiredPermission = getRequiredPermission(interaction);
+    const requiredPermission = getRequiredCommandPermission(
+      interaction.commandName,
+      requestedSubcommand ?? undefined
+    );
     if (
       requiredPermission &&
-      (!interaction.inGuild() || !interaction.memberPermissions?.has(requiredPermission))
+      (!interaction.inGuild() ||
+        !interaction.memberPermissions?.has(getDiscordPermissionBit(requiredPermission)))
     ) {
       await interaction.editReply(
         'このコマンドは必要な権限を持つメンバーがサーバー内で実行してください。'
@@ -424,7 +421,7 @@ export async function handleSlashCommand(
     }
 
     let content = `/${interaction.commandName}`;
-    let handler: (message: Message, args: string[], services: Services) => Promise<void>;
+    let handler: CommandHandler;
     let args: string[] = [];
 
     switch (interaction.commandName) {
@@ -485,8 +482,8 @@ export async function handleSlashCommand(
         return;
     }
 
-    const adapter = createMessageAdapter(interaction, content);
-    await handler(adapter.message, args, services);
+    const adapter = createInteractionCommandContext(interaction, content);
+    await handler(adapter.context, args, services);
     if (!adapter.didRespond()) await interaction.editReply('コマンドを実行しました。');
   } catch (error) {
     logger.error(`スラッシュコマンド ${interaction.commandName} の実行に失敗しました: ${error}`);
@@ -494,36 +491,9 @@ export async function handleSlashCommand(
   }
 }
 
-function getRequiredPermission(interaction: ChatInputCommandInteraction): bigint | undefined {
-  switch (interaction.commandName) {
-    case 'config':
-    case 'reminders':
-    case 'reload':
-      return PermissionFlagsBits.Administrator;
-    case 'countdown':
-      return interaction.options.getSubcommand() === 'setup'
-        ? PermissionFlagsBits.Administrator
-        : undefined;
-    case 'delete-channel':
-      return PermissionFlagsBits.ManageChannels;
-    case 'update-bot-profile':
-      return PermissionFlagsBits.ManageGuild;
-    case 'practice-remind':
-      return PermissionFlagsBits.ManageMessages;
-    case 'breakout': {
-      const subcommand = interaction.options.getSubcommand();
-      return subcommand === 'random'
-        ? PermissionFlagsBits.MoveMembers
-        : PermissionFlagsBits.ManageChannels;
-    }
-    default:
-      return undefined;
-  }
-}
-
 export async function handleConfigAutocomplete(interaction: AutocompleteInteraction) {
   const focused = interaction.options.getFocused().toLowerCase();
-  const choices = [...config.getAllConfigs().keys()]
+  const choices = [...config.getAll().keys()]
     .filter((key) => key.toLowerCase().includes(focused))
     .slice(0, 25)
     .map((key) => ({ name: key, value: key }));

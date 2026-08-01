@@ -3,8 +3,8 @@ const test = require('node:test');
 
 const { config } = require('../dist/config.js');
 const { CronService } = require('../dist/services/cron/CronService.js');
-const countdownFunctions = require('../dist/services/discord/functions/CountdownFunctions.js');
-const practiceFunctions = require('../dist/services/notion/practiceFunctions.js');
+const countdownFunctions = require('../dist/features/countdown/CountdownFunctions.js');
+const practiceFunctions = require('../dist/features/practice/practiceUseCases.js');
 const { logger } = require('../dist/utils/logger.js');
 
 function patch(t, object, key, value) {
@@ -15,8 +15,8 @@ function patch(t, object, key, value) {
   });
 }
 
-test.beforeEach(() => config.notionConfigs.clear());
-test.after(() => config.notionConfigs.clear());
+test.beforeEach(() => config.replaceRuntimeValues(new Map()));
+test.after(() => config.replaceRuntimeValues(new Map()));
 
 test('registers countdown and practice jobs once with the documented JST schedules', (t) => {
   const scheduled = [];
@@ -62,7 +62,7 @@ test('registers the Sesame job only once when explicitly started', () => {
 test('logs and contains an asynchronous practice notification failure', async (t) => {
   const failure = new Error('practice notification failed');
   const errors = [];
-  config.notionConfigs.set('practice_remind_threadid', 'practice-channel');
+  config.replaceRuntimeValues(new Map([['practice_remind_threadid', 'practice-channel']]));
   patch(t, practiceFunctions, 'notifyPractice', async () => {
     throw failure;
   });
@@ -74,5 +74,74 @@ test('logs and contains an asynchronous practice notification failure', async (t
   await cron.runNotifyPractice();
 
   assert.equal(errors.length, 1);
-  assert.match(errors[0], /Error notify practice: Error: practice notification failed/);
+  assert.match(
+    errors[0],
+    /Scheduled job practice-notification failed: Error: practice notification failed/
+  );
+});
+
+test('scheduled countdown callback waits for notification completion', async (t) => {
+  const scheduled = [];
+  let notificationCompleted = false;
+  patch(t, countdownFunctions, 'updateBotProfile', () => {});
+  patch(t, countdownFunctions, 'sendCountdownMessage', async () => {
+    await Promise.resolve();
+    notificationCompleted = true;
+  });
+  const cron = new CronService({ discord: {} });
+  cron.schedule = (expression, task, options) => scheduled.push({ expression, task, options });
+  cron.startCountdownScheduler();
+
+  const execution = scheduled[0].task();
+  assert.equal(typeof execution?.then, 'function');
+  await execution;
+  assert.equal(notificationCompleted, true);
+});
+
+test('Sesame job waits for every Discord channel update', async () => {
+  let updateCompleted = false;
+  const cron = new CronService({
+    sesame: {
+      getSesameDeviceStatus: async () => ({ lockStatus: 'locked' }),
+    },
+    discord: {
+      sesameDiscordService: {
+        updateSesameStatusAllVoiceChannels: async () => {
+          await Promise.resolve();
+          updateCompleted = true;
+        },
+      },
+    },
+  });
+
+  await cron.runSesameScheduler();
+
+  assert.equal(updateCompleted, true);
+});
+
+test('stop destroys every registered task in reverse order and permits restart', async (t) => {
+  const events = [];
+  const scheduled = [];
+  patch(t, countdownFunctions, 'updateBotProfile', () => {});
+  const cron = new CronService({ discord: {} });
+  cron.schedule = (expression) => {
+    scheduled.push(expression);
+    return {
+      stop: async () => events.push(`stop:${expression}`),
+      destroy: async () => events.push(`destroy:${expression}`),
+    };
+  };
+  cron.startCountdownScheduler();
+  cron.startNotifyPractice();
+
+  await cron.stop();
+  cron.startNotifyPractice();
+
+  assert.deepEqual(events, [
+    'stop:0 17 * * *',
+    'destroy:0 17 * * *',
+    'stop:1 0 * * *',
+    'destroy:1 0 * * *',
+  ]);
+  assert.deepEqual(scheduled, ['1 0 * * *', '0 17 * * *', '0 17 * * *']);
 });

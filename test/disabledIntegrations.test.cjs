@@ -6,7 +6,7 @@ globalThis.process.env.SESAME_ENABLED = 'false';
 globalThis.process.env.NOTION_AUTOMATION_ENABLED = 'false';
 globalThis.process.env.PORT = '0';
 
-const { handleSesameStatusCommand } = require('../dist/services/discord/commands/SesameCommand.js');
+const { handleSesameStatusCommand } = require('../dist/features/sesame/SesameCommand.js');
 const { WebServerService } = require('../dist/services/webapi/webServerService.js');
 
 test('Sesame command remains disabled without constructing the integration', async () => {
@@ -34,6 +34,7 @@ test('Notion automation endpoint returns service unavailable while disabled', as
       },
     },
   });
+  await webServer.start();
   t.after(async () => webServer.stop());
 
   if (!webServer.server.listening) {

@@ -23,6 +23,8 @@ function createServices() {
 
 test('serves health and status data and stops the listening server', async (t) => {
   const webServer = new WebServerService(createServices());
+  assert.equal(webServer.server, undefined);
+  await webServer.start();
   t.after(async () => webServer.stop());
   if (!webServer.server.listening) await once(webServer.server, 'listening');
 
@@ -30,9 +32,20 @@ test('serves health and status data and stops the listening server', async (t) =
   assert.equal(typeof address, 'object');
   const origin = `http://127.0.0.1:${address.port}`;
 
+  const statusPage = await globalThis.fetch(origin);
+  assert.equal(statusPage.status, 200);
+  assert.match(statusPage.headers.get('content-type'), /^text\/html/);
+  assert.match(await statusPage.text(), /<title>Glineze System Status<\/title>/);
+
+  const statusImage = await globalThis.fetch(`${origin}/assets/status-operational.png`);
+  assert.equal(statusImage.status, 200);
+  assert.match(statusImage.headers.get('content-type'), /^image\/png/);
+
   const health = await globalThis.fetch(`${origin}/health`);
   assert.equal(health.status, 200);
-  assert.equal(await health.text(), 'This app is running');
+  const healthPayload = await health.json();
+  assert.equal(healthPayload.status, 'operational');
+  assert.ok(Array.isArray(healthPayload.services));
 
   const status = await globalThis.fetch(`${origin}/api/status`);
   assert.equal(status.status, 200);

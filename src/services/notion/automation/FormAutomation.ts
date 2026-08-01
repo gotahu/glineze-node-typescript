@@ -1,14 +1,16 @@
-import { NotionAutomationWebhookEvent, Services } from '../../../types/types';
+import type { ServiceContainer } from '../../../bootstrap/ServiceContainer';
+import { NotionAutomationWebhookEvent } from '../../../types/types';
 import {
   areUUIDsEqual,
   getRelationPropertyValue,
   getStringPropertyValue,
   queryAllDatabasePages,
 } from '../../../utils/notionUtils';
+import { logger } from '../../../utils/logger';
 
 export async function handleDuplicateFormEntryRemoval(
   event: NotionAutomationWebhookEvent,
-  services: Services
+  services: ServiceContainer
 ) {
   const { notion } = services;
 
@@ -50,6 +52,6 @@ export async function handleDuplicateFormEntryRemoval(
       archived: true,
     });
 
-    console.log(`ページを削除しました: ${page.id}`);
+    logger.info(`重複していた Notion ページをアーカイブしました: ${originalPage.id}`);
   }
 }

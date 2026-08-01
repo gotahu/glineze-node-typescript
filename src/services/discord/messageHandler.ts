@@ -1,17 +1,22 @@
 import axios from 'axios';
+import type { ServiceContainer } from '../../bootstrap/ServiceContainer';
 import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'discord.js';
 import { env } from '../../env';
-import { Services } from '../../types/types';
+import { replyShukinStatus } from '../../features/collection/ShukinCommand';
+import { handleNotifyPracticesCommand } from '../../features/practice/PracticeCommand';
+import { remindPracticesToChannel } from '../../features/practice/practiceUseCases';
+import { relayMessage } from '../../features/relay/RelayFunction';
 import { logger } from '../../utils/logger';
+import {
+  executeWithRetry,
+  EXTERNAL_API_TIMEOUT_MS,
+} from '../../shared/resilience/externalApiPolicy';
 import { PartialMessage } from 'discord.js';
-import { remindPracticesToChannel } from '../notion/practiceFunctions';
+import { createMessageCommandContext } from './commandAdapters';
 import { handleCommand } from './commands';
-import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
-import { replyShukinStatus } from './commands/ShukinCommand';
-import { relayMessage } from './functions/RelayFunction';
 
 export class MessageHandler {
-  constructor(private readonly services: Services) {}
+  constructor(private readonly services: ServiceContainer) {}
 
   public async handleMessageCreate(message: Message) {
     try {
@@ -43,6 +48,7 @@ export class MessageHandler {
   private async handleDMMessage(message: Message) {
     const { notion } = this.services;
     const dmChannel = message.channel as DMChannel;
+    const commandContext = createMessageCommandContext(message);
 
     logger.info(
       `DM handling started: message=${message.id}, channel=${message.channel.id}, author=${message.author.tag}, contentLength=${message.content.length}`
@@ -65,10 +71,10 @@ export class MessageHandler {
       );
       // コマンドが認識されなかった場合は、replyShukinStatusを呼び出す
       if (!commandRecognized) {
-        await replyShukinStatus(notion, message);
+        await replyShukinStatus(notion, commandContext);
       }
     } else {
-      await replyShukinStatus(notion, message);
+      await replyShukinStatus(notion, commandContext);
     }
 
     logger.info(`DM handling finished: message=${message.id}`);
@@ -96,7 +102,7 @@ export class MessageHandler {
       message.mentions.has(message.client.user) &&
       message.mentions.members?.size === 1 // これを追加しないと @everyone や @全員 に反応してしまう
     ) {
-      await handleNotifyPracticesCommand(notion, message);
+      await handleNotifyPracticesCommand(notion, createMessageCommandContext(message));
       return;
     }
 
@@ -110,7 +116,16 @@ export class MessageHandler {
     // メッセージにGLOBALIPが含まれている場合
     if (message.content.includes('GLOBALIP')) {
       try {
-        const response = await axios.get('https://api.ipify.org?format=json');
+        const response = await executeWithRetry(
+          () =>
+            axios.get('https://api.ipify.org?format=json', { timeout: EXTERNAL_API_TIMEOUT_MS }),
+          {
+            healthId: 'integration:ipify',
+            shouldRetry: (error) =>
+              axios.isAxiosError(error) &&
+              (!error.response || error.response.status === 429 || error.response.status >= 500),
+          }
+        );
         const ip = response.data.ip;
         message.reply(ip);
       } catch (error) {

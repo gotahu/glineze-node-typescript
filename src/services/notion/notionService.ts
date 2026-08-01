@@ -1,9 +1,10 @@
 import { Client } from '@notionhq/client';
-import { MemberService } from './memberService';
-import { PracticeService } from './practiceService';
-import { ShukinService } from './shukinService';
+import { MemberService } from '../../features/collection/MemberService';
+import { ShukinService } from '../../features/collection/ShukinService';
+import { PracticeService } from '../../features/practice/PracticeService';
 import { env } from '../../env';
 import { logger } from '../../utils/logger';
+import { EXTERNAL_API_TIMEOUT_MS } from '../../shared/resilience/externalApiPolicy';
 
 export class NotionService {
   public client: Client;
@@ -17,11 +18,16 @@ export class NotionService {
     const NOTION_TOKEN = env.NOTION_TOKEN;
 
     if (!NOTION_TOKEN) {
-      logger.error('NOTION_TOKEN が環境変数に設定されていません。プログラムを終了します。');
-      process.exit(0);
+      const message = 'NOTION_TOKEN が環境変数に設定されていません。';
+      logger.error(message);
+      throw new Error(message);
     }
 
-    this.client = new Client({ auth: NOTION_TOKEN });
+    this.client = new Client({
+      auth: NOTION_TOKEN,
+      timeoutMs: EXTERNAL_API_TIMEOUT_MS,
+      retry: { maxRetries: 2, initialRetryDelayMs: 250, maxRetryDelayMs: 2_000 },
+    });
     this.memberService = new MemberService(this.client);
     this.practiceService = new PracticeService(this.client);
     this.shukinService = new ShukinService(this.client);

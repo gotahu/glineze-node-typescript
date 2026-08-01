@@ -13,6 +13,5 @@ export interface LogMessage {
 
 export interface LoggerConfig {
   loggerChannelId: string;
-  lineNotifyToken: string;
   enableDebugOutput: boolean;
 }

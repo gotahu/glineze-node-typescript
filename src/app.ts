@@ -1,86 +1,60 @@
-import { config } from './config';
-import { env } from './env';
-import { CronService } from './services/cron/CronService';
-import { DiscordService } from './services/discord/discordService';
-import { NotionService } from './services/notion/notionService';
-import { SesameService } from './services/sesame/sesameService';
-import { WebServerService } from './services/webapi/webServerService';
-import { Services } from './types/types';
+import { Application } from './bootstrap/Application';
+import { createApplication } from './bootstrap/createApplication';
 import { logger } from './utils/logger';
 
-// メイン処理
-export const main = async (initialize: () => Promise<void> = initializeServices) => {
+type ApplicationFactory = () => Promise<Application>;
+
+type ProcessLifecycle = Pick<NodeJS.Process, 'once' | 'on' | 'removeListener' | 'exitCode'>;
+
+export async function main(factory: ApplicationFactory = createApplication): Promise<Application> {
   logger.info('glineze アプリケーションを起動します');
+  const application = await factory();
+  await application.start();
+  logger.info('glineze アプリケーションが起動しました');
+  return application;
+}
 
-  // サービスの初期化
-  await initialize();
-};
+export function installProcessHandlers(
+  application: Application,
+  runtimeProcess: ProcessLifecycle = process
+): () => void {
+  let stopping = false;
 
-// 主要なサービスを束ねる変数
-let services: Services;
+  const shutdown = async (signal: NodeJS.Signals) => {
+    if (stopping) return;
+    stopping = true;
+    logger.info(`${signal} を受信したため、アプリケーションを停止します`);
+    try {
+      await application.stop();
+    } catch (error) {
+      runtimeProcess.exitCode = 1;
+      logger.error(`アプリケーションの停止に失敗しました: ${error}`);
+    }
+  };
+  const handleSigint = () => void shutdown('SIGINT');
+  const handleSigterm = () => void shutdown('SIGTERM');
+  const handleUnhandledRejection = (reason: unknown, promise: Promise<unknown>) => {
+    logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+  };
 
-export const initializeServices = async () => {
-  try {
-    // config の初期化
-    await config.initializeConfig();
+  runtimeProcess.once('SIGINT', handleSigint);
+  runtimeProcess.once('SIGTERM', handleSigterm);
+  runtimeProcess.on('unhandledRejection', handleUnhandledRejection);
 
-    // NotionService
-    const notionService = new NotionService();
-
-    // SesameService (disabled by default)
-    const sesameService = env.SESAME_ENABLED ? new SesameService() : undefined;
-    if (!sesameService) logger.info('Sesame integration is disabled');
-
-    // DiscordService
-    const discordService = new DiscordService({
-      notion: notionService,
-      sesame: sesameService,
-    });
-
-    // DiscordService（Client を起動する）
-    await discordService.start();
-
-    // Logger の Discord 出力を紐付け
-    logger.on('discordLog', async (logMessage) => {
-      try {
-        const formattedMessage = `[${logMessage.level}] [${logMessage.timestamp.toISOString()}] ${logMessage.message}`;
-        await discordService.sendStringsToChannel([formattedMessage], logger.getLoggerChannelId());
-      } catch (err) {
-        console.error('Failed to route log to DiscordService:', err);
-      }
-    });
-
-    // サービスを束ねる
-    services = {
-      notion: notionService,
-      discord: discordService,
-      sesame: sesameService,
-    };
-
-    // CronService
-    const cronService = new CronService(services);
-    await cronService.start();
-
-    // WebService
-    new WebServerService(services);
-
-    logger.info(
-      env.NODE_ENV === 'development' ? `開発環境が起動しました。` : `本番環境が起動しました。`,
-      { debug: true }
-    );
-  } catch (error) {
-    logger.error(`アプリの起動に失敗しました: ${error}`);
-    process.exit(1);
-  }
-};
-
-// エラーハンドリング
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
-});
+  return () => {
+    runtimeProcess.removeListener('SIGINT', handleSigint);
+    runtimeProcess.removeListener('SIGTERM', handleSigterm);
+    runtimeProcess.removeListener('unhandledRejection', handleUnhandledRejection);
+  };
+}
 
 if (require.main === module) {
-  main().then(() => {
-    logger.info('glineze アプリケーションが起動しました');
-  });
+  main()
+    .then((application) => {
+      installProcessHandlers(application);
+    })
+    .catch((error) => {
+      process.exitCode = 1;
+      logger.error(`アプリの起動に失敗しました: ${error}`);
+    });
 }

@@ -1,29 +1,32 @@
 // src/services/cron/cronService.ts
 
 import { config } from '../../config';
-import { Services } from '../../types/types';
+import type { ServiceContainer } from '../../bootstrap/ServiceContainer';
+import {
+  sendCountdownMessage,
+  updateBotProfile,
+} from '../../features/countdown/CountdownFunctions';
+import { notifyPractice, remindPracticesToChannel } from '../../features/practice/practiceUseCases';
+import type { ScheduledTask } from 'node-cron';
 import { logger } from '../../utils/logger';
-import { sendCountdownMessage, updateBotProfile } from '../discord/functions/CountdownFunctions';
-import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
+import { ScheduledJob } from './ScheduledJob';
 
-type CronSchedule = (
-  expression: string,
-  task: () => void | Promise<void>,
-  options?: { timezone?: string }
-) => void;
+type CronSchedule = typeof import('node-cron').schedule;
 
 /**
  * 定期実行タスクを一元管理するクラス
  */
 export class CronService {
-  private services: Services;
+  private services: ServiceContainer;
   private sesameSchedulerStarted = false;
   private countDownSchedulerStarted = false;
   private notifyPracticeStarted = false;
   private remindBashotoriStarted = false;
   private schedule!: CronSchedule;
+  private readonly tasks: ScheduledTask[] = [];
+  private readonly jobs = new Map<string, ScheduledJob>();
 
-  constructor(services: Services) {
+  constructor(services: ServiceContainer) {
     logger.info('CronService の初期化を開始します。');
     this.services = services;
     logger.info('CronService の初期化が終了しました。');
@@ -49,6 +52,27 @@ export class CronService {
     logger.info('Cron スケジューラーを起動しました。');
   }
 
+  public async stop(): Promise<void> {
+    for (const task of this.tasks.splice(0).reverse()) {
+      await task.stop();
+      await task.destroy();
+    }
+    this.sesameSchedulerStarted = false;
+    this.countDownSchedulerStarted = false;
+    this.notifyPracticeStarted = false;
+    this.remindBashotoriStarted = false;
+    this.jobs.clear();
+    logger.info('Cron スケジューラーを停止しました。');
+  }
+
+  private register(
+    expression: string,
+    task: () => void | Promise<void>,
+    options?: { timezone?: string }
+  ): void {
+    this.tasks.push(this.schedule(expression, task, options));
+  }
+
   /**
    * Sesame の状態を定期的に確認して Discord VoiceChannel を更新するジョブ
    */
@@ -62,7 +86,7 @@ export class CronService {
     logger.info('Starting Sesame status scheduler');
 
     // 5 分おきに実行する
-    this.schedule('*/5 * * * *', async () => {
+    this.register('*/5 * * * *', async () => {
       await this.runSesameScheduler();
     });
   }
@@ -71,7 +95,7 @@ export class CronService {
    * Sesame の状態を更新するジョブ
    */
   private async runSesameScheduler() {
-    try {
+    await this.runJob('sesame-status', async () => {
       const { discord, sesame } = this.services;
       const sesameDiscordService = discord.sesameDiscordService;
 
@@ -81,13 +105,10 @@ export class CronService {
       }
 
       logger.info('Updating Sesame status (manual or scheduled)');
-      sesame.getSesameDeviceStatus().then((deviceStatus) => {
-        logger.debug(`Device status: ${JSON.stringify(deviceStatus, null, 2)}`);
-        sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
-      });
-    } catch (error) {
-      logger.error(`onSesameScheduler: Error updating Sesame status: ${error}`);
-    }
+      const deviceStatus = await sesame.getSesameDeviceStatus();
+      logger.debug(`Device status: ${JSON.stringify(deviceStatus, null, 2)}`);
+      await sesameDiscordService.updateSesameStatusAllVoiceChannels(deviceStatus);
+    });
   }
 
   /**
@@ -103,14 +124,14 @@ export class CronService {
     logger.info('Starting Countdown scheduler');
 
     // カウントダウンを即時更新
-    this.runCountdownScheduler();
+    void this.runCountdownScheduler();
 
     // 毎日0時1分に実行する
-    this.schedule(
+    this.register(
       '1 0 * * *',
-      () => {
-        this.runCountdownScheduler();
-        this.runSendCountdownMessage();
+      async () => {
+        await this.runCountdownScheduler();
+        await this.runSendCountdownMessage();
       },
       { timezone: 'Asia/Tokyo' }
     );
@@ -119,8 +140,8 @@ export class CronService {
   /**
    * カウントダウンを更新するジョブ
    */
-  private runCountdownScheduler() {
-    try {
+  private async runCountdownScheduler() {
+    await this.runJob('countdown-profile', async () => {
       const { discord } = this.services;
 
       if (!discord) {
@@ -130,13 +151,11 @@ export class CronService {
 
       logger.info('Updating countdown (manual or scheduled)');
       updateBotProfile(discord);
-    } catch (error) {
-      logger.error(`runCountdownScheduler: Error updating countdown: ${error}`);
-    }
+    });
   }
 
-  private runSendCountdownMessage() {
-    try {
+  private async runSendCountdownMessage(): Promise<void> {
+    await this.runJob('countdown-notification', async () => {
       const { discord } = this.services;
 
       if (!discord) {
@@ -147,10 +166,8 @@ export class CronService {
       logger.info('runSendCountdownMessage: Sending countdown message (manual or scheduled)', {
         debug: true,
       });
-      sendCountdownMessage(this.services);
-    } catch (error) {
-      logger.error(`runSendCountdownMessage: Error sending countdown message: ${error}`);
-    }
+      await sendCountdownMessage(this.services);
+    });
   }
 
   private startNotifyPractice() {
@@ -163,28 +180,26 @@ export class CronService {
     logger.info('Starting Notify practice scheduler');
 
     // 毎日17時に実行する
-    this.schedule(
+    this.register(
       '0 17 * * *',
-      () => {
-        this.runNotifyPractice();
+      async () => {
+        await this.runNotifyPractice();
       },
       { timezone: 'Asia/Tokyo' }
     );
   }
 
   private async runNotifyPractice() {
-    try {
+    await this.runJob('practice-notification', async () => {
       logger.info('練習連絡送信の定期実行を開始します。', { debug: true });
 
-      const threadId = config.getConfig('practice_remind_threadid');
+      const threadId = config.get('practice_remind_threadid');
 
       // 1日後の練習を通知する
       await notifyPractice(this.services, { channelId: threadId, daysFromToday: 1 });
 
       logger.info('練習連絡送信の定期実行を終了しました。', { debug: true });
-    } catch (error) {
-      logger.error(`onNotifyPractice: Error notify practice: ${error}`);
-    }
+    });
   }
 
   private startRemindBashotori() {
@@ -197,24 +212,31 @@ export class CronService {
     logger.info('Starting Remind Bashotori scheduler');
 
     // 毎日8時に実行する
-    this.schedule(
+    this.register(
       '0 8 * * *',
-      () => {
-        this.runRemindBashotori();
+      async () => {
+        await this.runRemindBashotori();
       },
       { timezone: 'Asia/Tokyo' }
     );
   }
 
   private async runRemindBashotori() {
-    try {
+    await this.runJob('practice-reminder', async () => {
       logger.info('Remind Bashotori (manual or scheduled)', { debug: true });
 
-      const threadId = config.getConfig('bashotori_remind_threadid');
+      const threadId = config.get('bashotori_remind_threadid');
       // 1日後の練習を通知する
       await remindPracticesToChannel(this.services, threadId);
-    } catch (error) {
-      logger.error(`onRemindBashotori: Error remind Bashotori: ${error}`);
+    });
+  }
+
+  private async runJob(name: string, operation: () => Promise<void>): Promise<void> {
+    let job = this.jobs.get(name);
+    if (!job) {
+      job = new ScheduledJob(name, operation);
+      this.jobs.set(name, job);
     }
+    await job.run();
   }
 }

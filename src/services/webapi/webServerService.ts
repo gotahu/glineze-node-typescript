@@ -1,22 +1,22 @@
 import express, { Express, Request } from 'express';
 import { Server } from 'node:http';
+import { join } from 'node:path';
+import type { ServiceContainer } from '../../bootstrap/ServiceContainer';
 import { config } from '../../config';
 import { env, parseCommaSeparatedIds } from '../../env';
-import {
-  isNotionAutomationWebhookEvent,
-  NotionAutomationWebhookEvent,
-  Services,
-} from '../../types/types';
+import { isNotionAutomationWebhookEvent, NotionAutomationWebhookEvent } from '../../types/types';
 import { logger } from '../../utils/logger';
+import { HealthRecord, healthRegistry } from '../../shared/health/HealthRegistry';
 import {
   NotionAutomationService,
   UnsupportedNotionWebhookResourceError,
 } from './notionAutomationService';
 import { NotionWebhookSecurity } from './notionWebhookSecurity';
-import { ServiceHealth, STATUS_PAGE_HTML, StatusSnapshot } from './statusPage';
+import { ServiceHealth, StatusSnapshot } from './statusPage';
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAILY_STATS_RETENTION_DAYS = 14;
+const WEB_ASSET_DIRECTORY = join(__dirname, 'assets');
 
 export class WebServerService {
   private readonly app: Express;
@@ -30,7 +30,7 @@ export class WebServerService {
     startTime: new Date(),
   };
 
-  constructor(private readonly services: Services) {
+  constructor(private readonly services: ServiceContainer) {
     logger.info('WebServerService の初期化を開始します。');
 
     if (env.NOTION_AUTOMATION_ENABLED) {
@@ -57,7 +57,6 @@ export class WebServerService {
 
     this.configureMiddleware();
     this.setupAPIEndpoints();
-    this.start();
 
     logger.info('WebServerService の初期化が終了しました。');
   }
@@ -99,7 +98,7 @@ export class WebServerService {
             "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         })
         .type('html')
-        .send(STATUS_PAGE_HTML);
+        .sendFile('status.html', { root: WEB_ASSET_DIRECTORY });
     });
 
     this.app.get('/api/status', (_req, res) => {
@@ -114,11 +113,19 @@ export class WebServerService {
     this.app.get('/assets/status-operational.png', (_req, res) => {
       res
         .set('Cache-Control', 'public, max-age=31536000, immutable')
-        .sendFile('status-operational.png', { root: `${process.cwd()}/dist/assets` });
+        .sendFile('status-operational.png', { root: WEB_ASSET_DIRECTORY });
     });
 
     this.app.get('/health', (_req, res) => {
-      res.set('Cache-Control', 'no-store').status(200).type('text').send('This app is running');
+      const snapshot = this.createStatusSnapshot();
+      res
+        .set('Cache-Control', 'no-store')
+        .status(snapshot.overall === 'offline' ? 503 : 200)
+        .json({
+          status: snapshot.overall,
+          generatedAt: snapshot.generatedAt,
+          services: snapshot.services,
+        });
     });
 
     const notionAutomation = this.notionAutomation;
@@ -212,17 +219,34 @@ export class WebServerService {
     );
   }
 
-  private start() {
+  public async start(): Promise<void> {
+    if (this.server) return;
+
     logger.info('Glineze API サーバーの起動を試みます……');
 
     const port = config.app.port;
-    this.server = this.app.listen(port, () => {
-      logger.info(`Glineze API サーバーがポート ${port} で起動しました`);
-    });
+    const server = this.app.listen(port);
+    this.server = server;
 
-    this.server.requestTimeout = 15_000;
-    this.server.headersTimeout = 16_000;
-    this.server.keepAliveTimeout = 5_000;
+    server.requestTimeout = 15_000;
+    server.headersTimeout = 16_000;
+    server.keepAliveTimeout = 5_000;
+
+    await new Promise<void>((resolve, reject) => {
+      const handleListening = () => {
+        server.off('error', handleError);
+        logger.info(`Glineze API サーバーがポート ${port} で起動しました`);
+        resolve();
+      };
+      const handleError = (error: Error) => {
+        server.off('listening', handleListening);
+        this.server = undefined;
+        reject(error);
+      };
+
+      server.once('listening', handleListening);
+      server.once('error', handleError);
+    });
   }
 
   public async stop(): Promise<void> {
@@ -296,7 +320,7 @@ export class WebServerService {
   }
 
   private createServiceHealth(discordOnline: boolean): ServiceHealth[] {
-    return [
+    const services: ServiceHealth[] = [
       {
         id: 'discord',
         name: 'Discord',
@@ -316,18 +340,16 @@ export class WebServerService {
       {
         id: 'notion-automation',
         name: 'Notion 自動化',
-        state: env.NOTION_AUTOMATION_ENABLED ? 'operational' : 'disabled',
-        label: env.NOTION_AUTOMATION_ENABLED ? '正常' : '停止',
-        detail: env.NOTION_AUTOMATION_ENABLED ? '受付可能' : '無効化済み',
-        meta: env.NOTION_AUTOMATION_ENABLED ? 'Webhook ready' : 'Feature disabled',
+        ...(env.NOTION_AUTOMATION_ENABLED
+          ? this.observedHealth('integration:notion', '受付可能', 'Notion API')
+          : this.disabledHealth()),
       },
       {
         id: 'sesame',
         name: 'Sesame 連携',
-        state: env.SESAME_ENABLED ? (discordOnline ? 'operational' : 'degraded') : 'disabled',
-        label: env.SESAME_ENABLED ? (discordOnline ? '正常' : '確認中') : '停止',
-        detail: env.SESAME_ENABLED ? '定期更新' : '無効化済み',
-        meta: env.SESAME_ENABLED ? '5分間隔' : 'Feature disabled',
+        ...(env.SESAME_ENABLED
+          ? this.observedHealth('integration:sesame', '定期更新', '5分間隔')
+          : this.disabledHealth()),
       },
       {
         id: 'webhook',
@@ -338,5 +360,62 @@ export class WebServerService {
         meta: '/automation',
       },
     ];
+
+    const jobHealth = healthRegistry
+      .getAll()
+      .filter(({ id }) => id.startsWith('job:'))
+      .map((record) => ({
+        id: record.id,
+        name: `Cron: ${record.id.slice(4)}`,
+        ...this.mapObservedRecord(record, '定期ジョブ', '多重実行防止あり'),
+      }));
+
+    return [...services, ...jobHealth];
+  }
+
+  private observedHealth(
+    id: string,
+    detail: string,
+    meta: string
+  ): Omit<ServiceHealth, 'id' | 'name'> {
+    const record = healthRegistry.get(id);
+    if (!record) {
+      return {
+        state: 'degraded',
+        label: '未確認',
+        detail,
+        meta: `${meta} / 起動後の成功記録なし`,
+      };
+    }
+    return this.mapObservedRecord(record, detail, meta);
+  }
+
+  private mapObservedRecord(
+    record: HealthRecord,
+    detail: string,
+    meta: string
+  ): Omit<ServiceHealth, 'id' | 'name'> {
+    const operational = record.state === 'operational';
+    return {
+      state: operational ? 'operational' : 'degraded',
+      label: operational ? '正常' : record.state === 'running' ? '実行中' : '要確認',
+      detail,
+      meta,
+      attempts: record.attempts,
+      skipped: record.skipped,
+      lastSuccessAt: record.lastSuccessAt,
+      lastFailureAt: record.lastFailureAt,
+      lastDurationMs: record.lastDurationMs,
+      lastError: record.lastError,
+    };
+  }
+
+  private disabledHealth(): Omit<ServiceHealth, 'id' | 'name'> {
+    return {
+      state: 'disabled',
+      label: '停止',
+      detail: '無効化済み',
+      meta: 'Feature disabled',
+    };
   }
 }

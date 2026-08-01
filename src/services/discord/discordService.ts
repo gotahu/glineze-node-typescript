@@ -1,13 +1,21 @@
 import { env } from '../../env';
-import { ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, Partials } from 'discord.js';
-import { Services } from '../../types/types';
+import type { ServiceContainer } from '../../bootstrap/ServiceContainer';
+import { updateBotProfile } from '../../features/countdown/CountdownFunctions';
+import { SesameDiscordService } from '../../features/sesame/SesameDiscordService';
+import { SesameService } from '../../features/sesame/SesameService';
+import {
+  ActivityType,
+  ChannelType,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  Partials,
+} from 'discord.js';
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
-import { SesameService } from '../sesame/sesameService';
 import { handleReactionAdd } from './discordInteraction';
-import { updateBotProfile } from './functions/CountdownFunctions';
 import { MessageHandler } from './messageHandler';
-import { SesameDiscordService } from './sesameDiscordService';
 import { handleThreadMembersUpdate } from './threadMember';
 import { handleConfigAutocomplete, handleSlashCommand, slashCommandData } from './slashCommands';
 
@@ -38,7 +46,7 @@ export class DiscordService {
   private readonly messageHandler: MessageHandler;
   public readonly sesameDiscordService?: SesameDiscordService;
 
-  private readonly services: Services;
+  private readonly services: ServiceContainer;
 
   public stats = {
     dailyMessages: new Map<string, number>(),
@@ -123,19 +131,15 @@ export class DiscordService {
       )
       .on('error', (error) => {
         logger.error(`Discord Client エラー: ${error.message}`, { error });
-        console.error('Discord Client エラーの詳細:', error);
       })
       .on('warn', (warning) => {
-        void logger.info(`Discord Client 警告: ${warning}`);
-        console.warn('Discord Client 警告:', warning);
+        logger.info(`Discord Client 警告: ${warning}`);
       })
       .on('disconnect', () => {
-        void logger.info('Discord Client が切断されました');
-        console.warn('Discord Client が切断されました');
+        logger.info('Discord Client が切断されました');
       })
       .on('reconnecting', () => {
-        void logger.info('Discord Client が再接続中です');
-        console.log('Discord Client が再接続中です');
+        logger.info('Discord Client が再接続中です');
       });
   }
 
@@ -180,9 +184,9 @@ export class DiscordService {
     const DISCORD_BOT_TOKEN = env.DISCORD_BOT_TOKEN;
 
     if (!DISCORD_BOT_TOKEN) {
-      const errorMsg = 'DISCORD_BOT_TOKEN が設定されていません。プログラムを終了します。';
+      const errorMsg = 'DISCORD_BOT_TOKEN が設定されていません。';
       logger.error(errorMsg);
-      process.exit(0);
+      throw new Error(errorMsg);
     }
 
     // トークンの形式チェック（Discord トークンは通常 "数字.文字列.文字列" の形式）
@@ -226,7 +230,7 @@ export class DiscordService {
         );
       } else {
         const warningMsg = 'ログインは成功しましたが、client.user が設定されていません。';
-        void logger.info(warningMsg);
+        logger.info(warningMsg);
       }
     } catch (error) {
       const errorDetails = {
@@ -236,30 +240,25 @@ export class DiscordService {
         clientReady: this.client.isReady(),
         wsStatus: this.client.ws.status,
         tokenLength: DISCORD_BOT_TOKEN.length,
-        tokenPrefix: DISCORD_BOT_TOKEN.substring(0, 10) + '...',
       };
 
       const errorMsg = `Discord BOT のログインに失敗しました: ${errorDetails.message}`;
-      console.error(errorMsg);
-      console.error('エラー詳細:', JSON.stringify(errorDetails, null, 2));
       logger.error(errorMsg, { error: errorDetails });
 
       // より詳細なエラーメッセージを提供
       if (error instanceof Error) {
         if (error.message.includes('Invalid token')) {
-          console.error(
+          logger.error(
             '原因: トークンが無効です。Discord Developer Portalでトークンを再生成してください。'
           );
         } else if (error.message.includes('タイムアウト')) {
-          console.error(
-            '原因: ネットワーク接続の問題、またはDiscord APIへの接続が遅延しています。'
-          );
-          console.error(
+          logger.error('原因: ネットワーク接続の問題、またはDiscord APIへの接続が遅延しています。');
+          logger.error(
             '対処法: ネットワーク接続を確認し、ファイアウォール設定を確認してください。'
           );
         } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-          console.error('原因: Discord APIサーバーに接続できません。');
-          console.error('対処法: ネットワーク接続とDNS設定を確認してください。');
+          logger.error('原因: Discord APIサーバーに接続できません。');
+          logger.error('対処法: ネットワーク接続とDNS設定を確認してください。');
         }
       }
 
@@ -267,12 +266,18 @@ export class DiscordService {
     }
   }
 
-  public async sendContentToChannel({ content, channelId }: MessageContent) {
+  public async stop(): Promise<void> {
+    this.client.destroy();
+    logger.info('Discord Client を停止しました');
+  }
+
+  public async sendContentToChannel({ content, channelId, threadId }: MessageContent) {
     try {
-      let channel = this.client.channels.cache.get(channelId);
+      const targetChannelId = threadId ?? channelId;
+      let channel = this.client.channels.cache.get(targetChannelId);
 
       if (!channel) {
-        channel = (await this.client.channels.fetch(channelId)) ?? undefined;
+        channel = (await this.client.channels.fetch(targetChannelId)) ?? undefined;
       }
 
       if (!channel?.isSendable()) {
@@ -287,13 +292,17 @@ export class DiscordService {
 
       logger.info(`Content sent to ${channel.isThread() ? 'thread' : 'channel'}`);
     } catch (error) {
-      console.error(`Error sending content: ${error}`);
+      logger.error(`Error sending content: ${error}`);
       throw error;
     }
   }
 
   public async sendStringsToChannel(strings: string[], channelId: string) {
     await Promise.all(strings.map((content) => this.sendContentToChannel({ content, channelId })));
+  }
+
+  public setBotActivity(message: string): void {
+    this.client.user?.setActivity(message, { type: ActivityType.Custom });
   }
 
   public async sendEmbedsToChannel(embeds: EmbedBuilder[], channelId: string, threadId?: string) {

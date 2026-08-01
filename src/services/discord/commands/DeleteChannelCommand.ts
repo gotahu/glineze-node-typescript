@@ -1,39 +1,31 @@
-import { Message, PermissionFlagsBits } from 'discord.js';
+import { CommandContext } from '../../../features/commands/CommandContext';
 import { logger } from '../../../utils/logger';
 
-export async function handleDeleteChannelCommand(message: Message, args: string[]) {
+export async function handleDeleteChannelCommand(context: CommandContext, args: string[]) {
   try {
-    if (!message.member?.permissions.has(PermissionFlagsBits.ManageChannels)) {
-      await message.reply('この操作には「チャンネルの管理」権限が必要です');
-      return;
-    }
-
     if (args.length < 1) {
-      await message.reply('チャンネル名を指定してください');
+      await context.reply('チャンネル名を指定してください');
       return;
     }
 
     const channelId = args[0];
 
     if (args[1] !== 'confirm') {
-      await message.reply(
+      await context.reply(
         `チャンネルを削除するには \`!deletechannel ${channelId} confirm\` を実行してください`
       );
       return;
     }
 
-    const channel = message.guild?.channels.cache.get(channelId);
-
-    if (!channel) {
-      await message.reply('チャンネルが見つかりません');
+    if (!(await context.operations.deleteChannel(channelId))) {
+      await context.reply('チャンネルが見つかりません');
       return;
     }
 
-    await channel.delete();
-    await message.reply('チャンネルを削除しました');
+    await context.reply('チャンネルを削除しました');
     logger.info(`チャンネル ${channelId} を削除しました。`);
   } catch (error) {
-    message.reply('チャンネル削除時にエラーが発生しました: ' + error);
+    await context.reply('チャンネル削除時にエラーが発生しました: ' + error);
     logger.error('チャンネル削除時にエラーが発生しました: ' + error);
   }
 }

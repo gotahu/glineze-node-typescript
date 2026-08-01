@@ -50,7 +50,7 @@
 - `src/services/discord/commands/`
 - `src/services/discord/messageHandler.ts`
 
-ステータス: `TODO`（P3）
+ステータス: `DONE`（P3）
 
 問題点:
 
@@ -81,7 +81,7 @@
 - `src/services/discord/discordService.ts`
 - `Services` 型を受け取る各処理
 
-ステータス: `TODO`（P2〜P5）
+ステータス: `DONE`（P2〜P5）
 
 問題点:
 
@@ -109,7 +109,7 @@
 - `src/env.ts`
 - `config.getConfig()` / `config.setConfig()` の利用箇所
 
-ステータス: `TODO`（P4）
+ステータス: `DONE`（P4）
 
 問題点:
 
@@ -140,7 +140,7 @@
 - `src/services/discord/discordService.ts`
 - `src/services/cron/CronService.ts`
 
-ステータス: `TODO`（P2）
+ステータス: `DONE`（P2）
 
 問題点:
 
@@ -170,7 +170,7 @@
 - `src/services/discord/functions/CountdownFunctions.ts`
 - Sesame 定期更新処理
 
-ステータス: `TODO`（P1、P6）
+ステータス: `DONE`（P1、P6）
 
 問題点:
 
@@ -200,7 +200,7 @@
 - `src/services/webapi/webServerService.ts`
 - `src/services/webapi/notionAutomationService.ts`
 
-ステータス: `TODO`（P1、P2、P6）
+ステータス: `DONE`（P1、P2、P6）
 
 問題点:
 
@@ -228,7 +228,7 @@
 - `src/utils/notion/`
 - `src/utils/notionUtils.ts`
 
-ステータス: `TODO`（P0、P5）
+ステータス: `DONE`（P0、P5）
 
 問題点:
 
@@ -259,7 +259,7 @@
 - `src/services/notion/kondate.ts`
 - ID、トークン、URL を直接記述している箇所
 
-ステータス: `TODO`（P1）
+ステータス: `DONE`（P1）
 
 問題点:
 
@@ -283,7 +283,7 @@
 
 ### 9. 既知のロジック・保守上の問題
 
-ステータス: `TODO`（P0〜P1）
+ステータス: `DONE`（P0〜P1）
 
 候補:
 
@@ -322,67 +322,67 @@ P0 では原則としてアーキテクチャ変更を行わない。ただし�
 
 ### P1: 低リスクな整理
 
-ステータス: `TODO`
+ステータス: `DONE`
 
-- [ ] 命名、format、import、エラー型を整理する。
-- [ ] 秘密情報を含み得るログを削除する。
-- [ ] ハードコード ID を設定へ移す。
-- [ ] Cron の未 await を修正する。
-- [ ] status page の静的アセットを分離する。
-- [ ] 未使用コードを削除または `WONTFIX` として記録する。
-- [ ] 既知の小規模なロジック不具合をテスト付きで修正する。
+- [x] 命名、format、import、エラー型を整理する。
+- [x] 秘密情報を含み得るログを削除する。
+- [x] ハードコード ID を設定へ移す。
+- [x] Cron の未 await を修正する。
+- [x] status page の静的アセットを分離する。
+- [x] 未使用コードを削除または `WONTFIX` として記録する。
+- [x] 既知の小規模なロジック不具合をテスト付きで修正する。
 
 ### P2: 起動とライフサイクル
 
-ステータス: `TODO`
+ステータス: `DONE`
 
-- [ ] `createApplication()` を導入する。
-- [ ] Web、Discord、Cron の `start()` / `stop()` を明示する。
-- [ ] コンストラクタの外部副作用を除去する。
-- [ ] SIGINT / SIGTERM の graceful shutdown を追加する。
-- [ ] 起動途中の失敗時に rollback する。
+- [x] `createApplication()` を導入する。
+- [x] Web、Discord、Cron の `start()` / `stop()` を明示する。
+- [x] コンストラクタの外部副作用を除去する。
+- [x] SIGINT / SIGTERM の graceful shutdown を追加する。
+- [x] 起動途中の失敗時に rollback する。
 
 ### P3: Discord コマンド境界
 
-ステータス: `TODO`
+ステータス: `DONE`
 
-- [ ] `CommandContext` を導入する。
-- [ ] Message / Slash adapter を実装する。
-- [ ] コマンドを機能単位のモジュールへ分割する。
-- [ ] 権限定義を一元化する。
-- [ ] `createMessageAdapter()` と危険な型アサーションを削除する。
+- [x] `CommandContext` を導入する。
+- [x] Message / Slash adapter を実装する。
+- [x] コマンドを機能単位のモジュールへ分割する。
+- [x] 権限定義を一元化する。
+- [x] `createMessageAdapter()` と危険な型アサーションを削除する。
 
 ### P4: 設定管理
 
-ステータス: `TODO`
+ステータス: `DONE`
 
-- [ ] Config key/value を型付けする。
-- [ ] Config store と Notion repository を分離する。
-- [ ] 複数設定の一括更新を導入する。
-- [ ] 設定エラーを分類する。
-- [ ] グローバル `config` 依存を段階的に除去する。
+- [x] Config key/value を型付けする。
+- [x] Config store と Notion repository を分離する。
+- [x] 複数設定の一括更新を導入する。
+- [x] 設定エラーを分類する。
+- [x] グローバル `config` 依存を段階的に除去する。
 
 ### P5: 機能単位への再配置
 
-ステータス: `TODO`
+ステータス: `DONE`
 
-- [ ] Countdown を移行する。
-- [ ] Practice を移行する。
-- [ ] Collection（集金）を移行する。
-- [ ] Breakout を移行する。
-- [ ] Relay を移行する。
-- [ ] Sesame を移行する。
-- [ ] `Services` を廃止または bootstrap 内へ限定する。
+- [x] Countdown を移行する。
+- [x] Practice を移行する。
+- [x] Collection（集金）を移行する。
+- [x] Breakout を移行する。
+- [x] Relay を移行する。
+- [x] Sesame を移行する。
+- [x] `Services` を廃止または bootstrap 内へ限定する。
 
 ### P6: 運用安定性
 
-ステータス: `TODO`
+ステータス: `DONE`
 
-- [ ] Cron の重複実行防止を追加する。
-- [ ] 外部 API の timeout / retry 方針を統一する。
-- [ ] 構造化 health 状態を導入する。
-- [ ] CI で typecheck / lint / test を必須化する。
-- [ ] 新構成と開発手順を文書化する。
+- [x] Cron の重複実行防止を追加する。
+- [x] 外部 API の timeout / retry 方針を統一する。
+- [x] 構造化 health 状態を導入する。
+- [x] CI で typecheck / lint / test を必須化する。
+- [x] 新構成と開発手順を文書化する。
 
 ## 進捗ログ
 
@@ -429,6 +429,121 @@ P0 では原則としてアーキテクチャ変更を行わない。ただし�
 - P1 以降の既知問題は「P0 既知問題の調査結果と期待仕様」へ引き継いだ。
 - commit / push は行っていない。
 
+### 2026-08-02: P1 着手
+
+- P1「低リスクな整理」を `codex/refactor-p1-low-risk-cleanup` ブランチで開始した。
+- P0 の 37 テストを回帰防止の基準とする。
+- 挙動変更を伴う既知問題は、先に望ましい期待値をテストへ定義してから修正する。
+- P2 以降のライフサイクル・依存構造変更は行わない。
+
+### 2026-08-02: P1 既知不具合の修正
+
+- 望ましい期待値を先にテストへ追加し、修正前に5件の失敗を確認した。
+- Countdown channel が未設定の場合に general channel へ fallback するよう修正した。
+- Countdown と Sesame の Cron callback が非同期処理の完了まで待つよう修正した。
+- Embed の `threadId` が指定された場合に対象 thread へ送信するよう修正した。
+- 場所取りリマインドを施設・日付単位でまとめ、無関係な練習の重複列挙を解消した。
+- Breakout room の作成・削除・メンバー移動と、Relay thread へのメンバー追加で Promise の完了を待つよう修正した。
+
+### 2026-08-02: P1 ログ・設定・未使用コード整理
+
+- Config の値一覧、Discord token の先頭部分、Relay message 本文、Sesame URL / API response のログ出力を除去した。
+- アプリケーションログを Logger へ集約した。Logger から Discord への転送失敗だけは再帰的な `discordLog` 発火を避けるため、意図的に直接 stderr へ出力する。
+- Logger API を実態に合わせて同期メソッドへ変更した。
+- Logger channel ID を `DISCORD_LOGGER_CHANNEL_ID` 環境設定へ移した。既存環境の挙動を維持するため従来値をdefaultとする。
+- リポジトリ内に参照がない `kondate.ts`、`constants.ts`、Discord の未使用型・型拡張、不要な global ProcessEnv 拡張、`updateChannelTopic()` を削除した。
+- `getRelayGuildMember()` を返却内容が明確な `getRelayGuildMemberIds()` へ改名した。
+
+### 2026-08-02: P1 status page 分離
+
+- 773行だった `statusPage.ts` からHTML / CSS / JavaScriptを `assets/status.html` へ移した。
+- `statusPage.ts` は status API の型定義31行だけになった。
+- build 時に Web asset 一式を `dist/services/webapi/assets` へコピーするよう変更した。
+- 開発時とbuild後の両方で `__dirname/assets` を参照するよう配信パスを統一した。
+- `/` のHTMLと `/assets/status-operational.png` の配信テストを追加した。
+
+### 2026-08-02: P1 完了
+
+- `npm run typecheck`: 成功
+- `npm run lint`: 成功（0 errors / 0 warnings）
+- `npm test`: 成功（41 tests / 41 passed / 0 failed）
+- `git diff --check`: 成功
+- P1 の全チェック項目を完了した。
+- P2 以降のライフサイクル・依存構造変更は行っていない。
+- commit / push は行っていない。
+
+### 2026-08-02: P2 着手
+
+- P2「起動とライフサイクル」を開始した。
+- Applicationによる起動順序、逆順停止、起動失敗時rollbackを先に実装する。
+- Web / Cron / Discordのコンストラクタから外部起動を除き、明示的な `start()` / `stop()` に統一する。
+- P2の品質ゲート完了後にP3へ進む。
+
+### 2026-08-02: P2 完了
+
+- `Application` と `createApplication()` を追加し、依存の組み立てをbootstrapへ移した。
+- Discord → Cron → Webの順で起動し、Web → Cron → Discordの逆順で停止する。
+- 起動途中の失敗時に開始済みコンポーネントをrollbackし、停止失敗があっても残りの停止を継続する。
+- Web constructorからlistenを除去し、Cron taskを停止・破棄できるようにした。Discordは`destroy()`を呼ぶ`stop()`を追加した。
+- SIGINT / SIGTERM / unhandledRejection handlerを直接実行時だけ登録し、テストから解除可能にした。
+- `npm run typecheck`: 成功
+- `npm run lint`: 成功（0 errors / 0 warnings）
+- `npm test`: 成功（46 tests / 46 passed / 0 failed）
+- P3「Discord コマンド境界」へ移行する。
+
+### 2026-08-02: P3 完了
+
+- Discord.jsに依存しない `CommandContext`、`CommandOperations`、`CommandPermission` を追加した。
+- Message / Slash adapterがDiscord固有オブジェクトを共通contextへ変換する。
+- Breakout / Delete / Countdown / Reload / Sesame / Version / Profile / Practice / Shukin commandからDiscord `Message`依存を除去した。
+- MessageとSlashの権限判定を共通定義へ集約し、Discord permission bitへの変換をadapterへ限定した。
+- Slash commandを偽の`Message`へ変換していた `createMessageAdapter()` と `as unknown as Message` を削除した。
+- MessageとSlashで同じVersion commandを実行するテスト、Slash BreakoutがMessageなしで動作するテストを追加した。
+- `npm run typecheck`: 成功
+- `npm run lint`: 成功（0 errors / 0 warnings）
+- `npm test`: 成功（48 tests / 48 passed / 0 failed）
+- P4「設定管理」へ移行する。
+
+### 2026-08-02: P4 完了
+
+- 設定キーと値の対応を `ConfigKey` / `ConfigValueMap` として型付けし、通知日は `number[]` として取得するようにした。
+- インメモリ値と検証を `ConfigStore`、Notion の読み書きと property mapping を `NotionConfigRepository` へ分離した。
+- `ConfigurationService.updateMany()` は永続化成功後だけruntime値を反映し、Notionの途中失敗時は更新済みpageをbest-effortでrollbackする。
+- 設定不存在、不正値、永続化障害を個別のエラー型へ分類した。
+- 旧 `getConfig()` / `setConfig()` / 公開Map操作を廃止し、利用側を型付き `get()` / `getOptional()` / `updateMany()` へ移行した。
+- repository境界、型変換、永続化失敗時のruntime不変、Notion部分更新のrollbackをテストした。
+- `npm run typecheck`: 成功
+- `npm run lint`: 成功（0 errors / 0 warnings）
+- `npm test`: 成功（50 tests / 50 passed / 0 failed）
+- P5「機能単位への再配置」へ移行する。
+
+### 2026-08-02: P5 完了
+
+- Countdown / Practice / Collection / Breakout / Relay / Sesame を技術別 `services/` から `features/` 配下へ再配置した。
+- Countdown の通知送信・Bot activity、Practice のrepository・通知送信、Command、Sesame Discord連携に用途別の小さなinterfaceを導入した。
+- 全機能を具象サービスへ結合していた `Services` 型を削除した。具象 `ServiceContainer` の定義と生成はbootstrapに限定し、機能コードはbootstrapへ依存しない。
+- Discord / Notion SDKを扱うコードと、機能ユースケース・commandの配置を明確にした。
+- `npm run typecheck`: 成功
+- `npm run lint`: 成功（0 errors / 0 warnings）
+- `npm test`: 成功（50 tests / 50 passed / 0 failed）
+- `git diff --check`: 成功
+- P6「運用安定性」へ移行する。
+
+### 2026-08-02: P6 完了
+
+- `ScheduledJob` を導入し、同一jobの前回実行中は次回実行をskipする。成功・失敗・所要時間・skip回数を `HealthRegistry` へ記録する。
+- 外部HTTP GETは10秒timeout、最大3attempt、指数backoffへ統一した。Notion SDKは10秒timeoutとSDK標準の対象に対する最大2retryを明示した。
+- retryは冪等な取得処理へ限定し、Discord送信やNotion更新などの書き込みは一律retryしない方針をREADMEへ記録した。
+- `/health` を構造化JSONへ変更し、`/api/status` とともに最終成功、最終失敗、所要時間、失敗内容、skip回数を返すようにした。
+- Pull Requestとmain pushで `typecheck` / `lint` / `test` を実行するGitHub Actions workflowを追加した。
+- feature-first構成、設定境界、起動停止、運用ポリシー、開発手順を `README.md` に記載した。
+- 最終監査で下位サービスに残っていた `process.exit()` を除去し、例外とbootstrapの `process.exitCode` に統一した。
+- `npm run typecheck`: 成功
+- `npm run lint`: 成功（0 errors / 0 warnings）
+- `npm test`: 成功（54 tests / 54 passed / 0 failed）
+- `git diff --check`: 成功
+- 禁止・旧境界検索（`Services`, `getConfig`, `setConfig`, `createMessageAdapter`, `as unknown as Message`, 下位層の `process.exit()`）: 該当なし
+
 ## P0 既知問題の調査結果と期待仕様
 
 | 項目 | 現在の挙動・根拠 | 期待仕様 | 対応 Phase |
@@ -473,6 +588,26 @@ P0 では上記の挙動変更を行わない。P1 でテストの期待値を�
 - 従来の `app.ts` は import だけで全サービスを起動するため、bootstrap の単体テストができなかった。
 - `require.main === module` の guard と初期化関数の注入だけを追加し、通常起動時の初期化順序やサービス構成は変更しない。
 - start / stop の本格的なライフサイクル整理は P2 で実施する。
+
+### ADR-004: 参照のない到達不能コードをP1で削除する
+
+ステータス: 採用
+
+理由:
+
+- `kondate.ts`、`constants.ts`、Discord の未使用型と型拡張は、リポジトリ内に import / 呼び出しがなく、アプリケーションの公開entry pointから到達不能だった。
+- 保持すると新構成へ移行する際の対象範囲とハードコード設定を誤認させるため、P1で削除した。
+- 将来必要になった場合はGit履歴から仕様を確認できる。
+
+### ADR-005: status pageをコンパイル対象から分離する
+
+ステータス: 採用
+
+理由:
+
+- HTML / CSS / JavaScript はTypeScriptの型検査対象ではなく、巨大なtemplate literalとして保持する利点がない。
+- 静的ファイルとして配信し、API snapshot型だけをTypeScriptに残す。
+- asset copyとHTTP配信をテストし、実行環境によるpath差異を防ぐ。
 
 ## ブロッカー・ユーザー判断待ち
 

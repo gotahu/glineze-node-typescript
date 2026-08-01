@@ -14,8 +14,7 @@ export class Logger extends EventEmitter {
   public static getInstance(): Logger {
     if (!Logger.instance) {
       Logger.instance = new Logger({
-        loggerChannelId: '1273731421663395973',
-        lineNotifyToken: env.LINE_NOTIFY_VOID_TOKEN || '',
+        loggerChannelId: env.DISCORD_LOGGER_CHANNEL_ID,
         enableDebugOutput: env.NODE_ENV !== 'production',
       });
     }
@@ -44,7 +43,7 @@ export class Logger extends EventEmitter {
     this.emit('discordLog', logMessage);
   }
 
-  public async info(message: string, metadata?: Record<string, unknown>): Promise<void> {
+  public info(message: string, metadata?: Record<string, unknown>): void {
     const logMessage = this.formatLogMessage(LogLevel.INFO, message, metadata);
     console.log(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 
@@ -53,7 +52,7 @@ export class Logger extends EventEmitter {
     }
   }
 
-  public async debug(message: string, metadata?: Record<string, unknown>): Promise<void> {
+  public debug(message: string, metadata?: Record<string, unknown>): void {
     if (!this.config.enableDebugOutput) return;
 
     const logMessage = this.formatLogMessage(LogLevel.DEBUG, message, metadata);
@@ -61,7 +60,7 @@ export class Logger extends EventEmitter {
     this.emitDiscordLog(logMessage);
   }
 
-  public async error(message: string, metadata?: Record<string, unknown>): Promise<void> {
+  public error(message: string, metadata?: Record<string, unknown>): void {
     const logMessage = this.formatLogMessage(LogLevel.ERROR, message, metadata);
     console.error(`[${logMessage.timestamp.toISOString()}] ${logMessage.message}`);
 

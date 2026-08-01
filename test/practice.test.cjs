@@ -2,11 +2,11 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const { config } = require('../dist/config.js');
-const { PracticeService } = require('../dist/services/notion/practiceService.js');
+const { PracticeService } = require('../dist/features/practice/PracticeService.js');
 const {
   notifyPractice,
   remindPracticesToChannel,
-} = require('../dist/services/notion/practiceFunctions.js');
+} = require('../dist/features/practice/practiceUseCases.js');
 const queryUtils = require('../dist/utils/notion/queryUtils.js');
 const propertyUtils = require('../dist/utils/notion/propertyUtils.js');
 
@@ -24,11 +24,11 @@ function patchNotionUtilities(t, { query, getString, getRelation }) {
   });
 }
 
-test.beforeEach(() => config.notionConfigs.clear());
-test.after(() => config.notionConfigs.clear());
+test.beforeEach(() => config.replaceRuntimeValues(new Map()));
+test.after(() => config.replaceRuntimeValues(new Map()));
 
 test('maps a Notion practice page to the current Practice model', async (t) => {
-  config.notionConfigs.set('practice_databaseid', 'practice-db');
+  config.replaceRuntimeValues(new Map([['practice_databaseid', 'practice-db']]));
   let receivedFilter;
   const page = {
     id: 'practice-1',
@@ -78,7 +78,7 @@ test('maps a Notion practice page to the current Practice model', async (t) => {
 });
 
 test('preserves the original Notion failure as the cause', async (t) => {
-  config.notionConfigs.set('practice_databaseid', 'practice-db');
+  config.replaceRuntimeValues(new Map([['practice_databaseid', 'practice-db']]));
   const notionFailure = new Error('Notion unavailable');
   patchNotionUtilities(t, {
     query: async () => {
@@ -116,8 +116,8 @@ test('sends all practice announcement texts to the requested channel', async () 
   assert.deepEqual(sends, [{ messages: ['連絡A', '連絡B'], channelId: 'practice-channel' }]);
 });
 
-test('characterizes the current reminder behavior for multiple practices', async (t) => {
-  config.notionConfigs.set('facility_databaseid', 'facility-db');
+test('groups reminders by facility and date without repeating unrelated practices', async (t) => {
+  config.replaceRuntimeValues(new Map([['facility_databaseid', 'facility-db']]));
   const facilities = [
     { values: { タイトル: 'ホールA', リマインド: '7' } },
     { values: { タイトル: 'ホールB', リマインド: '14' } },
@@ -142,12 +142,19 @@ test('characterizes the current reminder behavior for multiple practices', async
     place: 'ホールB',
     date: new Date('2026-08-17T00:00:00+09:00'),
   };
+  const practiceA2 = {
+    title: '練習A-2',
+    url: 'https://example.com/a-2',
+    place: 'ホールA',
+    date: new Date('2026-08-10T00:00:00+09:00'),
+  };
   const sends = [];
   const services = {
     notion: {
       client: {},
       practiceService: {
-        retrievePracticesForRelativeDay: async (days) => (days === 7 ? [practiceA] : [practiceB]),
+        retrievePracticesForRelativeDay: async (days) =>
+          days === 7 ? [practiceA, practiceA2] : [practiceB],
       },
     },
     discord: {
@@ -159,6 +166,12 @@ test('characterizes the current reminder behavior for multiple practices', async
 
   assert.equal(sends.length, 2);
   assert.ok(sends.every(({ channelId }) => channelId === 'reminder-channel'));
-  assert.ok(sends.every(({ messages }) => messages[0].includes('[練習A](https://example.com/a)')));
-  assert.ok(sends.every(({ messages }) => messages[0].includes('[練習B](https://example.com/b)')));
+  const [hallA, hallB] = sends.map(({ messages }) => messages[0]);
+  assert.match(hallA, /ホールA/);
+  assert.match(hallA, /\[練習A\]\(https:\/\/example.com\/a\)/);
+  assert.match(hallA, /\[練習A-2\]\(https:\/\/example.com\/a-2\)/);
+  assert.doesNotMatch(hallA, /練習B/);
+  assert.match(hallB, /ホールB/);
+  assert.match(hallB, /\[練習B\]\(https:\/\/example.com\/b\)/);
+  assert.doesNotMatch(hallB, /練習A/);
 });

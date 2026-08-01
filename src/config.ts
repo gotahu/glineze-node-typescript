@@ -1,15 +1,78 @@
 import { Client } from '@notionhq/client';
+import { NotionConfigRepository } from './adapters/notion/NotionConfigRepository';
 import { env } from './env';
+import { ConfigRepository } from './shared/config/ConfigRepository';
+import { ConfigStore } from './shared/config/ConfigStore';
+import { ConfigKey, ConfigValueMap, RawConfigUpdate } from './shared/config/configTypes';
+import { ConfigurationPersistenceError } from './shared/config/errors';
+import { EXTERNAL_API_TIMEOUT_MS } from './shared/resilience/externalApiPolicy';
 import { logger } from './utils/logger';
-import { getStringPropertyValue, queryAllDatabasePages } from './utils/notionUtils';
 
-type ConfigurationPage = {
-  pageId: string;
-  valuePropertyType: 'rich_text' | 'title' | 'url' | 'number' | 'select' | 'multi_select';
-};
+export class ConfigurationService {
+  constructor(
+    private readonly store: ConfigStore,
+    private readonly configRepository: ConfigRepository
+  ) {}
 
-// 設定オブジェクト
-export const config = {
+  public async initialize(): Promise<void> {
+    logger.info('Config の初期化を開始します。');
+    try {
+      const values = await this.configRepository.loadAll();
+      this.store.replace(values);
+      logger.debug(`Loaded ${values.size} configuration keys`);
+      logger.info('Config を Notion から読み込み、初期化が完了しました。');
+    } catch (error) {
+      logger.error(`Config の初期化に失敗しました: ${error}`);
+      throw new ConfigurationPersistenceError('Failed to initialize configuration', {
+        cause: error,
+      });
+    }
+  }
+
+  public get<K extends ConfigKey>(key: K): ConfigValueMap[K] {
+    return this.store.get(key);
+  }
+
+  public getOptional<K extends ConfigKey>(key: K): ConfigValueMap[K] | undefined {
+    return this.store.getOptional(key);
+  }
+
+  public getRaw(key: string): string {
+    return this.store.getRaw(key);
+  }
+
+  public getAll(): ReadonlyMap<string, string> {
+    return this.store.getAllRaw();
+  }
+
+  public async set(key: string, value: string): Promise<void> {
+    await this.updateMany([{ key, value }]);
+  }
+
+  public async updateMany(updates: readonly RawConfigUpdate[]): Promise<void> {
+    this.store.validateUpdates(updates);
+    const previousValues = this.store.getAllRaw();
+    await this.configRepository.updateMany(updates, previousValues);
+    this.store.apply(updates);
+    logger.info(`${updates.length} 件の Config を更新しました。`);
+  }
+
+  public replaceRuntimeValues(values: ReadonlyMap<string, string>): void {
+    this.store.replace(values);
+  }
+}
+
+const configStore = new ConfigStore();
+const configRepository = new NotionConfigRepository(
+  new Client({
+    auth: env.NOTION_TOKEN,
+    timeoutMs: EXTERNAL_API_TIMEOUT_MS,
+    retry: { maxRetries: 2, initialRetryDelayMs: 250, maxRetryDelayMs: 2_000 },
+  }),
+  env.NOTION_CONFIGURATION_DATABASEID
+);
+
+export const config = Object.assign(new ConfigurationService(configStore, configRepository), {
   discord: {
     botToken: env.DISCORD_BOT_TOKEN,
     relayWebhook: env.DISCORD_RELAY_WEBHOOK,
@@ -25,109 +88,4 @@ export const config = {
     path: env.REPOSITORY_PATH,
     branch: env.BRANCH,
   },
-  notionConfigs: new Map<string, string>(),
-  configurationPages: new Map<string, ConfigurationPage>(),
-
-  // 設定の初期化
-  async initializeConfig() {
-    logger.info('Config の初期化を開始します。');
-    try {
-      const client = new Client({ auth: this.notion.token });
-      const databaseId = this.notion.configurationDatabaseId;
-      const pages = await queryAllDatabasePages(client, databaseId);
-
-      this.notionConfigs.clear();
-      this.configurationPages.clear();
-
-      for (const page of pages) {
-        if ('properties' in page) {
-          const keyName = getStringPropertyValue(page, 'key');
-          const keyValue = getStringPropertyValue(page, 'value');
-
-          if (keyName && keyValue) {
-            this.notionConfigs.set(keyName, keyValue);
-            const valueProperty = page.properties.value;
-            if (
-              valueProperty &&
-              ['rich_text', 'title', 'url', 'number', 'select', 'multi_select'].includes(
-                valueProperty.type
-              )
-            ) {
-              this.configurationPages.set(keyName, {
-                pageId: page.id,
-                valuePropertyType: valueProperty.type as ConfigurationPage['valuePropertyType'],
-              });
-            }
-          }
-        }
-      }
-
-      logger.debug(
-        `Loaded configs: ${JSON.stringify(Object.fromEntries(this.notionConfigs), null, 2)}`
-      );
-      logger.info('Config を Notion から読み込み、初期化が完了しました。');
-    } catch (error) {
-      logger.error(`Config の初期化に失敗しました: ${error}`);
-      throw new Error('Failed to initialize configuration', { cause: error });
-    }
-  },
-
-  // 設定値の取得
-  getConfig(key: string): string {
-    const value = this.notionConfigs.get(key);
-    if (!value) {
-      throw new Error(
-        `Config に key: ${key} が存在しません。設定内容とスペルを確認し、必要に応じて Discord で /reload を実行してください。`
-      );
-    }
-    return value;
-  },
-
-  getAllConfigs(): ReadonlyMap<string, string> {
-    return this.notionConfigs;
-  },
-
-  /** Notion の既存設定ページを更新し、実行中の設定にも即時反映する。 */
-  async setConfig(key: string, value: string): Promise<void> {
-    const configurationPage = this.configurationPages.get(key);
-    if (!configurationPage) {
-      throw new Error(`Config に key: ${key} が存在しないか、更新できない形式です。`);
-    }
-
-    const properties = {
-      value: this.createNotionValueProperty(configurationPage.valuePropertyType, value),
-    };
-    const client = new Client({ auth: this.notion.token });
-    await client.pages.update({ page_id: configurationPage.pageId, properties });
-    this.notionConfigs.set(key, value);
-    logger.info(`Config ${key} を Discord コマンドから更新しました。`);
-  },
-
-  createNotionValueProperty(type: ConfigurationPage['valuePropertyType'], value: string) {
-    const text = [{ type: 'text' as const, text: { content: value } }];
-
-    switch (type) {
-      case 'rich_text':
-        return { rich_text: text };
-      case 'title':
-        return { title: text };
-      case 'url':
-        return { url: value };
-      case 'number': {
-        const number = Number(value);
-        if (!Number.isFinite(number)) throw new Error('数値として解釈できない値です。');
-        return { number };
-      }
-      case 'select':
-        return { select: { name: value } };
-      case 'multi_select':
-        return {
-          multi_select: value
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean)
-            .map((name) => ({ name })),
-        };
-    }
-  },
-};
+});

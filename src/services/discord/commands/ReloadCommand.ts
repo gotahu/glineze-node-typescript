@@ -1,6 +1,5 @@
-import { Message } from 'discord.js';
 import { config } from '../../../config';
-import { Services } from '../../../types/types';
+import { CommandContext, CommandDependencies } from '../../../features/commands/CommandContext';
 import { logger } from '../../../utils/logger';
 
 /**
@@ -8,16 +7,20 @@ import { logger } from '../../../utils/logger';
  * @param message
  * @param args
  */
-export async function handleReloadCommand(message: Message, args: string[], services: Services) {
+export async function handleReloadCommand(
+  context: CommandContext,
+  _args: string[],
+  services: CommandDependencies
+) {
   try {
-    await config.initializeConfig();
+    await config.initialize();
 
     // セサミの施錠状態のメッセージも更新する
     services.sesame?.reloadConfiguration();
 
-    message.reply('config をリロードしました');
+    await context.reply('config をリロードしました');
   } catch (error) {
-    message.reply('config リロード時にエラーが発生しました: ' + error);
+    await context.reply('config リロード時にエラーが発生しました: ' + error);
     logger.error('config リロード時にエラーが発生しました: ' + error);
   }
 }

@@ -75,7 +75,7 @@ test('rejects random breakout moves from a member without move-members permissio
   await runCommand(message, '!br random confirm');
 
   assert.deepEqual(moves, []);
-  assert.deepEqual(replies, [{ content: 'この操作には「メンバーを移動」権限が必要です' }]);
+  assert.deepEqual(replies, ['この操作には「メンバーを移動」権限が必要です']);
 });
 
 test('requires exact confirmation from a member authorized to move members', async () => {
@@ -85,9 +85,7 @@ test('requires exact confirmation from a member authorized to move members', asy
     await runCommand(message, command);
 
     assert.deepEqual(moves, []);
-    assert.deepEqual(replies, [
-      { content: 'メンバーを移動するには `!br random confirm` を実行してください' },
-    ]);
+    assert.deepEqual(replies, ['メンバーを移動するには `!br random confirm` を実行してください']);
   }
 });
 

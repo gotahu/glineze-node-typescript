@@ -1,18 +1,21 @@
 import { Message } from 'discord.js';
-import { Services } from '../../../types/types';
+import type { ServiceContainer } from '../../../bootstrap/ServiceContainer';
+import { handleBreakoutRoomCommand } from '../../../features/breakout/BreakoutRoomCommand';
+import { handleCountdownCommand } from '../../../features/countdown/CountdownCommand';
+import { CommandHandler } from '../../../features/commands/CommandContext';
+import {
+  getRequiredCommandPermission,
+  permissionDeniedMessage,
+} from '../../../features/commands/commandPermissions';
 import { logger } from '../../../utils/logger';
-import { handleBreakoutRoomCommand } from './BreakoutRoomCommand';
-import { handleCountdownCommand } from './CountdownCommand';
+import { createMessageCommandContext } from '../commandAdapters';
 import { handleDeleteChannelCommand } from './DeleteChannelCommand';
 import { handleReloadCommand } from './ReloadCommand';
-import { handleSesameStatusCommand } from './SesameCommand';
+import { handleSesameStatusCommand } from '../../../features/sesame/SesameCommand';
 import { handleUpdateBotProfileCommand } from './UpdateBotProfileCommand';
 import { handleVersionCommand } from './VersionCommand';
 
-export const commandMap = new Map<
-  string,
-  (message: Message, args: string[], services: Services) => Promise<void>
->([
+export const commandMap = new Map<string, CommandHandler>([
   ['deletechannel', handleDeleteChannelCommand],
   ['countdown', handleCountdownCommand],
   ['br', handleBreakoutRoomCommand],
@@ -26,7 +29,10 @@ export const commandMap = new Map<
  * メッセージからコマンドを判定し、対応する関数を実行する
  * @returns コマンドが認識されて実行された場合はtrue、そうでない場合はfalse
  */
-export async function handleCommand(message: Message, services: Services): Promise<boolean> {
+export async function handleCommand(
+  message: Message,
+  services: ServiceContainer
+): Promise<boolean> {
   const content = message.content.trim();
 
   // 先頭が '!' でなければコマンドとして扱わない
@@ -39,12 +45,19 @@ export async function handleCommand(message: Message, services: Services): Promi
   // コマンドがMapに登録されていれば実行
   const executor = commandMap.get(command);
   if (executor) {
+    const context = createMessageCommandContext(message);
     try {
-      await executor(message, args, services);
+      const requiredPermission = getRequiredCommandPermission(command, args[0]);
+      if (requiredPermission && !context.hasPermission(requiredPermission)) {
+        await context.reply(permissionDeniedMessage(requiredPermission));
+        return true;
+      }
+
+      await executor(context, args, services);
       return true;
     } catch (error) {
       logger.error(`コマンド実行時にエラーが発生しました: ${error}`);
-      await message.reply('コマンド実行時にエラーが発生しました。管理者に連絡してください。');
+      await context.reply('コマンド実行時にエラーが発生しました。管理者に連絡してください。');
       return true; // エラーでもコマンドは認識されたのでtrueを返す
     }
   }

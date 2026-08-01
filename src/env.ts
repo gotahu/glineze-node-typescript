@@ -13,6 +13,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(10000),
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_RELAY_WEBHOOK: z.string().url(),
+  DISCORD_LOGGER_CHANNEL_ID: z.string().default('1273731421663395973'),
   NOTION_TOKEN: z.string().min(1),
   NOTION_CONFIGURATION_DATABASEID: z.string().min(1),
   SESAME_ENABLED: booleanEnvironmentVariable,
@@ -23,15 +24,13 @@ const envSchema = z.object({
   NOTION_AUTOMATION_ALLOWED_DATABASE_IDS: z.string().min(1).optional(),
   REPOSITORY_PATH: z.string().default(''),
   BRANCH: z.string().default('refs/heads/main'),
-  LINE_NOTIFY_VOID_TOKEN: z.string().optional(),
   DISCORD_VOID_GUILD_ID: z.string().optional(),
 });
 
 const _env = envSchema.safeParse(process.env);
 
 if (!_env.success) {
-  console.error('❌ Invalid environment variables:', _env.error.format());
-  process.exit(1);
+  throw new Error(`Invalid environment variables: ${JSON.stringify(_env.error.format())}`);
 }
 
 export const env = _env.data;

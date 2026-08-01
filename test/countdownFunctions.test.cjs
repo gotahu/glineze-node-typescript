@@ -6,7 +6,7 @@ const {
   calculateDiffBetweenTodayAndEventDate,
   forceSendCountdownMessage,
   sendCountdownMessage,
-} = require('../dist/services/discord/functions/CountdownFunctions.js');
+} = require('../dist/features/countdown/CountdownFunctions.js');
 
 function jstDateString(daysFromToday) {
   return new Date(Date.now() + 9 * 60 * 60 * 1000 + daysFromToday * 24 * 60 * 60 * 1000)
@@ -15,7 +15,6 @@ function jstDateString(daysFromToday) {
 }
 
 function setCountdownConfig(overrides = {}) {
-  config.notionConfigs.clear();
   const values = {
     countdown_date: jstDateString(7),
     countdown_title: 'テスト演奏会',
@@ -25,11 +24,11 @@ function setCountdownConfig(overrides = {}) {
     discord_general_channelid: 'general-channel',
     ...overrides,
   };
-  for (const [key, value] of Object.entries(values)) config.notionConfigs.set(key, value);
+  config.replaceRuntimeValues(new Map(Object.entries(values)));
 }
 
 test.beforeEach(() => setCountdownConfig());
-test.after(() => config.notionConfigs.clear());
+test.after(() => config.replaceRuntimeValues(new Map()));
 
 test('calculates whole calendar days in Asia/Tokyo', (t) => {
   const originalLog = globalThis.console.log;
@@ -39,7 +38,7 @@ test('calculates whole calendar days in Asia/Tokyo', (t) => {
   });
 
   assert.equal(calculateDiffBetweenTodayAndEventDate(), 7);
-  config.notionConfigs.set('countdown_date', jstDateString(0));
+  setCountdownConfig({ countdown_date: jstDateString(0) });
   assert.equal(calculateDiffBetweenTodayAndEventDate(), 0);
 });
 
@@ -65,6 +64,26 @@ test('formats and sends a forced countdown notification', async (t) => {
   ]);
 });
 
+test('falls back to the general channel when no countdown channel is configured', async (t) => {
+  const originalLog = globalThis.console.log;
+  globalThis.console.log = () => {};
+  t.after(() => {
+    globalThis.console.log = originalLog;
+  });
+  const values = new Map(config.getAll());
+  values.delete('countdown_channelid');
+  config.replaceRuntimeValues(values);
+  const sends = [];
+
+  await forceSendCountdownMessage({
+    discord: {
+      sendStringsToChannel: async (messages, channelId) => sends.push({ messages, channelId }),
+    },
+  });
+
+  assert.equal(sends[0].channelId, 'general-channel');
+});
+
 test('only sends scheduled notifications on configured remaining days', async (t) => {
   const originalLog = globalThis.console.log;
   globalThis.console.log = () => {};
@@ -81,7 +100,7 @@ test('only sends scheduled notifications on configured remaining days', async (t
   await sendCountdownMessage(services);
   assert.equal(sends.length, 1);
 
-  config.notionConfigs.set('countdown_notify_days', '30,1,0');
+  setCountdownConfig({ countdown_notify_days: '30,1,0' });
   await sendCountdownMessage(services);
   assert.equal(sends.length, 1);
 });

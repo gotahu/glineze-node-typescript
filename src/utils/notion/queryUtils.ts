@@ -3,12 +3,15 @@ import {
   PageObjectResponse,
   QueryDataSourceParameters,
 } from '@notionhq/client/build/src/api-endpoints';
+import { healthRegistry } from '../../shared/health/HealthRegistry';
 
 export async function queryAllDatabasePages(
   client: Client,
   databaseId: string,
   filter?: QueryDataSourceParameters['filter']
 ): Promise<PageObjectResponse[]> {
+  const startedAt = Date.now();
+  healthRegistry.started('integration:notion', new Date(startedAt));
   try {
     const database = await client.databases.retrieve({ database_id: databaseId });
 
@@ -37,8 +40,10 @@ export async function queryAllDatabasePages(
       startCursor = response.next_cursor ?? undefined;
     }
 
+    healthRegistry.succeeded('integration:notion', Date.now() - startedAt);
     return allResults;
   } catch (error) {
+    healthRegistry.failed('integration:notion', error, Date.now() - startedAt);
     if (error instanceof APIResponseError) {
       if (error.status === 404) {
         throw new Error(
