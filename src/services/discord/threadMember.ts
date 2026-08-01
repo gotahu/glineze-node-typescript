@@ -1,6 +1,5 @@
 import {
   AnyThreadChannel,
-  Collection,
   Message,
   MessageReaction,
   PartialThreadMember,
@@ -85,10 +84,13 @@ async function removeThreadMembers(
     if (!member.partial) {
       try {
         await thread.members.remove(member.id);
-        logger.info(`メンバー ${member.user?.displayName || 'unknown'} をスレッドから削除しました。`, {
-          debug: true,
-        });
-      } catch (error) {
+        logger.info(
+          `メンバー ${member.user?.displayName || 'unknown'} をスレッドから削除しました。`,
+          {
+            debug: true,
+          }
+        );
+      } catch {
         logger.error(`メンバー ${member.user?.displayName || 'unknown'} の削除に失敗しました。`);
       }
     }

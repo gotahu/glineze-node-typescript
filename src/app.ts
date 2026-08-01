@@ -9,17 +9,17 @@ import { Services } from './types/types';
 import { logger } from './utils/logger';
 
 // メイン処理
-const main = async () => {
+export const main = async (initialize: () => Promise<void> = initializeServices) => {
   logger.info('glineze アプリケーションを起動します');
 
   // サービスの初期化
-  await initializeServices();
+  await initialize();
 };
 
 // 主要なサービスを束ねる変数
 let services: Services;
 
-const initializeServices = async () => {
+export const initializeServices = async () => {
   try {
     // config の初期化
     await config.initializeConfig();
@@ -79,6 +79,8 @@ process.on('unhandledRejection', (reason, promise) => {
   logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
 });
 
-main().then(() => {
-  logger.info('glineze アプリケーションが起動しました');
-});
+if (require.main === module) {
+  main().then(() => {
+    logger.info('glineze アプリケーションが起動しました');
+  });
+}

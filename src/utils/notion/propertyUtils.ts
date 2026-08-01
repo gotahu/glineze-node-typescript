@@ -46,7 +46,9 @@ export function getStringPropertyValue(page: PageObjectResponse, key: string): s
     throw new NotFoundPropertyError(`プロパティ ${key} が見つかりません`);
   }
 
-  logger.info(`プロパティ ${key} は見つかりましたが、その値が存在しないか空になっています`, { debug: true });
+  logger.info(`プロパティ ${key} は見つかりましたが、その値が存在しないか空になっています`, {
+    debug: true,
+  });
   return undefined;
 }
 
@@ -143,7 +145,9 @@ export async function getRelationPropertyValue(
     const relations: PageObjectResponse[] = [];
     try {
       for (const relation of property.relation) {
-        const response = (await client.pages.retrieve({ page_id: relation.id })) as PageObjectResponse;
+        const response = (await client.pages.retrieve({
+          page_id: relation.id,
+        })) as PageObjectResponse;
         relations.push(response);
       }
     } catch (error) {
@@ -166,7 +170,9 @@ export function clearStatusPropertyCache(databaseId?: string, propertyKey?: stri
         statusCache.databaseStatusOptions.delete(key);
       }
     }
-    logger.info(`データベース ${databaseId} のステータスプロパティキャッシュをクリアしました`, { debug: true });
+    logger.info(`データベース ${databaseId} のステータスプロパティキャッシュをクリアしました`, {
+      debug: true,
+    });
     return;
   }
   const cacheKey = `${databaseId}_${propertyKey}`;

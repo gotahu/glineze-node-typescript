@@ -135,7 +135,9 @@ export class SesameService {
     }
   }
 
-  private isSesameAPIResponse(data: any): data is SesameAPIResponse {
-    return Array.isArray(data.histories) && typeof data.cursor === 'number';
+  private isSesameAPIResponse(data: unknown): data is SesameAPIResponse {
+    if (typeof data !== 'object' || data === null) return false;
+    const candidate = data as Record<string, unknown>;
+    return Array.isArray(candidate.histories) && typeof candidate.cursor === 'number';
   }
 }

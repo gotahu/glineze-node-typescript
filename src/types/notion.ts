@@ -44,19 +44,20 @@ export interface NotionAutomationWebhookEvent {
   data: PageObjectResponse;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function isNotionAutomationWebhookEvent(obj: any): obj is NotionAutomationWebhookEvent {
+export function isNotionAutomationWebhookEvent(obj: unknown): obj is NotionAutomationWebhookEvent {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const candidate = obj as Record<string, unknown>;
+  const source = candidate.source;
+  if (typeof source !== 'object' || source === null) return false;
+  const sourceRecord = source as Record<string, unknown>;
+
   return (
-    obj &&
-    typeof obj === 'object' &&
-    obj.source &&
-    typeof obj.source === 'object' &&
-    typeof obj.source.type === 'string' &&
-    typeof obj.source.automation_id === 'string' &&
-    typeof obj.source.action_id === 'string' &&
-    typeof obj.source.event_id === 'string' &&
-    typeof obj.source.attempt === 'number' &&
-    obj.data &&
-    typeof obj.data === 'object'
+    typeof sourceRecord.type === 'string' &&
+    typeof sourceRecord.automation_id === 'string' &&
+    typeof sourceRecord.action_id === 'string' &&
+    typeof sourceRecord.event_id === 'string' &&
+    typeof sourceRecord.attempt === 'number' &&
+    typeof candidate.data === 'object' &&
+    candidate.data !== null
   );
 }
