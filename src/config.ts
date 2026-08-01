@@ -68,7 +68,7 @@ export const config = {
       logger.info('Config を Notion から読み込み、初期化が完了しました。');
     } catch (error) {
       logger.error(`Config の初期化に失敗しました: ${error}`);
-      throw new Error('Failed to initialize configuration');
+      throw new Error('Failed to initialize configuration', { cause: error });
     }
   },
 

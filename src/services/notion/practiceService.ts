@@ -66,7 +66,7 @@ export class PracticeService {
       return practices;
     } catch (error) {
       logger.error(`Failed to retrieve practices: ${error}`);
-      throw new Error('Failed to retrieve practices');
+      throw new Error('Failed to retrieve practices', { cause: error });
     }
   }
 }

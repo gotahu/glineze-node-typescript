@@ -61,11 +61,11 @@ export class ShukinService {
 
       logger.info(`Successfully completed retrieveShukinStatus for member: ${member.name}`);
       return { status: 'success', message: replyMessage };
-    } catch (error: any) {
-      logger.error(
-        `Failed to retrieve shukin status for member ${member.name}: ${error.stack || error}`
-      );
-      return { status: 'error', message: error.message };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = error instanceof Error ? error.stack : errorMessage;
+      logger.error(`Failed to retrieve shukin status for member ${member.name}: ${errorDetails}`);
+      return { status: 'error', message: errorMessage };
     }
   }
 

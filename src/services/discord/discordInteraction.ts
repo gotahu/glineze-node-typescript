@@ -16,7 +16,7 @@ export async function handleReactionAdd(
   user: User | PartialUser,
   services: Services
 ) {
-  const { notion, discord } = services;
+  const { discord } = services;
   if (user.bot) return;
 
   // React count and emoji usage tracking
@@ -54,7 +54,8 @@ export async function handleReactionAdd(
       const channelId = reaction.message.channelId;
       // チャンネルIDからチャンネルを取得
       const channel = await reaction.client.channels.fetch(channelId);
-      if (!channel || !channel.isTextBased()) throw new Error('This channel is not a text channel.');
+      if (!channel || !channel.isTextBased())
+        throw new Error('This channel is not a text channel.');
 
       // メッセージIDからメッセージを取得
       const targetMessage = await channel.messages.fetch(reactedMessageId);

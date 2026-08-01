@@ -60,7 +60,9 @@ export class MessageHandler {
     if (message.content.startsWith('!')) {
       logger.info(`DM command handling started: message=${message.id}`);
       const commandRecognized = await handleCommand(message, this.services);
-      logger.info(`DM command handling finished: message=${message.id}, recognized=${commandRecognized}`);
+      logger.info(
+        `DM command handling finished: message=${message.id}, recognized=${commandRecognized}`
+      );
       // コマンドが認識されなかった場合は、replyShukinStatusを呼び出す
       if (!commandRecognized) {
         await replyShukinStatus(notion, message);
@@ -124,7 +126,10 @@ export class MessageHandler {
    * @param oldMessage
    * @param newMessage
    */
-  public async handleMessageUpdate(oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage): Promise<void> {
+  public async handleMessageUpdate(
+    oldMessage: Message | PartialMessage,
+    newMessage: Message | PartialMessage
+  ): Promise<void> {
     if (newMessage.guild?.id === env.DISCORD_VOID_GUILD_ID) return;
 
     if (newMessage.channel.type === ChannelType.GuildText) {

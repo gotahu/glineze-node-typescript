@@ -1,5 +1,8 @@
 import { APIResponseError, Client } from '@notionhq/client';
-import { PageObjectResponse, QueryDataSourceParameters } from '@notionhq/client/build/src/api-endpoints';
+import {
+  PageObjectResponse,
+  QueryDataSourceParameters,
+} from '@notionhq/client/build/src/api-endpoints';
 
 export async function queryAllDatabasePages(
   client: Client,
@@ -9,11 +12,11 @@ export async function queryAllDatabasePages(
   try {
     const database = await client.databases.retrieve({ database_id: databaseId });
 
-    if (!('data_sources' in database) || (database.data_sources as any[]).length === 0) {
+    if (!('data_sources' in database) || database.data_sources.length === 0) {
       throw new Error(`データベース ${databaseId} にデータソースが見つかりません。`);
     }
 
-    const dataSourceId = (database.data_sources as any[])[0].id;
+    const dataSourceId = database.data_sources[0].id;
 
     let hasMore = true;
     let startCursor = undefined;
@@ -39,7 +42,8 @@ export async function queryAllDatabasePages(
     if (error instanceof APIResponseError) {
       if (error.status === 404) {
         throw new Error(
-          `Notion データベースが見つかりません: ${databaseId}\nデータベースが存在しないか、BOT にデータベースを読み書きする権限が与えられていない可能性があります。\nhttps://www.notion.so/chorglanze/1b21ea2409888007977ad23654285ece?pvs=4 をご覧ください。`
+          `Notion データベースが見つかりません: ${databaseId}\nデータベースが存在しないか、BOT にデータベースを読み書きする権限が与えられていない可能性があります。\nhttps://www.notion.so/chorglanze/1b21ea2409888007977ad23654285ece?pvs=4 をご覧ください。`,
+          { cause: error }
         );
       }
     }
