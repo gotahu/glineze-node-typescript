@@ -22,6 +22,12 @@ export class SesameService {
   constructor() {
     logger.info('SesameService の初期化を開始します。');
 
+    this.reloadConfiguration();
+
+    logger.info('SesameService の初期化が終了しました。');
+  }
+
+  public reloadConfiguration() {
     this.sesameApiUrl = config.getConfig('sesame_app_api_url');
     this.sesameApiToken = config.getConfig('sesame_app_api_key');
     this.sesameDeviceUUID = config.getConfig('sesame_device_uuid');
@@ -37,8 +43,6 @@ export class SesameService {
     }
 
     this.loadSesameLockStatusMessage();
-
-    logger.info('SesameService の初期化が終了しました。');
   }
 
   public getSesameLockStatusMessage(status: SesameLockStatus): string {

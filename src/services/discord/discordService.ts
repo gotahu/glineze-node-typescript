@@ -9,6 +9,7 @@ import { updateBotProfile } from './functions/CountdownFunctions';
 import { MessageHandler } from './messageHandler';
 import { SesameDiscordService } from './sesameDiscordService';
 import { handleThreadMembersUpdate } from './threadMember';
+import { handleConfigAutocomplete, handleSlashCommand, slashCommandData } from './slashCommands';
 
 interface MessageContent {
   content: string | EmbedBuilder[];
@@ -106,6 +107,13 @@ export class DiscordService {
         );
       })
       .on(Events.MessageCreate, this.messageHandler.handleMessageCreate.bind(this.messageHandler))
+      .on(Events.InteractionCreate, async (interaction) => {
+        if (interaction.isAutocomplete()) {
+          if (interaction.commandName === 'config') await handleConfigAutocomplete(interaction);
+          return;
+        }
+        if (interaction.isChatInputCommand()) await handleSlashCommand(interaction, this.services);
+      })
       .on(Events.MessageReactionAdd, (reaction, user) =>
         handleReactionAdd(reaction, user, this.services)
       )
@@ -150,9 +158,15 @@ export class DiscordService {
     });
   }
 
-  private handleReady() {
+  private async handleReady() {
     if (this.client.user) {
       logger.info(`Discord bot が ${this.client.user.tag} として起動しました`);
+      try {
+        await this.client.application?.commands.set(slashCommandData);
+        logger.info(`${slashCommandData.length} 件の Discord コマンドを登録しました`);
+      } catch (error) {
+        logger.error(`Discord コマンドの登録に失敗しました: ${error}`);
+      }
       updateBotProfile(this);
     } else {
       logger.error('Discord bot を起動できませんでした');
