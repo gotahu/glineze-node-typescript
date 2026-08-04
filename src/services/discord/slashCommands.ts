@@ -10,7 +10,7 @@ import {
 import { config } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { remindPracticesToChannel } from '../notion/practiceFunctions';
+import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
 import { handleBreakoutRoomCommand } from './commands/BreakoutRoomCommand';
 import { handleCountdownCommand } from './commands/CountdownCommand';
 import { handleDeleteChannelCommand } from './commands/DeleteChannelCommand';
@@ -216,6 +216,10 @@ const slashCommands = [
     .setName('update-bot-profile')
     .setDescription('カウントダウンに合わせて Bot のプロフィールを更新します')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName('practice-notify')
+    .setDescription('翌日の練習連絡をこのチャンネルへ送信します')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   new SlashCommandBuilder()
     .setName('practice-remind')
     .setDescription('このチャンネルへ場所取りのリマインドを送信します')
@@ -480,6 +484,19 @@ export async function handleSlashCommand(
         await remindPracticesToChannel(services, interaction.channelId);
         await interaction.editReply('場所取りのリマインドを送信しました。');
         return;
+      case 'practice-notify': {
+        if (!interaction.channelId) throw new Error('送信先チャンネルを取得できませんでした。');
+        const sentCount = await notifyPractice(services, {
+          channelId: interaction.channelId,
+          daysFromToday: 1,
+        });
+        await interaction.editReply(
+          sentCount === 0
+            ? '翌日の練習はありません。'
+            : `翌日の練習連絡を ${sentCount} 件送信しました。`
+        );
+        return;
+      }
       default:
         await interaction.editReply('未対応のコマンドです。');
         return;
@@ -509,6 +526,7 @@ function getRequiredPermission(interaction: ChatInputCommandInteraction): bigint
     case 'update-bot-profile':
       return PermissionFlagsBits.ManageGuild;
     case 'practice-remind':
+    case 'practice-notify':
       return PermissionFlagsBits.ManageMessages;
     case 'breakout': {
       const subcommand = interaction.options.getSubcommand();

@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  handleSlashCommand,
   isValidCountdownDate,
   normalizeNotifyDays,
   slashCommandData,
@@ -22,6 +23,7 @@ test('registers documented Discord application commands', () => {
       'sesame',
       'version',
       'update-bot-profile',
+      'practice-notify',
       'practice-remind',
     ]
   );
@@ -70,4 +72,38 @@ test('normalizes countdown notification days', () => {
   assert.equal(normalizeNotifyDays('0, 7,30,7,1'), '30,7,1,0');
   assert.equal(normalizeNotifyDays('-1,7'), undefined);
   assert.equal(normalizeNotifyDays('tomorrow'), undefined);
+});
+
+test('sends tomorrow practice notifications to the current channel', async () => {
+  const sends = [];
+  const replies = [];
+  const interaction = {
+    commandName: 'practice-notify',
+    channelId: 'current-channel',
+    options: { getSubcommand: () => null },
+    deferReply: async () => {},
+    inGuild: () => true,
+    memberPermissions: { has: () => true },
+    editReply: async (content) => replies.push(content),
+  };
+  const services = {
+    notion: {
+      practiceService: {
+        retrievePracticesForRelativeDay: async (days) => {
+          assert.equal(days, 1);
+          return [{ announceText: '翌日の練習連絡' }];
+        },
+      },
+    },
+    discord: {
+      sendStringsToChannel: async (messages, channelId) => sends.push({ messages, channelId }),
+    },
+  };
+
+  await handleSlashCommand(interaction, services);
+
+  assert.deepEqual(sends, [
+    { messages: ['翌日の練習連絡'], channelId: 'current-channel' },
+  ]);
+  assert.deepEqual(replies, ['翌日の練習連絡を 1 件送信しました。']);
 });

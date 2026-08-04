@@ -8,7 +8,7 @@ import { NotionService } from './notionService';
 export async function notifyPractice(
   service: Services,
   settings: { channelId: string; daysFromToday: number }
-) {
+): Promise<number> {
   try {
     const { notion, discord } = service;
     const { channelId, daysFromToday } = settings;
@@ -17,7 +17,7 @@ export async function notifyPractice(
 
     if (practices.length === 0) {
       logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`);
-      return;
+      return 0;
     }
 
     logger.info(`練習連絡を ${channelId} に送信します`, { debug: true });
@@ -29,8 +29,10 @@ export async function notifyPractice(
     );
 
     logger.info(`練習連絡の送信が正常に完了しました`, { debug: true });
+    return practices.length;
   } catch (err) {
     logger.error('Error in announcePractice: ' + err);
+    throw err;
   }
 }
 
