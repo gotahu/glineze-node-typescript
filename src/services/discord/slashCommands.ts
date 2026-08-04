@@ -218,6 +218,28 @@ const slashCommands = [
     .setDescription('カウントダウンに合わせて Bot のプロフィールを更新します')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName('practice-template')
+    .setDescription('練習連絡テンプレートの確認・再読み込みを行います（管理者専用）')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addSubcommand((command) =>
+      command
+        .setName('preview')
+        .setDescription('指定日数後の練習データでテンプレートをプレビューします')
+        .addIntegerOption((option) =>
+          option
+            .setName('days')
+            .setDescription('今日からの日数（省略時は翌日）')
+            .setMinValue(0)
+            .setMaxValue(30)
+        )
+    )
+    .addSubcommand((command) =>
+      command.setName('reload').setDescription('Notionから検証済みテンプレートを再読み込みします')
+    )
+    .addSubcommand((command) =>
+      command.setName('status').setDescription('現在使用中のテンプレート取得元を表示します')
+    ),
+  new SlashCommandBuilder()
     .setName('practice-notify')
     .setDescription('翌日の練習連絡を送信します')
     .addSubcommand((command) =>
@@ -401,6 +423,43 @@ async function handleRemindersSetup(interaction: ChatInputCommandInteraction) {
   );
 }
 
+async function handlePracticeTemplateCommand(
+  interaction: ChatInputCommandInteraction,
+  services: Services
+) {
+  const subcommand = interaction.options.getSubcommand();
+  const templateService = services.notion.practiceTemplateService;
+
+  if (subcommand === 'reload') {
+    const result = await templateService.reload();
+    await interaction.editReply(result.message);
+    return;
+  }
+
+  if (subcommand === 'status') {
+    await interaction.editReply(templateService.getStatus().message);
+    return;
+  }
+
+  const daysFromToday = interaction.options.getInteger('days') ?? 1;
+  const practices =
+    await services.notion.practiceService.retrievePracticesForRelativeDay(daysFromToday);
+  if (practices.length === 0) {
+    await interaction.editReply(`${daysFromToday} 日後の練習はありません。`);
+    return;
+  }
+
+  const preview = practices
+    .map(
+      (practice, index) =>
+        `【プレビュー ${index + 1}/${practices.length}】\n${practice.announceText}`
+    )
+    .join('\n\n');
+  const chunks = splitMessage(preview);
+  await interaction.editReply(chunks.shift()!);
+  for (const chunk of chunks) await interaction.followUp({ content: chunk, ephemeral: true });
+}
+
 function createMessageAdapter(interaction: ChatInputCommandInteraction, content: string) {
   let responseSent = false;
   return {
@@ -424,9 +483,14 @@ export async function handleSlashCommand(
 ): Promise<void> {
   const requestedSubcommand = interaction.options.getSubcommand(false);
   const ephemeral =
-    ['config', 'reminders', 'reload', 'delete-channel', 'update-bot-profile'].includes(
-      interaction.commandName
-    ) ||
+    [
+      'config',
+      'reminders',
+      'reload',
+      'delete-channel',
+      'update-bot-profile',
+      'practice-template',
+    ].includes(interaction.commandName) ||
     (interaction.commandName === 'countdown' && requestedSubcommand === 'setup');
   await interaction.deferReply(ephemeral ? { flags: MessageFlags.Ephemeral } : {});
 
@@ -448,6 +512,10 @@ export async function handleSlashCommand(
     }
     if (interaction.commandName === 'reminders') {
       await handleRemindersSetup(interaction);
+      return;
+    }
+    if (interaction.commandName === 'practice-template') {
+      await handlePracticeTemplateCommand(interaction, services);
       return;
     }
 
@@ -527,7 +595,7 @@ export async function handleSlashCommand(
           await interaction.editReply('翌日の練習はありません。');
         } else if (result.sentCount === 0) {
           await interaction.editReply(
-            `翌日の練習は ${result.practiceCount} 件ありますが、Notion の「練習連絡」が空のため送信しませんでした。`
+            `翌日の練習は ${result.practiceCount} 件ありますが、生成された練習連絡が空のため送信しませんでした。`
           );
         } else {
           const skippedCount = result.practiceCount - result.sentCount;
@@ -557,6 +625,7 @@ function getRequiredPermission(interaction: ChatInputCommandInteraction): bigint
     case 'config':
     case 'reminders':
     case 'reload':
+    case 'practice-template':
       return PermissionFlagsBits.Administrator;
     case 'countdown':
       return interaction.options.getSubcommand() === 'setup'

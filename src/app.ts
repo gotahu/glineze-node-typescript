@@ -30,6 +30,7 @@ export const initializeServices = async () => {
 
     // NotionService
     const notionService = new NotionService();
+    await notionService.practiceTemplateService.reload();
 
     // SesameService (disabled by default)
     const sesameService = env.SESAME_ENABLED ? new SesameService() : undefined;

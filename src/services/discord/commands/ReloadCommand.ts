@@ -11,11 +11,12 @@ import { logger } from '../../../utils/logger';
 export async function handleReloadCommand(message: Message, args: string[], services: Services) {
   try {
     await config.initializeConfig();
+    const templateResult = await services.notion.practiceTemplateService.reload();
 
     // セサミの施錠状態のメッセージも更新する
     services.sesame?.reloadConfiguration();
 
-    message.reply('config をリロードしました');
+    message.reply(`config をリロードしました\n${templateResult.message}`);
   } catch (error) {
     message.reply('config リロード時にエラーが発生しました: ' + error);
     logger.error('config リロード時にエラーが発生しました: ' + error);

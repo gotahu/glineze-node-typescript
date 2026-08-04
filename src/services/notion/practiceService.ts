@@ -10,11 +10,15 @@ import {
   getStringPropertyValue,
   queryAllDatabasePages,
 } from '../../utils/notionUtils';
+import { PracticeTemplateService } from './practiceTemplateService';
 
 export class PracticeService {
   private client: Client;
 
-  constructor(client: Client) {
+  constructor(
+    client: Client,
+    private readonly templateService = new PracticeTemplateService(client)
+  ) {
     this.client = client;
   }
 
@@ -52,10 +56,9 @@ export class PracticeService {
           practice.place = getStringPropertyValue(placeRelations[0], 'タイトル') || '';
         }
 
-        const announceText = getStringPropertyValue(page, '練習連絡');
-        if (announceText) {
-          practice.announceText = replaceEnglishDayWithJapanese(announceText);
-        }
+        practice.announceText = replaceEnglishDayWithJapanese(
+          await this.templateService.renderPractice(page, targetDate, { placeRelations })
+        );
 
         practices.push(practice);
       }

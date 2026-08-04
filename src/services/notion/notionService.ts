@@ -1,6 +1,7 @@
 import { Client } from '@notionhq/client';
 import { MemberService } from './memberService';
 import { PracticeService } from './practiceService';
+import { PracticeTemplateService } from './practiceTemplateService';
 import { ShukinService } from './shukinService';
 import { env } from '../../env';
 import { logger } from '../../utils/logger';
@@ -9,6 +10,7 @@ export class NotionService {
   public client: Client;
   public memberService: MemberService;
   public practiceService: PracticeService;
+  public practiceTemplateService: PracticeTemplateService;
   public shukinService: ShukinService;
 
   constructor() {
@@ -23,7 +25,8 @@ export class NotionService {
 
     this.client = new Client({ auth: NOTION_TOKEN });
     this.memberService = new MemberService(this.client);
-    this.practiceService = new PracticeService(this.client);
+    this.practiceTemplateService = new PracticeTemplateService(this.client);
+    this.practiceService = new PracticeService(this.client, this.practiceTemplateService);
     this.shukinService = new ShukinService(this.client);
 
     logger.info('NotionService の初期化が終了しました。');

@@ -24,6 +24,7 @@ test('registers documented Discord application commands', () => {
       'sesame',
       'version',
       'update-bot-profile',
+      'practice-template',
       'practice-notify',
       'practice-remind',
     ]
@@ -69,6 +70,11 @@ test('registers documented Discord application commands', () => {
   assert.deepEqual(
     commands.get('practice-notify').options[2].options.map((option) => option.name),
     ['destination']
+  );
+
+  assert.deepEqual(
+    commands.get('practice-template').options.map((option) => option.name),
+    ['preview', 'reload', 'status']
   );
 });
 
@@ -166,6 +172,40 @@ test('reports a missing Notion announcement without sending a failure-looking me
 
   assert.deepEqual(sends, []);
   assert.deepEqual(replies, [
-    '翌日の練習は 1 件ありますが、Notion の「練習連絡」が空のため送信しませんでした。',
+    '翌日の練習は 1 件ありますが、生成された練習連絡が空のため送信しませんでした。',
   ]);
+});
+
+test('previews the cached practice template without sending it to a channel', async () => {
+  const replies = [];
+  const interaction = {
+    commandName: 'practice-template',
+    options: {
+      getSubcommand: () => 'preview',
+      getInteger: () => 2,
+    },
+    deferReply: async () => {},
+    inGuild: () => true,
+    memberPermissions: { has: () => true },
+    editReply: async (content) => replies.push(content),
+    followUp: async (content) => replies.push(content.content),
+  };
+  const services = {
+    notion: {
+      practiceTemplateService: {},
+      practiceService: {
+        retrievePracticesForRelativeDay: async (days) => {
+          assert.equal(days, 2);
+          return [{ announceText: '生成された練習連絡' }];
+        },
+      },
+    },
+    discord: {
+      sendStringsToChannel: async () => assert.fail('preview must not send to a channel'),
+    },
+  };
+
+  await handleSlashCommand(interaction, services);
+
+  assert.deepEqual(replies, ['【プレビュー 1/1】\n生成された練習連絡']);
 });

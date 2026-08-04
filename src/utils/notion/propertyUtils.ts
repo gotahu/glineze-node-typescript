@@ -19,15 +19,15 @@ export function getStringPropertyValue(page: PageObjectResponse, key: string): s
 
   if (property) {
     if (property.type === 'title' && property.title.length > 0) {
-      return property.title[0].plain_text;
+      return property.title.map((item) => item.plain_text).join('');
     }
     if (property.type === 'rich_text' && property.rich_text.length > 0) {
-      return property.rich_text[0].plain_text;
+      return property.rich_text.map((item) => item.plain_text).join('');
     }
     if (property.type === 'url') {
       return property.url ?? undefined;
     }
-    if (property.type === 'number' && property.number) {
+    if (property.type === 'number' && property.number !== null) {
       return property.number.toString();
     }
     if (property.type === 'select' && property.select) {

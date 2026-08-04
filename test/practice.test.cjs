@@ -55,7 +55,12 @@ test('maps a Notion practice page to the current Practice model', async (t) => {
     },
   });
 
-  const service = new PracticeService({});
+  const service = new PracticeService(
+    {},
+    {
+      renderPractice: async (target) => target.values['練習連絡'],
+    }
+  );
   const practices = await service.retrievePracticesForRelativeDay(1);
 
   assert.match(receivedFilter.date.equals, /^\d{4}-\d{2}-\d{2}$/);
@@ -88,7 +93,7 @@ test('preserves the original Notion failure as the cause', async (t) => {
     getRelation: async () => [],
   });
 
-  await assert.rejects(new PracticeService({}).retrievePracticesForRelativeDay(1), (error) => {
+  await assert.rejects(new PracticeService({}, {}).retrievePracticesForRelativeDay(1), (error) => {
     assert.equal(error.message, 'Failed to retrieve practices');
     assert.equal(error.cause, notionFailure);
     return true;
