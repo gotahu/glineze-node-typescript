@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
+const { config } = require('../dist/config.js');
 const {
   handleSlashCommand,
   isValidCountdownDate,
@@ -60,6 +61,15 @@ test('registers documented Discord application commands', () => {
     reminderOptions.map((option) => option.name),
     ['practice-channel', 'place-channel']
   );
+
+  const practiceNotifySubcommands = commands
+    .get('practice-notify')
+    .options.map((option) => option.name);
+  assert.deepEqual(practiceNotifySubcommands, ['current', 'configured', 'channel']);
+  assert.deepEqual(
+    commands.get('practice-notify').options[2].options.map((option) => option.name),
+    ['destination']
+  );
 });
 
 test('validates calendar dates strictly', () => {
@@ -74,19 +84,27 @@ test('normalizes countdown notification days', () => {
   assert.equal(normalizeNotifyDays('tomorrow'), undefined);
 });
 
-test('sends tomorrow practice notifications to the current channel', async () => {
-  const sends = [];
+function createPracticeNotifyInteraction(subcommand, overrides = {}) {
   const replies = [];
-  const interaction = {
-    commandName: 'practice-notify',
-    channelId: 'current-channel',
-    options: { getSubcommand: () => null },
-    deferReply: async () => {},
-    inGuild: () => true,
-    memberPermissions: { has: () => true },
-    editReply: async (content) => replies.push(content),
+  return {
+    replies,
+    interaction: {
+      commandName: 'practice-notify',
+      channelId: 'current-channel',
+      options: {
+        getSubcommand: () => subcommand,
+        getChannel: () => overrides.destination,
+      },
+      deferReply: async () => {},
+      inGuild: () => true,
+      memberPermissions: { has: () => true },
+      editReply: async (content) => replies.push(content),
+    },
   };
-  const services = {
+}
+
+function createPracticeNotifyServices(sends) {
+  return {
     notion: {
       practiceService: {
         retrievePracticesForRelativeDay: async (days) => {
@@ -99,11 +117,40 @@ test('sends tomorrow practice notifications to the current channel', async () =>
       sendStringsToChannel: async (messages, channelId) => sends.push({ messages, channelId }),
     },
   };
+}
 
-  await handleSlashCommand(interaction, services);
+test('sends tomorrow practice notifications to the current channel', async () => {
+  const sends = [];
+  const { interaction, replies } = createPracticeNotifyInteraction('current');
 
-  assert.deepEqual(sends, [
-    { messages: ['翌日の練習連絡'], channelId: 'current-channel' },
-  ]);
-  assert.deepEqual(replies, ['翌日の練習連絡を 1 件送信しました。']);
+  await handleSlashCommand(interaction, createPracticeNotifyServices(sends));
+
+  assert.deepEqual(sends, [{ messages: ['翌日の練習連絡'], channelId: 'current-channel' }]);
+  assert.deepEqual(replies, ['翌日の練習連絡を <#current-channel> へ 1 件送信しました。']);
+});
+
+test('sends tomorrow practice notifications to the configured channel', async (t) => {
+  const originalChannelId = config.notionConfigs.get('practice_remind_threadid');
+  config.notionConfigs.set('practice_remind_threadid', 'configured-channel');
+  t.after(() => {
+    if (originalChannelId === undefined) config.notionConfigs.delete('practice_remind_threadid');
+    else config.notionConfigs.set('practice_remind_threadid', originalChannelId);
+  });
+  const sends = [];
+  const { interaction } = createPracticeNotifyInteraction('configured');
+
+  await handleSlashCommand(interaction, createPracticeNotifyServices(sends));
+
+  assert.equal(sends[0].channelId, 'configured-channel');
+});
+
+test('sends tomorrow practice notifications to a selected channel', async () => {
+  const sends = [];
+  const { interaction } = createPracticeNotifyInteraction('channel', {
+    destination: { id: 'selected-channel' },
+  });
+
+  await handleSlashCommand(interaction, createPracticeNotifyServices(sends));
+
+  assert.equal(sends[0].channelId, 'selected-channel');
 });

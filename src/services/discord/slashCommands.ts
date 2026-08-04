@@ -218,7 +218,30 @@ const slashCommands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
     .setName('practice-notify')
-    .setDescription('翌日の練習連絡をこのチャンネルへ送信します')
+    .setDescription('翌日の練習連絡を送信します')
+    .addSubcommand((command) =>
+      command.setName('current').setDescription('実行中のチャンネルへ送信します')
+    )
+    .addSubcommand((command) =>
+      command.setName('configured').setDescription('設定されているチャンネルへ送信します')
+    )
+    .addSubcommand((command) =>
+      command
+        .setName('channel')
+        .setDescription('指定したチャンネルへ送信します')
+        .addChannelOption((option) =>
+          option
+            .setName('destination')
+            .setDescription('練習連絡の送信先チャンネルまたはスレッド')
+            .setRequired(true)
+            .addChannelTypes(
+              ChannelType.GuildText,
+              ChannelType.GuildAnnouncement,
+              ChannelType.PublicThread,
+              ChannelType.PrivateThread
+            )
+        )
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   new SlashCommandBuilder()
     .setName('practice-remind')
@@ -485,15 +508,24 @@ export async function handleSlashCommand(
         await interaction.editReply('場所取りのリマインドを送信しました。');
         return;
       case 'practice-notify': {
-        if (!interaction.channelId) throw new Error('送信先チャンネルを取得できませんでした。');
+        const subcommand = interaction.options.getSubcommand();
+        let channelId: string;
+        if (subcommand === 'configured') {
+          channelId = config.getConfig('practice_remind_threadid');
+        } else if (subcommand === 'channel') {
+          channelId = interaction.options.getChannel('destination', true).id;
+        } else {
+          if (!interaction.channelId) throw new Error('送信先チャンネルを取得できませんでした。');
+          channelId = interaction.channelId;
+        }
         const sentCount = await notifyPractice(services, {
-          channelId: interaction.channelId,
+          channelId,
           daysFromToday: 1,
         });
         await interaction.editReply(
           sentCount === 0
             ? '翌日の練習はありません。'
-            : `翌日の練習連絡を ${sentCount} 件送信しました。`
+            : `翌日の練習連絡を <#${channelId}> へ ${sentCount} 件送信しました。`
         );
         return;
       }
