@@ -4,6 +4,7 @@ import {
   ChatInputCommandInteraction,
   GuildMember,
   Message,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
@@ -427,7 +428,7 @@ export async function handleSlashCommand(
       interaction.commandName
     ) ||
     (interaction.commandName === 'countdown' && requestedSubcommand === 'setup');
-  await interaction.deferReply({ ephemeral });
+  await interaction.deferReply(ephemeral ? { flags: MessageFlags.Ephemeral } : {});
 
   try {
     const requiredPermission = getRequiredPermission(interaction);
@@ -518,15 +519,23 @@ export async function handleSlashCommand(
           if (!interaction.channelId) throw new Error('送信先チャンネルを取得できませんでした。');
           channelId = interaction.channelId;
         }
-        const sentCount = await notifyPractice(services, {
+        const result = await notifyPractice(services, {
           channelId,
           daysFromToday: 1,
         });
-        await interaction.editReply(
-          sentCount === 0
-            ? '翌日の練習はありません。'
-            : `翌日の練習連絡を <#${channelId}> へ ${sentCount} 件送信しました。`
-        );
+        if (result.practiceCount === 0) {
+          await interaction.editReply('翌日の練習はありません。');
+        } else if (result.sentCount === 0) {
+          await interaction.editReply(
+            `翌日の練習は ${result.practiceCount} 件ありますが、Notion の「練習連絡」が空のため送信しませんでした。`
+          );
+        } else {
+          const skippedCount = result.practiceCount - result.sentCount;
+          await interaction.editReply(
+            `翌日の練習連絡を <#${channelId}> へ ${result.sentCount} 件送信しました。` +
+              (skippedCount > 0 ? `（未入力の ${skippedCount} 件は送信していません）` : '')
+          );
+        }
         return;
       }
       default:

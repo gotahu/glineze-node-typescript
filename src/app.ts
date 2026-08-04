@@ -5,8 +5,12 @@ import { DiscordService } from './services/discord/discordService';
 import { NotionService } from './services/notion/notionService';
 import { SesameService } from './services/sesame/sesameService';
 import { WebServerService } from './services/webapi/webServerService';
-import { Services } from './types/types';
+import { LogMessage, Services } from './types/types';
 import { logger } from './utils/logger';
+
+export function formatDiscordLogMessage(logMessage: LogMessage): string {
+  return `[${logMessage.level}] ${logMessage.message}`;
+}
 
 // メイン処理
 export const main = async (initialize: () => Promise<void> = initializeServices) => {
@@ -43,7 +47,7 @@ export const initializeServices = async () => {
     // Logger の Discord 出力を紐付け
     logger.on('discordLog', async (logMessage) => {
       try {
-        const formattedMessage = `[${logMessage.level}] [${logMessage.timestamp.toISOString()}] ${logMessage.message}`;
+        const formattedMessage = formatDiscordLogMessage(logMessage);
         await discordService.sendStringsToChannel([formattedMessage], logger.getLoggerChannelId());
       } catch (err) {
         console.error('Failed to route log to DiscordService:', err);

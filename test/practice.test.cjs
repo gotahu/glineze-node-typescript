@@ -111,13 +111,13 @@ test('sends all practice announcement texts to the requested channel', async () 
     },
   };
 
-  const sentCount = await notifyPractice(services, {
+  const result = await notifyPractice(services, {
     channelId: 'practice-channel',
     daysFromToday: 1,
   });
 
   assert.deepEqual(sends, [{ messages: ['連絡A', '連絡B'], channelId: 'practice-channel' }]);
-  assert.equal(sentCount, 2);
+  assert.deepEqual(result, { practiceCount: 2, sentCount: 2 });
 });
 
 test('does not send when there is no practice to announce', async () => {
@@ -130,12 +130,30 @@ test('does not send when there is no practice to announce', async () => {
     },
   };
 
-  const sentCount = await notifyPractice(services, {
+  const result = await notifyPractice(services, {
     channelId: 'practice-channel',
     daysFromToday: 1,
   });
 
-  assert.equal(sentCount, 0);
+  assert.deepEqual(result, { practiceCount: 0, sentCount: 0 });
+});
+
+test('does not send a failure-looking message when practice announcement text is empty', async () => {
+  const services = {
+    notion: {
+      practiceService: { retrievePracticesForRelativeDay: async () => [{ announceText: '' }] },
+    },
+    discord: {
+      sendStringsToChannel: async () => assert.fail('should not send an empty notification'),
+    },
+  };
+
+  const result = await notifyPractice(services, {
+    channelId: 'practice-channel',
+    daysFromToday: 1,
+  });
+
+  assert.deepEqual(result, { practiceCount: 1, sentCount: 0 });
 });
 
 test('characterizes the current reminder behavior for multiple practices', async (t) => {

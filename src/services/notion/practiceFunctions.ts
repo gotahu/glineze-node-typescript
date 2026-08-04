@@ -5,10 +5,15 @@ import { logger } from '../../utils/logger';
 import { getStringPropertyValue, queryAllDatabasePages } from '../../utils/notionUtils';
 import { NotionService } from './notionService';
 
+export type PracticeNotificationResult = {
+  practiceCount: number;
+  sentCount: number;
+};
+
 export async function notifyPractice(
   service: Services,
   settings: { channelId: string; daysFromToday: number }
-): Promise<number> {
+): Promise<PracticeNotificationResult> {
   try {
     const { notion, discord } = service;
     const { channelId, daysFromToday } = settings;
@@ -17,19 +22,25 @@ export async function notifyPractice(
 
     if (practices.length === 0) {
       logger.info(`${daysFromToday} 日後の練習は見つかりませんでした`);
-      return 0;
+      return { practiceCount: 0, sentCount: 0 };
+    }
+
+    const announcements = practices
+      .map((practice) => practice.announceText.trim())
+      .filter((announceText) => announceText.length > 0);
+
+    if (announcements.length === 0) {
+      logger.info(`${daysFromToday} 日後の練習連絡はすべて空でした`);
+      return { practiceCount: practices.length, sentCount: 0 };
     }
 
     logger.info(`練習連絡を ${channelId} に送信します`, { debug: true });
 
     // 送信する
-    await discord.sendStringsToChannel(
-      practices.map((p) => p.announceText),
-      channelId
-    );
+    await discord.sendStringsToChannel(announcements, channelId);
 
     logger.info(`練習連絡の送信が正常に完了しました`, { debug: true });
-    return practices.length;
+    return { practiceCount: practices.length, sentCount: announcements.length };
   } catch (err) {
     logger.error('Error in announcePractice: ' + err);
     throw err;

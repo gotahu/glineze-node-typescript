@@ -103,13 +103,13 @@ function createPracticeNotifyInteraction(subcommand, overrides = {}) {
   };
 }
 
-function createPracticeNotifyServices(sends) {
+function createPracticeNotifyServices(sends, practices = [{ announceText: '翌日の練習連絡' }]) {
   return {
     notion: {
       practiceService: {
         retrievePracticesForRelativeDay: async (days) => {
           assert.equal(days, 1);
-          return [{ announceText: '翌日の練習連絡' }];
+          return practices;
         },
       },
     },
@@ -153,4 +153,19 @@ test('sends tomorrow practice notifications to a selected channel', async () => 
   await handleSlashCommand(interaction, createPracticeNotifyServices(sends));
 
   assert.equal(sends[0].channelId, 'selected-channel');
+});
+
+test('reports a missing Notion announcement without sending a failure-looking message', async () => {
+  const sends = [];
+  const { interaction, replies } = createPracticeNotifyInteraction('current');
+
+  await handleSlashCommand(
+    interaction,
+    createPracticeNotifyServices(sends, [{ announceText: '' }])
+  );
+
+  assert.deepEqual(sends, []);
+  assert.deepEqual(replies, [
+    '翌日の練習は 1 件ありますが、Notion の「練習連絡」が空のため送信しませんでした。',
+  ]);
 });
