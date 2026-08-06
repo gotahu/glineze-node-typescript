@@ -89,6 +89,11 @@ export class PracticeTemplateService {
     };
   }
 
+  /** 管理画面の読み取り専用プレビュー。テンプレート自体は秘密情報を含めない。 */
+  public getTemplatePreview(): string {
+    return this.template;
+  }
+
   public async reload(): Promise<PracticeTemplateReloadResult> {
     const pageId = config.getAllConfigs().get(PRACTICE_TEMPLATE_PAGE_ID_CONFIG_KEY)?.trim();
 

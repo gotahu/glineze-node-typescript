@@ -59,6 +59,39 @@ test('registers the Sesame job only once when explicitly started', () => {
   );
 });
 
+test('registers and contains the admin login-link rotation job', async () => {
+  const scheduled = [];
+  let rotations = 0;
+  let nextRotation;
+  const nextRun = new Date('2026-08-08T19:05:00.000Z');
+  const cron = new CronService(
+    { discord: {} },
+    {
+      rotate: async () => {
+        rotations++;
+      },
+      setNextRotationAt: (value) => {
+        nextRotation = value;
+      },
+    }
+  );
+  cron.schedule = (expression, task, options) => {
+    scheduled.push({ expression, task, options });
+    return { getNextRun: () => nextRun };
+  };
+
+  cron.startAdminLoginLinkScheduler();
+  cron.startAdminLoginLinkScheduler();
+  await new Promise((resolve) => globalThis.setImmediate(resolve));
+
+  assert.equal(rotations, 1);
+  assert.equal(nextRotation, nextRun);
+  assert.deepEqual(
+    scheduled.map(({ expression, options }) => ({ expression, options })),
+    [{ expression: '5 4 * * *', options: { timezone: 'Asia/Tokyo' } }]
+  );
+});
+
 test('logs and contains an asynchronous practice notification failure', async (t) => {
   const failure = new Error('practice notification failed');
   const errors = [];

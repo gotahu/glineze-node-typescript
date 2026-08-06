@@ -14,6 +14,7 @@ import {
 } from './notionAutomationService';
 import { NotionWebhookSecurity } from './notionWebhookSecurity';
 import { ServiceHealth, STATUS_PAGE_HTML, StatusSnapshot } from './statusPage';
+import { AdminRouterOptions, createAdminRouter } from '../admin/adminRouter';
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAILY_STATS_RETENTION_DAYS = 14;
@@ -30,7 +31,10 @@ export class WebServerService {
     startTime: new Date(),
   };
 
-  constructor(private readonly services: Services) {
+  constructor(
+    private readonly services: Services,
+    private readonly options: { admin?: Omit<AdminRouterOptions, 'dashboard'> } = {}
+  ) {
     logger.info('WebServerService の初期化を開始します。');
 
     if (env.NOTION_AUTOMATION_ENABLED) {
@@ -108,7 +112,7 @@ export class WebServerService {
           'Cache-Control': 'no-store',
           'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
         })
-        .json(this.createStatusSnapshot());
+        .json(this.getStatusSnapshot());
     });
 
     this.app.get('/assets/status-operational.png', (_req, res) => {
@@ -177,6 +181,17 @@ export class WebServerService {
           res.status(500).json({ error: 'internal_error' });
         }
       });
+    }
+
+    if (env.ADMIN_ENABLED) {
+      if (!this.options.admin) throw new Error('Admin console dependencies are missing');
+      this.app.use(
+        '/admin',
+        createAdminRouter({
+          ...this.options.admin,
+          dashboard: () => this.getStatusSnapshot(),
+        })
+      );
     }
 
     this.app.use((_req, res) => {
@@ -264,7 +279,7 @@ export class WebServerService {
     return new Date(Date.now() + JST_OFFSET_MS).toISOString().slice(0, 10);
   }
 
-  private createStatusSnapshot(): StatusSnapshot {
+  public getStatusSnapshot(): StatusSnapshot {
     const today = this.getJstDateKey();
     const discordOnline = this.services.discord.client.isReady();
     const services = this.createServiceHealth(discordOnline);

@@ -50,4 +50,8 @@ test('Notion automation endpoint returns service unavailable while disabled', as
 
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: 'service_disabled' });
+
+  const admin = await globalThis.fetch(`http://127.0.0.1:${address.port}/admin`);
+  assert.equal(admin.status, 404);
+  assert.deepEqual(await admin.json(), { error: 'not_found' });
 });

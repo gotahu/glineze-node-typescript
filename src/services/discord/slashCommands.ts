@@ -8,7 +8,7 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
-import { config } from '../../config';
+import { CONFIG_DEFINITIONS, config, configService } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
@@ -19,7 +19,6 @@ import { handleReloadCommand } from './commands/ReloadCommand';
 import { handleSesameStatusCommand } from './commands/SesameCommand';
 import { handleUpdateBotProfileCommand } from './commands/UpdateBotProfileCommand';
 import { handleVersionCommand } from './commands/VersionCommand';
-import { updateBotProfile } from './functions/CountdownFunctions';
 
 const slashCommands = [
   new SlashCommandBuilder()
@@ -274,11 +273,14 @@ const slashCommands = [
 
 export const slashCommandData = slashCommands.map((command) => command.toJSON());
 
-const SENSITIVE_KEY_PATTERN =
-  /(token|api[_-]?key|secret|password|credential|privatekey|publickey|webhook)/i;
-
 function displayValue(key: string, value: string): string {
-  return SENSITIVE_KEY_PATTERN.test(key) ? '••••••••' : value;
+  const definition = Object.hasOwn(CONFIG_DEFINITIONS, key)
+    ? CONFIG_DEFINITIONS[key as keyof typeof CONFIG_DEFINITIONS]
+    : undefined;
+  const sensitive =
+    (definition && 'secret' in definition && definition.secret) ||
+    /(token|api[_-]?key|secret|password|credential|privatekey|publickey|webhook)/i.test(key);
+  return sensitive ? '••••••••' : value;
 }
 
 function splitMessage(content: string, maxLength = 1900): string[] {
@@ -305,7 +307,7 @@ function splitMessage(content: string, maxLength = 1900): string[] {
   return chunks;
 }
 
-async function handleConfigCommand(interaction: ChatInputCommandInteraction, services: Services) {
+async function handleConfigCommand(interaction: ChatInputCommandInteraction) {
   const subcommand = interaction.options.getSubcommand();
   if (subcommand === 'list') {
     const lines = [...config.getAllConfigs()]
@@ -336,28 +338,19 @@ async function handleConfigCommand(interaction: ChatInputCommandInteraction, ser
 
   const value = interaction.options.getString('value', true);
   await config.setConfig(key, value);
-  services.sesame?.reloadConfiguration();
   await interaction.editReply(`設定 \`${key}\` を更新しました。`);
 }
 
 export function isValidCountdownDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-  );
+  return CONFIG_DEFINITIONS.countdown_date.schema.safeParse(value).success;
 }
 
 export function normalizeNotifyDays(value: string): string | undefined {
-  const values = value.split(',').map((item) => item.trim());
-  if (values.length === 0 || values.some((item) => !/^\d+$/.test(item) || Number(item) > 3650)) {
-    return undefined;
-  }
-  return [...new Set(values.map(Number))].sort((left, right) => right - left).join(',');
+  const parsed = CONFIG_DEFINITIONS.countdown_notify_days.schema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }
 
-async function handleCountdownSetup(interaction: ChatInputCommandInteraction, services: Services) {
+async function handleCountdownSetup(interaction: ChatInputCommandInteraction) {
   const date = interaction.options.getString('date', true);
   const title = interaction.options.getString('title', true).trim();
   const channel = interaction.options.getChannel('channel');
@@ -385,13 +378,13 @@ async function handleCountdownSetup(interaction: ChatInputCommandInteraction, se
     return;
   }
 
-  await config.setConfig('countdown_date', date);
-  await config.setConfig('countdown_title', title);
-  if (channel) await config.setConfig('countdown_channelid', channel.id);
-  if (notifyDays) await config.setConfig('countdown_notify_days', notifyDays);
-  if (message) await config.setConfig('countdown_message', message);
-
-  updateBotProfile(services.discord);
+  await configService.updateMany({
+    countdown_date: date,
+    countdown_title: title,
+    ...(channel ? { countdown_channelid: channel.id } : {}),
+    ...(notifyDays ? { countdown_notify_days: notifyDays } : {}),
+    ...(message ? { countdown_message: message } : {}),
+  });
 
   const currentChannelId = channel?.id ?? config.getConfig('countdown_channelid');
   const currentNotifyDays = notifyDays ?? config.getConfig('countdown_notify_days');
@@ -411,8 +404,10 @@ async function handleRemindersSetup(interaction: ChatInputCommandInteraction) {
   const practiceChannel = interaction.options.getChannel('practice-channel', true);
   const placeChannel = interaction.options.getChannel('place-channel', true);
 
-  await config.setConfig('practice_remind_threadid', practiceChannel.id);
-  await config.setConfig('bashotori_remind_threadid', placeChannel.id);
+  await configService.updateMany({
+    practice_remind_threadid: practiceChannel.id,
+    bashotori_remind_threadid: placeChannel.id,
+  });
 
   await interaction.editReply(
     [
@@ -507,7 +502,7 @@ export async function handleSlashCommand(
     }
 
     if (interaction.commandName === 'config') {
-      await handleConfigCommand(interaction, services);
+      await handleConfigCommand(interaction);
       return;
     }
     if (interaction.commandName === 'reminders') {
@@ -527,7 +522,7 @@ export async function handleSlashCommand(
       case 'countdown': {
         const subcommand = interaction.options.getSubcommand();
         if (subcommand === 'setup') {
-          await handleCountdownSetup(interaction, services);
+          await handleCountdownSetup(interaction);
           return;
         }
         const legacySubcommand = subcommand === 'message' ? 'msg' : subcommand;

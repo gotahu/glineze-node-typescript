@@ -5,12 +5,14 @@ import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { sendCountdownMessage, updateBotProfile } from '../discord/functions/CountdownFunctions';
 import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
+import { env } from '../../env';
+import { AdminLoginLinkService } from '../admin/adminLoginLinkService';
 
 type CronSchedule = (
   expression: string,
   task: () => void | Promise<void>,
   options?: { timezone?: string }
-) => void;
+) => { getNextRun?(): Date | null } | void;
 
 /**
  * 定期実行タスクを一元管理するクラス
@@ -21,9 +23,13 @@ export class CronService {
   private countDownSchedulerStarted = false;
   private notifyPracticeStarted = false;
   private remindBashotoriStarted = false;
+  private adminLoginLinkSchedulerStarted = false;
   private schedule!: CronSchedule;
 
-  constructor(services: Services) {
+  constructor(
+    services: Services,
+    private readonly adminLoginLinks?: AdminLoginLinkService
+  ) {
     logger.info('CronService の初期化を開始します。');
     this.services = services;
     logger.info('CronService の初期化が終了しました。');
@@ -46,7 +52,37 @@ export class CronService {
     this.startCountdownScheduler();
     this.startNotifyPractice();
     this.startRemindBashotori();
+    if (this.adminLoginLinks) this.startAdminLoginLinkScheduler();
     logger.info('Cron スケジューラーを起動しました。');
+  }
+
+  private startAdminLoginLinkScheduler(): void {
+    if (this.adminLoginLinkSchedulerStarted || !this.adminLoginLinks) return;
+    this.adminLoginLinkSchedulerStarted = true;
+    void this.runAdminLoginLinkRotation();
+    const task = this.schedule(
+      env.ADMIN_TOKEN_ROTATION_CRON,
+      async () => {
+        await this.runAdminLoginLinkRotation();
+        const nextRun = task?.getNextRun?.();
+        if (nextRun) this.adminLoginLinks?.setNextRotationAt(nextRun);
+      },
+      {
+        timezone: 'Asia/Tokyo',
+      }
+    );
+    const nextRun = task?.getNextRun?.();
+    if (nextRun) this.adminLoginLinks.setNextRotationAt(nextRun);
+  }
+
+  public async runAdminLoginLinkRotation(): Promise<void> {
+    if (!this.adminLoginLinks) return;
+    try {
+      await this.adminLoginLinks.rotate();
+    } catch {
+      // AdminLoginLinkService records a redacted error. A temporary Notion failure
+      // must not stop the remaining schedulers or the application process.
+    }
   }
 
   /**

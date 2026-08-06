@@ -1,10 +1,14 @@
-import { config } from './config';
+import { config, configService } from './config';
 import { env } from './env';
 import { CronService } from './services/cron/CronService';
 import { DiscordService } from './services/discord/discordService';
 import { NotionService } from './services/notion/notionService';
 import { SesameService } from './services/sesame/sesameService';
 import { WebServerService } from './services/webapi/webServerService';
+import { updateBotProfile } from './services/discord/functions/CountdownFunctions';
+import { AdminConsoleService } from './services/admin/adminConsoleService';
+import { AdminLoginLinkService } from './services/admin/adminLoginLinkService';
+import { AdminLoginTokenService } from './services/admin/adminLoginTokenService';
 import { LogMessage, Services } from './types/types';
 import { logger } from './utils/logger';
 
@@ -62,12 +66,47 @@ export const initializeServices = async () => {
       sesame: sesameService,
     };
 
+    configService.setEffectHandlers({
+      'bot-profile': () => updateBotProfile(discordService),
+      'practice-template': () => notionService.practiceTemplateService.reload(),
+      sesame: () => sesameService?.reloadConfiguration(),
+    });
+
+    let adminTokenService: AdminLoginTokenService | undefined;
+    let adminLoginLinks: AdminLoginLinkService | undefined;
+    let adminConsoleService: AdminConsoleService | undefined;
+    if (env.ADMIN_ENABLED) {
+      adminTokenService = new AdminLoginTokenService(
+        env.ADMIN_AUTH_SECRET!,
+        env.ADMIN_TOKEN_TTL_HOURS * 60 * 60 * 1_000
+      );
+      adminLoginLinks = new AdminLoginLinkService(
+        notionService.client,
+        adminTokenService,
+        env.ADMIN_NOTION_LOGIN_BLOCK_ID!,
+        env.ADMIN_BASE_URL!
+      );
+      adminConsoleService = new AdminConsoleService(configService, services, adminLoginLinks);
+    }
+
     // CronService
-    const cronService = new CronService(services);
+    const cronService = new CronService(services, adminLoginLinks);
     await cronService.start();
 
     // WebService
-    new WebServerService(services);
+    new WebServerService(services, {
+      ...(adminTokenService && adminLoginLinks && adminConsoleService
+        ? {
+            admin: {
+              tokenService: adminTokenService,
+              loginLinks: adminLoginLinks,
+              consoleService: adminConsoleService,
+              sessionSecret: env.ADMIN_AUTH_SECRET!,
+              sessionTtlMs: env.ADMIN_SESSION_TTL_HOURS * 60 * 60 * 1_000,
+            },
+          }
+        : {}),
+    });
 
     logger.info(
       env.NODE_ENV === 'development' ? `開発環境が起動しました。` : `本番環境が起動しました。`,

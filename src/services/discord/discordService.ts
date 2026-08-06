@@ -188,12 +188,12 @@ export class DiscordService {
     // トークンの形式チェック（Discord トークンは通常 "数字.文字列.文字列" の形式）
     const tokenParts = DISCORD_BOT_TOKEN.split('.');
     if (tokenParts.length !== 3) {
-      const errorMsg = `DISCORD_BOT_TOKEN の形式が正しくありません。トークンは3つの部分に分割される必要がありますが、${tokenParts.length}つの部分しかありません。`;
+      const errorMsg = 'DISCORD_BOT_TOKEN の形式が正しくありません。';
       logger.error(errorMsg);
       throw new Error(errorMsg);
     }
 
-    logger.info(`Discord ログイン開始: トークン長 ${DISCORD_BOT_TOKEN.length}文字`);
+    logger.info('Discord ログインを開始します。');
 
     try {
       // ログイン前の状態を確認
@@ -231,12 +231,9 @@ export class DiscordService {
     } catch (error) {
       const errorDetails = {
         message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
         name: error instanceof Error ? error.name : 'UnknownError',
         clientReady: this.client.isReady(),
         wsStatus: this.client.ws.status,
-        tokenLength: DISCORD_BOT_TOKEN.length,
-        tokenPrefix: DISCORD_BOT_TOKEN.substring(0, 10) + '...',
       };
 
       const errorMsg = `Discord BOT のログインに失敗しました: ${errorDetails.message}`;

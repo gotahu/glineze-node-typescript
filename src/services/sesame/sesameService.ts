@@ -104,7 +104,7 @@ export class SesameService {
     url.searchParams.append('a', this.sesamePublicKey);
     url.searchParams.append('lg', '1');
 
-    logger.info(`Retrieving Sesame history from ${url.toString()}`);
+    logger.info('Sesame の履歴を取得します。');
 
     try {
       const response = await axios.get(url.toString(), {
