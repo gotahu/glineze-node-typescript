@@ -6,10 +6,13 @@ import session from 'express-session';
 import helmet from 'helmet';
 import createMemoryStore from 'memorystore';
 import {
+  CONFIG_DEFINITIONS,
   ConfigCategory,
   ConfigEffectError,
+  ConfigKey,
   ConfigPartialUpdateError,
   ConfigValidationError,
+  isConfigKey,
 } from '../../config';
 import { logger } from '../../utils/logger';
 import { AdminConsoleService, AdminOperationError } from './adminConsoleService';
@@ -17,6 +20,7 @@ import { AdminLoginLinkService } from './adminLoginLinkService';
 import { AdminLoginTokenService } from './adminLoginTokenService';
 import {
   renderDashboard,
+  renderAllSettings,
   renderPage,
   renderPracticeTemplate,
   renderSettingsForm,
@@ -149,36 +153,17 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
     });
   });
 
-  router.get('/settings/system', (req, res) => {
-    const csrfToken = generateToken(req);
-    sendPage(res, {
-      title: 'システム設定',
-      content: renderSystemSettings(options.consoleService.getSystemStatus(), csrfToken),
-      csrfToken,
-      authenticated: true,
-      notice: getNotice(req.query.result),
-    });
-  });
-
-  router.get('/settings/practice-template', (req, res) => {
-    const csrfToken = generateToken(req);
-    const content = renderPracticeTemplate(
-      options.consoleService.getPracticeTemplate(),
-      options.consoleService.getSettings('practice-template'),
-      csrfToken
-    );
-    sendPage(res, {
-      title: CATEGORY_TITLES['practice-template'],
-      content,
-      csrfToken,
-      authenticated: true,
-      notice: getNotice(req.query.result),
-    });
+  router.get('/settings', (req, res) => {
+    renderAllSettingsPage(req, res, options.consoleService);
   });
 
   router.get('/settings/:category', (req, res) => {
+    if (req.params.category === 'system') {
+      res.redirect(302, '/admin/settings#system');
+      return;
+    }
     const category = parseCategory(req.params.category);
-    if (!category || category === 'practice-template') {
+    if (!category) {
       res
         .status(404)
         .type('html')
@@ -190,21 +175,10 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
         );
       return;
     }
-    if (category === 'sesame' && options.consoleService.getSettings(category).length === 0) {
-      res
-        .status(503)
-        .type('html')
-        .send(
-          renderPage({
-            title: CATEGORY_TITLES[category],
-            content: '<p>Sesame 連携は停止中です。</p>',
-            authenticated: true,
-            csrfToken: generateToken(req),
-          })
-        );
-      return;
-    }
-    renderCategoryPage(req, res, options.consoleService, category);
+    res.redirect(
+      302,
+      `/admin/settings#${category === 'practice-template' ? 'practice' : category}`
+    );
   });
 
   router.post('/settings/:category', async (req, res) => {
@@ -227,20 +201,55 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
       logger.info(
         `管理画面から設定を更新しました: ${Object.keys(input).join(', ')}（actor: notion-admin-session）`
       );
-      res.redirect(303, `/admin/settings/${category}?result=saved`);
+      res.redirect(303, `/admin/settings?result=saved#${category}`);
     } catch (error) {
       const status =
         error instanceof ConfigValidationError || error instanceof AdminOperationError ? 400 : 503;
-      renderCategoryPage(
+      renderAllSettingsPage(req, res, options.consoleService, status, safeAdminError(error), {
+        category,
+        fieldErrors: error instanceof ConfigValidationError ? { [error.key]: error.message } : {},
+        submittedInput: input,
+      });
+    }
+  });
+
+  router.post('/actions/verify-channel', async (req, res) => {
+    const rawKey = typeof req.body?._verify === 'string' ? req.body._verify : '';
+    if (!isConfigKey(rawKey)) {
+      renderAllSettingsPage(
         req,
         res,
         options.consoleService,
-        category,
-        status,
-        safeAdminError(error),
-        error instanceof ConfigValidationError ? { [error.key]: error.message } : {},
-        input
+        400,
+        '確認する設定を特定できませんでした。'
       );
+      return;
+    }
+
+    const key: ConfigKey = rawKey;
+    const input = typeof req.body?.[key] === 'string' ? req.body[key] : '';
+    const category = CONFIG_DEFINITIONS[key].category;
+    try {
+      const channel = await options.consoleService.verifyDiscordChannel(key, input);
+      renderAllSettingsPage(req, res, options.consoleService, 200, undefined, {
+        category,
+        submittedInput: bodyWithoutCsrf(req.body),
+        channelChecks: {
+          [key]: {
+            ok: true,
+            message: `確認できました: #${channel.name}（${channel.kind} / ${channel.id}）`,
+          },
+        },
+      });
+    } catch (error) {
+      const message = safeAdminError(error);
+      renderAllSettingsPage(req, res, options.consoleService, 400, message, {
+        category,
+        submittedInput: bodyWithoutCsrf(req.body),
+        fieldErrors: error instanceof ConfigValidationError ? { [key]: error.message } : {},
+        channelChecks:
+          error instanceof ConfigValidationError ? {} : { [key]: { ok: false, message } },
+      });
     }
   });
 
@@ -248,7 +257,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
     try {
       await options.consoleService.reloadConfig();
       logger.info('管理画面から設定を再読込しました（actor: notion-admin-session）。');
-      res.redirect(303, '/admin/settings/system?result=config-reloaded');
+      res.redirect(303, '/admin/settings?result=config-reloaded#system');
     } catch (error) {
       next(error);
     }
@@ -256,7 +265,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
   router.post('/actions/reload-template', async (_req, res, next) => {
     try {
       await options.consoleService.reloadPracticeTemplate();
-      res.redirect(303, '/admin/settings/practice-template?result=template-reloaded');
+      res.redirect(303, '/admin/settings?result=template-reloaded#practice');
     } catch (error) {
       next(error);
     }
@@ -264,7 +273,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
   router.post('/actions/rotate-login-link', async (_req, res, next) => {
     try {
       await options.consoleService.rotateLoginLink();
-      res.redirect(303, '/admin/settings/system?result=link-rotated');
+      res.redirect(303, '/admin/settings?result=link-rotated#system');
     } catch (error) {
       next(error);
     }
@@ -314,33 +323,79 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
   return router;
 }
 
-function renderCategoryPage(
+type SettingsPageState = {
+  category: ConfigCategory;
+  fieldErrors?: Readonly<Record<string, string>>;
+  submittedInput?: Readonly<Record<string, string>>;
+  channelChecks?: Readonly<Record<string, { ok: boolean; message: string }>>;
+};
+
+function renderAllSettingsPage(
   req: Request,
   res: Response,
   consoleService: AdminConsoleService,
-  category: ConfigCategory,
   status = 200,
   error?: string,
-  fieldErrors: Readonly<Record<string, string>> = {},
-  submittedInput: Readonly<Record<string, string>> = {}
+  state?: SettingsPageState
 ): void {
   const csrfToken = req.csrfToken ? req.csrfToken() : '';
-  const fields = consoleService.getSettings(category).map((field) => ({
-    ...field,
-    ...(!field.secret && typeof submittedInput[field.key] === 'string'
-      ? { value: submittedInput[field.key] }
-      : {}),
-  }));
-  const content =
-    category === 'practice-template'
-      ? renderPracticeTemplate(consoleService.getPracticeTemplate(), fields, csrfToken, fieldErrors)
-      : renderSettingsForm(category, fields, csrfToken, fieldErrors);
+  const fieldsFor = (category: ConfigCategory) =>
+    consoleService.getSettings(category).map((field) => ({
+      ...field,
+      ...(state?.category === category &&
+      !field.secret &&
+      typeof state.submittedInput?.[field.key] === 'string'
+        ? { value: state.submittedInput[field.key] }
+        : {}),
+    }));
+
+  const countdownFields = fieldsFor('countdown');
+  const notificationFields = fieldsFor('notifications');
+  const practiceDestination = notificationFields.filter(
+    (field) => field.key === 'practice_remind_threadid'
+  );
+  const otherNotifications = notificationFields.filter(
+    (field) => field.key !== 'practice_remind_threadid'
+  );
+  const templateFields = fieldsFor('practice-template');
+  const sesameFields = fieldsFor('sesame');
+  const errors = state?.fieldErrors ?? {};
+  const channelChecks = state?.channelChecks ?? {};
+  const content = renderAllSettings({
+    practiceDestination: renderSettingsForm(
+      'notifications',
+      practiceDestination,
+      csrfToken,
+      errors,
+      channelChecks
+    ),
+    practiceTemplate: renderPracticeTemplate(
+      consoleService.getPracticeTemplate(),
+      templateFields,
+      csrfToken,
+      errors
+    ),
+    countdown: renderSettingsForm('countdown', countdownFields, csrfToken, errors, channelChecks),
+    notifications: renderSettingsForm(
+      'notifications',
+      otherNotifications,
+      csrfToken,
+      errors,
+      channelChecks
+    ),
+    advanced: renderSettingsForm('advanced', fieldsFor('advanced'), csrfToken, errors),
+    sesame:
+      sesameFields.length > 0
+        ? renderSettingsForm('sesame', sesameFields, csrfToken, errors)
+        : '<p>Sesame 連携は停止中です。</p>',
+    system: renderSystemSettings(consoleService.getSystemStatus(), csrfToken),
+  });
   res
     .status(status)
     .type('html')
     .send(
       renderPage({
-        title: CATEGORY_TITLES[category],
+        title: '設定',
         content,
         csrfToken,
         authenticated: true,

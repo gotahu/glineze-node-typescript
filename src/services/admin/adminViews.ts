@@ -28,12 +28,7 @@ const layoutTemplate = `<!doctype html>
       <% if (it.authenticated) { %>
       <ul>
         <li><a href="/admin">稼働状況</a></li>
-        <li><a href="/admin/settings/countdown">カウントダウン</a></li>
-        <li><a href="/admin/settings/notifications">通知先</a></li>
-        <li><a href="/admin/settings/practice-template">テンプレート</a></li>
-        <li><a href="/admin/settings/advanced">詳細</a></li>
-        <li><a href="/admin/settings/sesame">Sesame</a></li>
-        <li><a href="/admin/settings/system">システム</a></li>
+        <li><a href="/admin/settings">設定</a></li>
       </ul>
       <% } %>
     </nav>
@@ -112,7 +107,8 @@ export function renderSettingsForm(
   category: string,
   fields: AdminSettingField[],
   csrfToken: string,
-  fieldErrors: Readonly<Record<string, string>> = {}
+  fieldErrors: Readonly<Record<string, string>> = {},
+  channelChecks: Readonly<Record<string, { ok: boolean; message: string }>> = {}
 ): string {
   return eta.renderString(
     `<form method="post" action="/admin/settings/<%= it.category %>">
@@ -121,6 +117,9 @@ export function renderSettingsForm(
         <label for="setting-<%= field.key %>"><%= field.label %></label>
         <small><%= field.description %></small>
         <% if (it.fieldErrors[field.key]) { %><small role="alert"><%= it.fieldErrors[field.key] %></small><% } %>
+        <% if (it.channelChecks[field.key]) { %>
+          <small role="<%= it.channelChecks[field.key].ok ? 'status' : 'alert' %>"><%= it.channelChecks[field.key].message %></small>
+        <% } %>
         <% if (field.input === 'textarea') { %>
           <textarea id="setting-<%= field.key %>" name="<%= field.key %>" required><%= field.value || '' %></textarea>
         <% } else { %>
@@ -134,10 +133,21 @@ export function renderSettingsForm(
             autocomplete="off"
           >
         <% } %>
+        <% if (field.discordChannel) { %>
+          <button
+            type="submit"
+            class="secondary outline"
+            formaction="/admin/actions/verify-channel"
+            formmethod="post"
+            formnovalidate
+            name="_verify"
+            value="<%= field.key %>"
+          >チャンネルIDを確認</button>
+        <% } %>
       <% }) %>
       <button type="submit">設定を保存</button>
     </form>`,
-    { category, fields, csrfToken, fieldErrors }
+    { category, fields, csrfToken, fieldErrors, channelChecks }
   );
 }
 
@@ -153,16 +163,42 @@ export function renderPracticeTemplate(
 ): string {
   const settings = renderSettingsForm('practice-template', fields, csrfToken, fieldErrors);
   return eta.renderString(
-    `<section><h2>テンプレート参照先</h2><%~ it.settings %></section>
-    <section><h2>現在の状態</h2><p><%= it.data.status.message %></p>
+    `<section><h3>テンプレート参照先</h3><%~ it.settings %></section>
+    <section><h3>現在の状態</h3><p><%= it.data.status.message %></p>
       <form method="post" action="/admin/actions/reload-template">
         <input type="hidden" name="_csrf" value="<%= it.csrfToken %>">
         <button type="submit" class="secondary">テンプレートを再読込</button>
       </form>
     </section>
-    <section><h2>プレビュー</h2><pre><code><%= it.data.preview %></code></pre></section>
-    <section><h2>利用可能なプレースホルダー</h2><p><%= it.data.placeholders.map(function(value) { return '{{' + value + '}}' }).join('、') %></p></section>`,
+    <section><h3>プレビュー</h3><pre><code><%= it.data.preview %></code></pre></section>
+    <section><h3>利用可能なプレースホルダー</h3><p><%= it.data.placeholders.map(function(value) { return '{{' + value + '}}' }).join('、') %></p></section>`,
     { data, settings, csrfToken }
+  );
+}
+
+export function renderAllSettings(sections: {
+  practiceDestination: string;
+  practiceTemplate: string;
+  countdown: string;
+  notifications: string;
+  advanced: string;
+  sesame: string;
+  system: string;
+}): string {
+  return eta.renderString(
+    `<p>すべての設定をこの画面から変更できます。</p>
+    <section id="practice"><h2>練習連絡</h2><h3>送信先</h3><%~ it.sections.practiceDestination %><%~ it.sections.practiceTemplate %></section>
+    <hr>
+    <section id="countdown"><h2>カウントダウン</h2><%~ it.sections.countdown %></section>
+    <hr>
+    <section id="notifications"><h2>その他の通知先</h2><%~ it.sections.notifications %></section>
+    <hr>
+    <section id="advanced"><h2>詳細設定</h2><p>Notion のデータ参照先を変更します。IDを誤ると関連機能が動作しなくなるため注意してください。</p><%~ it.sections.advanced %></section>
+    <hr>
+    <section id="sesame"><h2>Sesame</h2><%~ it.sections.sesame %></section>
+    <hr>
+    <section id="system"><h2>システム</h2><%~ it.sections.system %></section>`,
+    { sections }
   );
 }
 

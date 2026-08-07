@@ -4,6 +4,7 @@ import {
   ConfigKey,
   ConfigService,
   isConfigKey,
+  normalizeConfigValue,
 } from '../../config';
 import { env } from '../../env';
 import {
@@ -19,6 +20,7 @@ export type AdminSettingField = {
   input: 'text' | 'textarea' | 'date' | 'url' | 'secret';
   secret: boolean;
   configured: boolean;
+  discordChannel: boolean;
   value?: string;
 };
 
@@ -30,7 +32,25 @@ type PracticeTemplateAdminService = {
 
 export type AdminConsoleRuntime = {
   notion: { practiceTemplateService: PracticeTemplateAdminService };
+  discord?: {
+    client: {
+      isReady(): boolean;
+      channels: {
+        fetch(id: string): Promise<{
+          name?: string | null;
+          isSendable(): boolean;
+          isThread?(): boolean;
+        } | null>;
+      };
+    };
+  };
   sesame?: { reloadConfiguration(): void };
+};
+
+export type DiscordChannelVerification = {
+  id: string;
+  name: string;
+  kind: 'チャンネル' | 'スレッド';
 };
 
 export class AdminConsoleService {
@@ -57,6 +77,7 @@ export class AdminConsoleService {
         input: definition.input,
         secret,
         configured: currentValue.length > 0,
+        discordChannel: isDiscordChannelKey(key),
         ...(secret ? {} : { value: currentValue }),
       };
     });
@@ -100,6 +121,36 @@ export class AdminConsoleService {
     return this.runtime.notion.practiceTemplateService.reload();
   }
 
+  public async verifyDiscordChannel(
+    key: ConfigKey,
+    input: string
+  ): Promise<DiscordChannelVerification> {
+    if (!isDiscordChannelKey(key)) {
+      throw new AdminOperationError('この設定は Discord チャンネル ID ではありません。');
+    }
+
+    const id = normalizeConfigValue(key, input);
+    const client = this.runtime.discord?.client;
+    if (!client?.isReady()) {
+      throw new AdminOperationError('Discord Bot が接続されていないため確認できません。');
+    }
+
+    try {
+      const channel = await client.channels.fetch(id);
+      if (!channel) throw new AdminOperationError('指定したチャンネルが見つかりません。');
+      if (!channel.isSendable()) {
+        throw new AdminOperationError('Bot がメッセージを送信できないチャンネルです。');
+      }
+      const kind = channel.isThread?.() ? 'スレッド' : 'チャンネル';
+      return { id, name: channel.name || '名称不明', kind };
+    } catch (error) {
+      if (error instanceof AdminOperationError) throw error;
+      throw new AdminOperationError(
+        'チャンネルを確認できませんでした。IDとBotの閲覧権限を確認してください。'
+      );
+    }
+  }
+
   public async reloadConfig(): Promise<void> {
     await this.configs.initialize();
     await this.runtime.notion.practiceTemplateService.reload();
@@ -123,6 +174,10 @@ export class AdminConsoleService {
       branch: env.BRANCH,
     };
   }
+}
+
+function isDiscordChannelKey(key: ConfigKey): boolean {
+  return /(?:channelid|threadid)$/.test(key);
 }
 
 export class AdminOperationError extends Error {

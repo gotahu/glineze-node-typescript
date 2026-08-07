@@ -10,7 +10,7 @@ const {
   AdminOperationError,
 } = require('../dist/services/admin/adminConsoleService.js');
 
-function createSubject(values = {}) {
+function createSubject(values = {}, discord) {
   const updates = [];
   const store = new ConfigStore();
   for (const [key, value] of Object.entries(values)) store.values.set(key, value);
@@ -27,6 +27,7 @@ function createSubject(values = {}) {
   };
   const subject = new AdminConsoleService(configs, {
     notion: { practiceTemplateService: template },
+    ...(discord ? { discord } : {}),
   });
   return { subject, updates };
 }
@@ -48,6 +49,53 @@ test('never returns stored secret values in a settings view model', () => {
   assert.equal(
     fields.find((field) => field.key === 'sesame_app_api_url').value,
     'https://example.com'
+  );
+});
+
+test('verifies that a Discord channel exists and is sendable', async () => {
+  const requested = [];
+  const discord = {
+    client: {
+      isReady: () => true,
+      channels: {
+        fetch: async (id) => {
+          requested.push(id);
+          return { name: 'practice-room', isSendable: () => true, isThread: () => false };
+        },
+      },
+    },
+  };
+  const { subject } = createSubject({}, discord);
+
+  assert.deepEqual(
+    await subject.verifyDiscordChannel('practice_remind_threadid', '123456789012345678'),
+    {
+      id: '123456789012345678',
+      name: 'practice-room',
+      kind: 'チャンネル',
+    }
+  );
+  assert.deepEqual(requested, ['123456789012345678']);
+});
+
+test('rejects inaccessible or non-sendable Discord channels', async () => {
+  const discord = {
+    client: {
+      isReady: () => true,
+      channels: {
+        fetch: async () => ({ name: 'voice', isSendable: () => false }),
+      },
+    },
+  };
+  const { subject } = createSubject({}, discord);
+
+  await assert.rejects(
+    subject.verifyDiscordChannel('countdown_channelid', '123456789012345678'),
+    /メッセージを送信できない/
+  );
+  await assert.rejects(
+    subject.verifyDiscordChannel('practice_databaseid', '123456789012345678'),
+    /Discord チャンネル ID ではありません/
   );
 });
 

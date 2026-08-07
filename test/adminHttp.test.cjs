@@ -19,6 +19,7 @@ const { WebServerService } = require('../dist/services/webapi/webServerService.j
 
 function createSubject() {
   const updates = [];
+  const channelFetches = [];
   const store = new ConfigStore();
   const values = {
     countdown_title: '定期演奏会',
@@ -26,6 +27,10 @@ function createSubject() {
     countdown_channelid: '123456789012345678',
     countdown_notify_days: '30,7,1,0',
     countdown_message: 'お知らせ',
+    practice_remind_threadid: '234567890123456789',
+    bashotori_remind_threadid: '345678901234567890',
+    discord_general_channelid: '456789012345678901',
+    practice_announcement_template_page_id: '0123456789abcdef0123456789abcdef',
     sesame_app_api_url: 'https://example.com',
     sesame_app_api_key: 'stored-secret-must-never-appear',
     sesame_device_uuid: 'device-uuid',
@@ -59,6 +64,21 @@ function createSubject() {
           reload: async () => ({ source: 'builtin', updated: true, message: '再読込済み' }),
         },
       },
+      discord: {
+        client: {
+          isReady: () => true,
+          channels: {
+            fetch: async (id) => {
+              channelFetches.push(id);
+              return {
+                name: 'verified-channel',
+                isSendable: () => true,
+                isThread: () => false,
+              };
+            },
+          },
+        },
+      },
       sesame: { reloadConfiguration: () => undefined },
     },
     loginLinks
@@ -83,7 +103,7 @@ function createSubject() {
       sessionTtlMs: 60 * 60 * 1_000,
     },
   });
-  return { webServer, tokenService, updates, store };
+  return { webServer, tokenService, updates, store, channelFetches };
 }
 
 async function authenticate(origin, tokenService) {
@@ -141,6 +161,8 @@ test('protects admin pages and exchanges a clean login URL for a secure session'
   assert.match(dashboard.headers.get('content-security-policy'), /script-src 'none'/);
   const dashboardHtml = await dashboard.text();
   assert.match(dashboardHtml, /稼働状況/);
+  assert.match(dashboardHtml, /href="\/admin\/settings"/);
+  assert.doesNotMatch(dashboardHtml, /href="\/admin\/settings\/countdown"/);
 
   const getAction = await globalThis.fetch(`${origin}/admin/actions/reload-config`, {
     headers: { cookie },
@@ -192,7 +214,7 @@ test('requires CSRF for changes and updates only authenticated category settings
     }),
   });
   assert.equal(saved.status, 303);
-  assert.equal(saved.headers.get('location'), '/admin/settings/countdown?result=saved');
+  assert.equal(saved.headers.get('location'), '/admin/settings?result=saved#countdown');
   assert.deepEqual(updates, [
     ['countdown_title', '新しい演奏会'],
     ['countdown_date', '2029-03-01'],
@@ -223,6 +245,40 @@ test('requires CSRF for changes and updates only authenticated category settings
     body: `countdown_message=${'x'.repeat(70 * 1_024)}`,
   });
   assert.equal(oversized.status, 413);
+});
+
+test('shows every setting on one page and verifies a channel ID through Discord', async (t) => {
+  const { webServer, tokenService, channelFetches } = createSubject();
+  t.after(async () => webServer.stop());
+  if (!webServer.server.listening) await once(webServer.server, 'listening');
+  const address = webServer.server.address();
+  const origin = `http://127.0.0.1:${address.port}`;
+  const cookie = await authenticate(origin, tokenService);
+
+  const page = await globalThis.fetch(`${origin}/admin/settings`, { headers: { cookie } });
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert.match(html, /id="practice"/);
+  assert.match(html, /練習連絡の送信先/);
+  assert.match(html, /練習連絡テンプレートページ/);
+  assert.match(html, /id="countdown"/);
+  assert.match(html, /id="advanced"/);
+  assert.match(html, /チャンネルIDを確認/);
+
+  const csrf = extractCsrf(html);
+  const verified = await globalThis.fetch(`${origin}/admin/actions/verify-channel`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new globalThis.URLSearchParams({
+      _csrf: csrf,
+      _verify: 'practice_remind_threadid',
+      practice_remind_threadid: '234567890123456789',
+    }),
+  });
+  assert.equal(verified.status, 200);
+  const verifiedHtml = await verified.text();
+  assert.match(verifiedHtml, /確認できました: #verified-channel/);
+  assert.deepEqual(channelFetches, ['234567890123456789']);
 });
 
 test('escapes settings and never emits stored secrets into admin HTML', async (t) => {
