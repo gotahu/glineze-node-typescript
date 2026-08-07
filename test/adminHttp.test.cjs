@@ -172,6 +172,9 @@ test('protects admin pages and exchanges a clean login URL for a secure session'
   assert.doesNotThrow(() => new Function(clientScriptText));
   assert.match(clientScriptText, /addEventListener\('submit'/);
   assert.match(clientScriptText, /const scrollPosition = window\.scrollY/);
+  assert.match(clientScriptText, /function restoreScrollPosition\(scrollPosition\)/);
+  assert.match(clientScriptText, /root\.style\.scrollBehavior = 'auto'/);
+  assert.match(clientScriptText, /window\.requestAnimationFrame/);
 
   const adminStyles = await globalThis.fetch(`${origin}/admin/assets/admin.css`);
   assert.equal(adminStyles.status, 200);

@@ -25,6 +25,22 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     }
   }
 
+  function restoreScrollPosition(scrollPosition) {
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+
+    const restore = () => window.scrollTo(0, scrollPosition);
+    restore();
+    window.requestAnimationFrame(() => {
+      restore();
+      window.requestAnimationFrame(() => {
+        restore();
+        root.style.scrollBehavior = previousScrollBehavior;
+      });
+    });
+  }
+
   function replacePage(html, url, historyMode, scrollPosition) {
     const parsed = new DOMParser().parseFromString(html, 'text/html');
     const nextMain = parsed.querySelector('main');
@@ -47,12 +63,12 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     const preserveScroll = typeof scrollPosition === 'number';
     const hash = new URL(url, window.location.href).hash;
     const target = !preserveScroll && hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
-    if (preserveScroll) window.scrollTo({ top: scrollPosition });
-    else if (target) target.scrollIntoView();
-    else window.scrollTo({ top: 0 });
-
     nextMain.setAttribute('tabindex', '-1');
     nextMain.focus({ preventScroll: preserveScroll || Boolean(target) });
+
+    if (preserveScroll) restoreScrollPosition(scrollPosition);
+    else if (target) target.scrollIntoView();
+    else window.scrollTo({ top: 0 });
   }
 
   async function loadPage(url, historyMode) {
