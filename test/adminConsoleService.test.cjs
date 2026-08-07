@@ -128,6 +128,21 @@ test('allows only keys belonging to the requested category', async () => {
   ]);
 });
 
+test('updates settings from multiple sections in one save', async () => {
+  const { subject, updates } = createSubject({ sesame_app_api_key: 'existing-secret' });
+
+  await subject.updateAllSettings({
+    countdown_title: '夏の演奏会',
+    practice_remind_threadid: '123456789012345678',
+    sesame_app_api_key: '',
+  });
+
+  assert.deepEqual(updates, [
+    ['countdown_title', '夏の演奏会'],
+    ['practice_remind_threadid', '123456789012345678'],
+  ]);
+});
+
 test('exposes a safe system summary and practice-template preview', () => {
   const { subject } = createSubject();
   const system = subject.getSystemStatus();

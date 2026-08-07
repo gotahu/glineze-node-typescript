@@ -171,6 +171,12 @@ test('protects admin pages and exchanges a clean login URL for a secure session'
   const clientScriptText = await clientScript.text();
   assert.doesNotThrow(() => new Function(clientScriptText));
   assert.match(clientScriptText, /addEventListener\('submit'/);
+  assert.match(clientScriptText, /const scrollPosition = window\.scrollY/);
+
+  const adminStyles = await globalThis.fetch(`${origin}/admin/assets/admin.css`);
+  assert.equal(adminStyles.status, 200);
+  assert.match(adminStyles.headers.get('content-type'), /css/);
+  assert.match(await adminStyles.text(), /\.save-dock/);
 
   const getAction = await globalThis.fetch(`${origin}/admin/actions/reload-config`, {
     headers: { cookie },
@@ -256,7 +262,7 @@ test('requires CSRF for changes and updates only authenticated category settings
 });
 
 test('shows every setting on one page and verifies a channel ID through Discord', async (t) => {
-  const { webServer, tokenService, channelFetches } = createSubject();
+  const { webServer, tokenService, channelFetches, updates } = createSubject();
   t.after(async () => webServer.stop());
   if (!webServer.server.listening) await once(webServer.server, 'listening');
   const address = webServer.server.address();
@@ -271,7 +277,9 @@ test('shows every setting on one page and verifies a channel ID through Discord'
   assert.match(html, /練習連絡テンプレートページ/);
   assert.match(html, /id="countdown"/);
   assert.match(html, /id="advanced"/);
-  assert.match(html, /チャンネルIDを確認/);
+  assert.match(html, /id="settings-form"/);
+  assert.match(html, /未保存の変更があります/);
+  assert.match(html, /data-save-dock hidden/);
 
   const csrf = extractCsrf(html);
   const verified = await globalThis.fetch(`${origin}/admin/actions/verify-channel`, {
@@ -287,6 +295,24 @@ test('shows every setting on one page and verifies a channel ID through Discord'
   const verifiedHtml = await verified.text();
   assert.match(verifiedHtml, /確認できました: #verified-channel/);
   assert.deepEqual(channelFetches, ['234567890123456789']);
+
+  const saveCsrf = extractCsrf(verifiedHtml);
+  const saved = await globalThis.fetch(`${origin}/admin/settings`, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new globalThis.URLSearchParams({
+      _csrf: saveCsrf,
+      countdown_title: '秋の演奏会',
+      practice_remind_threadid: '234567890123456789',
+    }),
+  });
+  assert.equal(saved.status, 303);
+  assert.equal(saved.headers.get('location'), '/admin/settings?result=saved');
+  assert.deepEqual(updates, [
+    ['countdown_title', '秋の演奏会'],
+    ['practice_remind_threadid', '234567890123456789'],
+  ]);
 });
 
 test('escapes settings and never emits stored secrets into admin HTML', async (t) => {

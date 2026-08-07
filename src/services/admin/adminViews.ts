@@ -20,34 +20,56 @@ const layoutTemplate = `<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= it.title %> | Glineze 管理画面</title>
   <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <link rel="stylesheet" href="/admin/assets/tabler-icons.css">
+  <link rel="stylesheet" href="/admin/assets/admin.css">
   <script src="/admin/assets/admin.js" defer></script>
 </head>
-<body>
-  <header class="container">
-    <nav>
-      <ul><li><strong>Glineze 管理画面</strong></li></ul>
-      <% if (it.authenticated) { %>
-      <ul>
-        <li><a href="/admin">稼働状況</a></li>
-        <li><a href="/admin/settings">設定</a></li>
-      </ul>
-      <% } %>
+<body class="<%= it.authenticated ? 'admin-shell' : 'auth-shell' %>">
+  <header class="app-sidebar">
+    <a class="app-brand" href="/admin" aria-label="Glineze 管理画面">
+      <span class="app-brand-mark"><i class="ti ti-letter-g" aria-hidden="true"></i></span>
+      <strong>Glineze</strong>
+    </a>
+    <% if (it.authenticated) { %>
+    <nav class="primary-nav" aria-label="管理画面">
+      <a href="/admin" class="<%= it.active === 'dashboard' ? 'active' : '' %>" <%= it.active === 'dashboard' ? 'aria-current="page"' : '' %>>
+        <i class="ti ti-activity" aria-hidden="true"></i><span>稼働状況</span>
+      </a>
+      <a href="/admin/settings" class="<%= it.active === 'settings' ? 'active' : '' %>" <%= it.active === 'settings' ? 'aria-current="page"' : '' %>>
+        <i class="ti ti-settings" aria-hidden="true"></i><span>設定</span>
+      </a>
     </nav>
+    <% if (it.active === 'settings') { %>
+    <nav class="settings-nav" aria-label="設定メニュー">
+      <p>設定メニュー</p>
+      <a href="#practice"><i class="ti ti-speakerphone" aria-hidden="true"></i><span>練習連絡</span></a>
+      <a href="#countdown"><i class="ti ti-clock" aria-hidden="true"></i><span>カウントダウン</span></a>
+      <a href="#notifications"><i class="ti ti-bell" aria-hidden="true"></i><span>その他の通知</span></a>
+      <a href="#advanced"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i><span>詳細設定</span></a>
+      <a href="#sesame"><i class="ti ti-door" aria-hidden="true"></i><span>Sesame</span></a>
+      <a href="#system"><i class="ti ti-shield" aria-hidden="true"></i><span>システム</span></a>
+    </nav>
+    <% } %>
+    <form class="logout-form" method="post" action="/admin/logout">
+      <input type="hidden" name="_csrf" value="<%= it.csrfToken %>">
+      <button type="submit" class="nav-button"><i class="ti ti-logout" aria-hidden="true"></i><span>ログアウト</span></button>
+    </form>
+    <% } %>
   </header>
-  <main class="container">
-    <h1><%= it.title %></h1>
-    <% if (it.notice) { %><aside role="status"><%= it.notice %></aside><% } %>
-    <% if (it.error) { %><aside role="alert"><%= it.error %></aside><% } %>
+  <main class="app-main">
+    <div class="page-heading">
+      <div>
+        <h1><%= it.title %></h1>
+        <% if (it.active === 'settings') { %><p>Glineze ボットの動作や連携サービスの設定を管理します。</p><% } %>
+      </div>
+      <% if (it.active === 'settings') { %>
+      <span class="sync-status"><i class="ti ti-circle-check" aria-hidden="true"></i>設定を読み込み済み</span>
+      <% } %>
+    </div>
+    <% if (it.notice) { %><aside class="flash success" role="status"><i class="ti ti-circle-check" aria-hidden="true"></i><span><%= it.notice %></span></aside><% } %>
+    <% if (it.error) { %><aside class="flash error" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i><span><%= it.error %></span></aside><% } %>
     <%~ it.content %>
   </main>
-  <% if (it.authenticated) { %>
-  <footer class="container">
-    <form method="post" action="/admin/logout">
-      <input type="hidden" name="_csrf" value="<%= it.csrfToken %>">
-      <button type="submit" class="secondary outline">ログアウト</button>
-    </form>
-  </footer>
-  <% } %>
 </body>
 </html>`;
 
@@ -112,42 +134,52 @@ export function renderSettingsForm(
   channelChecks: Readonly<Record<string, { ok: boolean; message: string }>> = {}
 ): string {
   return eta.renderString(
-    `<form method="post" action="/admin/settings/<%= it.category %>">
-      <input type="hidden" name="_csrf" value="<%= it.csrfToken %>">
+    `<div class="settings-fields" data-category="<%= it.category %>">
       <% it.fields.forEach(function(field) { %>
-        <label for="setting-<%= field.key %>"><%= field.label %></label>
-        <small><%= field.description %></small>
-        <% if (it.fieldErrors[field.key]) { %><small role="alert"><%= it.fieldErrors[field.key] %></small><% } %>
-        <% if (it.channelChecks[field.key]) { %>
-          <small role="<%= it.channelChecks[field.key].ok ? 'status' : 'alert' %>"><%= it.channelChecks[field.key].message %></small>
-        <% } %>
-        <% if (field.input === 'textarea') { %>
-          <textarea id="setting-<%= field.key %>" name="<%= field.key %>" required><%= field.value || '' %></textarea>
-        <% } else { %>
-          <input
-            id="setting-<%= field.key %>"
-            name="<%= field.key %>"
-            type="<%= field.input === 'secret' ? 'password' : field.input %>"
-            value="<%= field.secret ? '' : (field.value || '') %>"
-            placeholder="<%= field.secret && field.configured ? '設定済み（変更時のみ入力）' : '' %>"
-            <%= field.secret ? '' : 'required' %>
-            autocomplete="off"
-          >
-        <% } %>
-        <% if (field.discordChannel) { %>
-          <button
-            type="submit"
-            class="secondary outline"
-            formaction="/admin/actions/verify-channel"
-            formmethod="post"
-            formnovalidate
-            name="_verify"
-            value="<%= field.key %>"
-          >チャンネルIDを確認</button>
-        <% } %>
+        <div class="setting-row <%= field.input === 'textarea' ? 'textarea-row' : '' %>">
+          <div class="setting-copy">
+            <label for="setting-<%= field.key %>"><%= field.label %></label>
+            <small><%= field.description %></small>
+          </div>
+          <div class="setting-control">
+            <div class="control-line">
+              <% if (field.input === 'textarea') { %>
+                <textarea id="setting-<%= field.key %>" name="<%= field.key %>" required><%= field.value || '' %></textarea>
+              <% } else { %>
+                <input
+                  id="setting-<%= field.key %>"
+                  name="<%= field.key %>"
+                  type="<%= field.input === 'secret' ? 'password' : field.input %>"
+                  value="<%= field.secret ? '' : (field.value || '') %>"
+                  placeholder="<%= field.secret && field.configured ? '設定済み（変更時のみ入力）' : '' %>"
+                  <%= field.secret ? '' : 'required' %>
+                  autocomplete="off"
+                >
+              <% } %>
+              <% if (field.discordChannel) { %>
+                <button
+                  type="submit"
+                  class="button compact secondary"
+                  formaction="/admin/actions/verify-channel"
+                  formmethod="post"
+                  formnovalidate
+                  name="_verify"
+                  value="<%= field.key %>"
+                >確認</button>
+              <% } %>
+            </div>
+            <% if (it.fieldErrors[field.key]) { %><small class="field-message error" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i><%= it.fieldErrors[field.key] %></small><% } %>
+            <% if (it.channelChecks[field.key]) { %>
+              <small class="field-message <%= it.channelChecks[field.key].ok ? 'success' : 'error' %>" role="<%= it.channelChecks[field.key].ok ? 'status' : 'alert' %>"><i class="ti ti-<%= it.channelChecks[field.key].ok ? 'circle-check' : 'alert-circle' %>" aria-hidden="true"></i><%= it.channelChecks[field.key].message %></small>
+            <% } else if (field.discordChannel && field.configured) { %>
+              <small class="field-message neutral"><i class="ti ti-circle-dot" aria-hidden="true"></i>ID設定済み・未確認</small>
+            <% } else if (field.secret && field.configured) { %>
+              <small class="field-message success"><i class="ti ti-circle-check" aria-hidden="true"></i>設定済み</small>
+            <% } %>
+          </div>
+        </div>
       <% }) %>
-      <button type="submit">設定を保存</button>
-    </form>`,
+    </div>`,
     { category, fields, csrfToken, fieldErrors, channelChecks }
   );
 }
@@ -164,15 +196,21 @@ export function renderPracticeTemplate(
 ): string {
   const settings = renderSettingsForm('practice-template', fields, csrfToken, fieldErrors);
   return eta.renderString(
-    `<section><h3>テンプレート参照先</h3><%~ it.settings %></section>
-    <section><h3>現在の状態</h3><p><%= it.data.status.message %></p>
-      <form method="post" action="/admin/actions/reload-template">
-        <input type="hidden" name="_csrf" value="<%= it.csrfToken %>">
-        <button type="submit" class="secondary">テンプレートを再読込</button>
-      </form>
-    </section>
-    <section><h3>プレビュー</h3><pre><code><%= it.data.preview %></code></pre></section>
-    <section><h3>利用可能なプレースホルダー</h3><p><%= it.data.placeholders.map(function(value) { return '{{' + value + '}}' }).join('、') %></p></section>`,
+    `<%~ it.settings %>
+    <div class="template-status-row">
+      <div>
+        <strong>テンプレートの状態</strong>
+        <p><i class="ti ti-brand-notion" aria-hidden="true"></i><%= it.data.status.message %></p>
+      </div>
+      <button type="submit" class="button compact secondary" formaction="/admin/actions/reload-template" formmethod="post" formnovalidate>
+        <i class="ti ti-refresh" aria-hidden="true"></i>再読込
+      </button>
+    </div>
+    <div class="preview-block">
+      <div class="preview-heading"><span><i class="ti ti-speakerphone" aria-hidden="true"></i>プレビュー</span><small>現在のテンプレートから生成</small></div>
+      <pre><code><%= it.data.preview %></code></pre>
+    </div>
+    <details class="placeholder-help"><summary>利用可能なプレースホルダー</summary><p><%= it.data.placeholders.map(function(value) { return '{{' + value + '}}' }).join('、') %></p></details>`,
     { data, settings, csrfToken }
   );
 }
@@ -185,20 +223,40 @@ export function renderAllSettings(sections: {
   advanced: string;
   sesame: string;
   system: string;
+  csrfToken: string;
 }): string {
   return eta.renderString(
-    `<p>すべての設定をこの画面から変更できます。</p>
-    <section id="practice"><h2>練習連絡</h2><h3>送信先</h3><%~ it.sections.practiceDestination %><%~ it.sections.practiceTemplate %></section>
-    <hr>
-    <section id="countdown"><h2>カウントダウン</h2><%~ it.sections.countdown %></section>
-    <hr>
-    <section id="notifications"><h2>その他の通知先</h2><%~ it.sections.notifications %></section>
-    <hr>
-    <section id="advanced"><h2>詳細設定</h2><p>Notion のデータ参照先を変更します。IDを誤ると関連機能が動作しなくなるため注意してください。</p><%~ it.sections.advanced %></section>
-    <hr>
-    <section id="sesame"><h2>Sesame</h2><%~ it.sections.sesame %></section>
-    <hr>
-    <section id="system"><h2>システム</h2><%~ it.sections.system %></section>`,
+    `<form id="settings-form" class="settings-page-form" method="post" action="/admin/settings">
+      <input type="hidden" name="_csrf" value="<%= it.sections.csrfToken %>">
+      <section id="practice" class="settings-section">
+        <div class="section-heading"><div class="section-icon"><i class="ti ti-speakerphone" aria-hidden="true"></i></div><div><h2>練習連絡</h2><p>練習日程の作成・更新時に、Discordへ通知を送信します。</p></div></div>
+        <%~ it.sections.practiceDestination %><%~ it.sections.practiceTemplate %>
+      </section>
+      <section id="countdown" class="settings-section">
+        <div class="section-heading"><div class="section-icon"><i class="ti ti-clock" aria-hidden="true"></i></div><div><h2>カウントダウン</h2><p>本番やイベントまでの日数をDiscordへ通知します。</p></div></div>
+        <%~ it.sections.countdown %>
+      </section>
+      <section id="notifications" class="settings-section">
+        <div class="section-heading"><div class="section-icon"><i class="ti ti-bell" aria-hidden="true"></i></div><div><h2>その他の通知</h2><p>場所取り通知と標準のDiscord送信先を設定します。</p></div></div>
+        <%~ it.sections.notifications %>
+      </section>
+      <section id="advanced" class="settings-section">
+        <div class="section-heading"><div class="section-icon"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i></div><div><h2>詳細設定</h2><p>Notionのデータ参照先を変更します。誤ったIDを設定すると関連機能が停止する場合があります。</p></div></div>
+        <%~ it.sections.advanced %>
+      </section>
+      <section id="sesame" class="settings-section">
+        <div class="section-heading"><div class="section-icon"><i class="ti ti-door" aria-hidden="true"></i></div><div><h2>Sesame</h2><p>スマートロックとの接続と表示メッセージを管理します。</p></div></div>
+        <%~ it.sections.sesame %>
+      </section>
+      <section id="system" class="settings-section">
+        <div class="section-heading"><div class="section-icon"><i class="ti ti-shield" aria-hidden="true"></i></div><div><h2>システム</h2><p>動作環境の確認と設定データの再読込を行います。</p></div></div>
+        <%~ it.sections.system %>
+      </section>
+      <div class="save-dock" data-save-dock hidden>
+        <div class="save-dock-copy"><i class="ti ti-alert-circle" aria-hidden="true"></i><div><strong>未保存の変更があります</strong><small>変更内容を確認して保存してください。</small></div></div>
+        <div class="save-dock-actions"><button type="reset" class="button secondary">変更を破棄</button><button type="submit" class="button primary"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更を保存</button></div>
+      </div>
+    </form>`,
     { sections }
   );
 }
@@ -207,22 +265,31 @@ export function renderSystemSettings(
   status: Record<string, string | boolean>,
   csrfToken: string
 ): string {
+  const labels: Record<string, string> = {
+    nodeEnv: '動作環境',
+    notionAutomationEnabled: 'Notion Automation',
+    sesameEnabled: 'Sesame連携',
+    adminEnabled: '管理画面',
+    discordTokenConfigured: 'Discord認証情報',
+    notionTokenConfigured: 'Notion認証情報',
+    relayWebhookConfigured: 'Relay Webhook',
+    branch: 'ブランチ',
+  };
+  const entries = Object.entries(status).map(([key, value]) => ({
+    label: labels[key] ?? key,
+    value: typeof value === 'boolean' ? (value ? '有効・設定済み' : '無効・未設定') : String(value),
+    ok: typeof value === 'boolean' ? value : true,
+  }));
   return eta.renderString(
-    `<dl>
-      <% Object.entries(it.status).forEach(function(entry) { %>
-        <dt><%= entry[0] %></dt><dd><%= String(entry[1]) %></dd>
+    `<dl class="system-status-grid">
+      <% it.entries.forEach(function(entry) { %>
+        <div><dt><%= entry.label %></dt><dd class="<%= entry.ok ? 'ok' : 'muted' %>"><i class="ti ti-<%= entry.ok ? 'circle-check' : 'circle-minus' %>" aria-hidden="true"></i><%= entry.value %></dd></div>
       <% }) %>
     </dl>
-    <div class="grid">
-      <form method="post" action="/admin/actions/reload-config">
-        <input type="hidden" name="_csrf" value="<%= it.csrfToken %>">
-        <button type="submit">設定を Notion から再読込</button>
-      </form>
-      <form method="post" action="/admin/actions/rotate-login-link">
-        <input type="hidden" name="_csrf" value="<%= it.csrfToken %>">
-        <button type="submit" class="secondary">ログインリンクを更新</button>
-      </form>
+    <div class="system-actions">
+      <button type="submit" class="button secondary" formaction="/admin/actions/reload-config" formmethod="post" formnovalidate><i class="ti ti-refresh" aria-hidden="true"></i>Notionから設定を再読込</button>
+      <button type="submit" class="button secondary" formaction="/admin/actions/rotate-login-link" formmethod="post" formnovalidate><i class="ti ti-link" aria-hidden="true"></i>ログインリンクを更新</button>
     </div>`,
-    { status, csrfToken }
+    { entries, csrfToken }
   );
 }

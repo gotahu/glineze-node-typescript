@@ -6,7 +6,6 @@ import session from 'express-session';
 import helmet from 'helmet';
 import createMemoryStore from 'memorystore';
 import {
-  CONFIG_DEFINITIONS,
   ConfigCategory,
   ConfigEffectError,
   ConfigKey,
@@ -15,10 +14,11 @@ import {
   isConfigKey,
 } from '../../config';
 import { logger } from '../../utils/logger';
-import { AdminConsoleService, AdminOperationError } from './adminConsoleService';
 import { ADMIN_CLIENT_JS } from './adminClient';
+import { AdminConsoleService, AdminOperationError } from './adminConsoleService';
 import { AdminLoginLinkService } from './adminLoginLinkService';
 import { AdminLoginTokenService } from './adminLoginTokenService';
+import { ADMIN_STYLES } from './adminStyles';
 import {
   renderDashboard,
   renderAllSettings,
@@ -37,6 +37,7 @@ export type AdminRouterOptions = {
   loginLinks: AdminLoginLinkService;
   sessionSecret: string;
   sessionTtlMs: number;
+  secureCookies?: boolean;
   dashboard: () => DashboardSnapshot;
 };
 
@@ -86,19 +87,34 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
   router.get('/assets/pico.min.css', (_req, res) => {
     res.type('text/css').sendFile(path.resolve(require.resolve('@picocss/pico/css/pico.min.css')));
   });
+  router.get('/assets/tabler-icons.css', (_req, res) => {
+    res
+      .type('text/css')
+      .sendFile(path.resolve(require.resolve('@tabler/icons-webfont/dist/tabler-icons.min.css')));
+  });
+  router.get('/assets/fonts/tabler-icons.woff2', (_req, res) => {
+    res
+      .type('font/woff2')
+      .sendFile(
+        path.resolve(require.resolve('@tabler/icons-webfont/dist/fonts/tabler-icons.woff2'))
+      );
+  });
+  router.get('/assets/admin.css', (_req, res) => {
+    res.type('text/css').send(ADMIN_STYLES);
+  });
   router.get('/assets/admin.js', (_req, res) => {
     res.type('text/javascript').send(ADMIN_CLIENT_JS);
   });
   router.use(
     session({
-      name: '__Host-glineze-admin',
+      name: options.secureCookies === false ? 'glineze-admin-preview' : '__Host-glineze-admin',
       secret: options.sessionSecret,
       store,
       resave: false,
       saveUninitialized: false,
       proxy: true,
       cookie: {
-        secure: true,
+        secure: options.secureCookies ?? true,
         httpOnly: true,
         sameSite: 'strict',
         path: '/',
@@ -150,6 +166,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
     });
     sendPage(res, {
       title: '稼働状況',
+      active: 'dashboard',
       content,
       csrfToken,
       authenticated: true,
@@ -159,6 +176,24 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
 
   router.get('/settings', (req, res) => {
     renderAllSettingsPage(req, res, options.consoleService);
+  });
+
+  router.post('/settings', async (req, res) => {
+    const input = bodyWithoutCsrf(req.body);
+    try {
+      await options.consoleService.updateAllSettings(input);
+      logger.info(
+        `管理画面から設定を一括更新しました: ${Object.keys(input).join(', ')}（actor: notion-admin-session）`
+      );
+      res.redirect(303, '/admin/settings?result=saved');
+    } catch (error) {
+      const status =
+        error instanceof ConfigValidationError || error instanceof AdminOperationError ? 400 : 503;
+      renderAllSettingsPage(req, res, options.consoleService, status, safeAdminError(error), {
+        fieldErrors: error instanceof ConfigValidationError ? { [error.key]: error.message } : {},
+        submittedInput: input,
+      });
+    }
   });
 
   router.get('/settings/:category', (req, res) => {
@@ -232,11 +267,9 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
 
     const key: ConfigKey = rawKey;
     const input = typeof req.body?.[key] === 'string' ? req.body[key] : '';
-    const category = CONFIG_DEFINITIONS[key].category;
     try {
       const channel = await options.consoleService.verifyDiscordChannel(key, input);
       renderAllSettingsPage(req, res, options.consoleService, 200, undefined, {
-        category,
         submittedInput: bodyWithoutCsrf(req.body),
         channelChecks: {
           [key]: {
@@ -248,7 +281,6 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
     } catch (error) {
       const message = safeAdminError(error);
       renderAllSettingsPage(req, res, options.consoleService, 400, message, {
-        category,
         submittedInput: bodyWithoutCsrf(req.body),
         fieldErrors: error instanceof ConfigValidationError ? { [key]: error.message } : {},
         channelChecks:
@@ -328,7 +360,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
 }
 
 type SettingsPageState = {
-  category: ConfigCategory;
+  category?: ConfigCategory;
   fieldErrors?: Readonly<Record<string, string>>;
   submittedInput?: Readonly<Record<string, string>>;
   channelChecks?: Readonly<Record<string, { ok: boolean; message: string }>>;
@@ -346,10 +378,10 @@ function renderAllSettingsPage(
   const fieldsFor = (category: ConfigCategory) =>
     consoleService.getSettings(category).map((field) => ({
       ...field,
-      ...(state?.category === category &&
+      ...((!state?.category || state.category === category) &&
       !field.secret &&
-      typeof state.submittedInput?.[field.key] === 'string'
-        ? { value: state.submittedInput[field.key] }
+      typeof state?.submittedInput?.[field.key] === 'string'
+        ? { value: state?.submittedInput?.[field.key] }
         : {}),
     }));
 
@@ -393,6 +425,7 @@ function renderAllSettingsPage(
         ? renderSettingsForm('sesame', sesameFields, csrfToken, errors)
         : '<p>Sesame 連携は停止中です。</p>',
     system: renderSystemSettings(consoleService.getSystemStatus(), csrfToken),
+    csrfToken,
   });
   res
     .status(status)
@@ -400,6 +433,7 @@ function renderAllSettingsPage(
     .send(
       renderPage({
         title: '設定',
+        active: 'settings',
         content,
         csrfToken,
         authenticated: true,

@@ -108,6 +108,27 @@ export class AdminConsoleService {
     await this.configs.updateMany(updates);
   }
 
+  public async updateAllSettings(input: Readonly<Record<string, string>>): Promise<void> {
+    const updates: Record<string, string> = {};
+    for (const [key, value] of Object.entries(input)) {
+      if (!isConfigKey(key)) {
+        throw new AdminOperationError(`設定 ${key} は変更できません。`);
+      }
+      if (CONFIG_DEFINITIONS[key].category === 'sesame' && !env.SESAME_ENABLED) {
+        throw new AdminOperationError('Sesame 連携は停止中です。');
+      }
+      const definition = CONFIG_DEFINITIONS[key];
+      const secret = 'secret' in definition && Boolean(definition.secret);
+      if (secret && value.trim() === '') continue;
+      updates[key] = value;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      throw new AdminOperationError('変更する設定を入力してください。');
+    }
+    await this.configs.updateMany(updates);
+  }
+
   public getPracticeTemplate() {
     const service = this.runtime.notion.practiceTemplateService;
     return {

@@ -39,6 +39,7 @@
     "@hapi/iron": "^7.0.1",
     "@notionhq/client": "^5.20.0",
     "@picocss/pico": "^2.1.1",
+    "@tabler/icons-webfont": "^3.46.0",
     "axios": "^1.15.2",
     "csrf-sync": "^4.2.1",
     "date-fns": "^4.1.0",

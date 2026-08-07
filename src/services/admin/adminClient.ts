@@ -12,7 +12,20 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     );
   }
 
-  function replacePage(html, url, historyMode) {
+  function setSaveDockVisible(visible) {
+    const dock = document.querySelector('[data-save-dock]');
+    if (dock) dock.hidden = !visible;
+  }
+
+  function restoreUnsavedValues(data) {
+    for (const [name, value] of data.entries()) {
+      if (typeof value !== 'string' || name === '_csrf' || name === '_verify') continue;
+      const field = document.querySelector('[name="' + CSS.escape(name) + '"]');
+      if (field && 'value' in field && field.type !== 'password') field.value = value;
+    }
+  }
+
+  function replacePage(html, url, historyMode, scrollPosition) {
     const parsed = new DOMParser().parseFromString(html, 'text/html');
     const nextMain = parsed.querySelector('main');
     const nextHeader = parsed.querySelector('header');
@@ -31,13 +44,15 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     if (historyMode === 'push') window.history.pushState({}, '', url);
     if (historyMode === 'replace') window.history.replaceState({}, '', url);
 
+    const preserveScroll = typeof scrollPosition === 'number';
     const hash = new URL(url, window.location.href).hash;
-    const target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
-    if (target) target.scrollIntoView();
+    const target = !preserveScroll && hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+    if (preserveScroll) window.scrollTo({ top: scrollPosition });
+    else if (target) target.scrollIntoView();
     else window.scrollTo({ top: 0 });
 
     nextMain.setAttribute('tabindex', '-1');
-    nextMain.focus({ preventScroll: Boolean(target) });
+    nextMain.focus({ preventScroll: preserveScroll || Boolean(target) });
   }
 
   async function loadPage(url, historyMode) {
@@ -55,6 +70,15 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     const link = event.target.closest('a');
     if (!link || !isAdminLink(link)) return;
 
+    const targetUrl = new URL(link.href, window.location.href);
+    if (
+      targetUrl.pathname === window.location.pathname &&
+      targetUrl.search === window.location.search &&
+      targetUrl.hash
+    ) {
+      return;
+    }
+
     event.preventDefault();
     loadPage(link.href, 'push').catch(() => window.location.assign(link.href));
   });
@@ -71,15 +95,19 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     const action = submitter?.formAction || form.action;
     const method = (submitter?.formMethod || form.method || 'get').toUpperCase();
     const url = new URL(action, window.location.href);
+    const sectionId = submitter?.closest('section[id]')?.id;
     if (url.origin !== window.location.origin || !url.pathname.startsWith(adminPath)) return;
 
     event.preventDefault();
+    const scrollPosition = window.scrollY;
     const data = new FormData(form);
     if (submitter?.name) data.set(submitter.name, submitter.value);
     const body = new URLSearchParams();
     for (const [name, value] of data.entries()) {
       if (typeof value === 'string') body.append(name, value);
     }
+    const savesAllSettings = url.pathname === '/admin/settings' && method === 'POST';
+    const hadUnsavedChanges = !document.querySelector('[data-save-dock]')?.hidden;
 
     if (submitter) {
       submitter.disabled = true;
@@ -99,7 +127,15 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
       .then(async (response) => {
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('text/html')) throw new Error('HTML以外の応答を受信しました。');
-        replacePage(await response.text(), response.url || url.href, 'replace');
+        const nextUrl =
+          url.pathname === '/admin/actions/verify-channel'
+            ? '/admin/settings' + (sectionId ? '#' + sectionId : '')
+            : response.url || url.href;
+        replacePage(await response.text(), nextUrl, 'replace', scrollPosition);
+        if (!savesAllSettings && hadUnsavedChanges) {
+          restoreUnsavedValues(data);
+          setSaveDockVisible(true);
+        }
       })
       .catch(() => {
         if (submitter) {
@@ -109,6 +145,26 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
         nativeSubmissions.add(form);
         form.requestSubmit(submitter || undefined);
       });
+  });
+
+  document.addEventListener('input', (event) => {
+    const field = event.target;
+    if (field instanceof HTMLElement && field.closest('#settings-form') && field.getAttribute('name') !== '_csrf') {
+      setSaveDockVisible(true);
+    }
+  });
+
+  document.addEventListener('change', (event) => {
+    const field = event.target;
+    if (field instanceof HTMLElement && field.closest('#settings-form') && field.getAttribute('name') !== '_csrf') {
+      setSaveDockVisible(true);
+    }
+  });
+
+  document.addEventListener('reset', (event) => {
+    if (event.target instanceof HTMLFormElement && event.target.id === 'settings-form') {
+      window.setTimeout(() => setSaveDockVisible(false), 0);
+    }
   });
 
   window.addEventListener('popstate', () => {
