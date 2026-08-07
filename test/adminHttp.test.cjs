@@ -158,11 +158,19 @@ test('protects admin pages and exchanges a clean login URL for a secure session'
   assert.equal(dashboard.status, 200);
   assert.equal(dashboard.headers.get('cache-control'), 'no-store');
   assert.equal(dashboard.headers.get('referrer-policy'), 'no-referrer');
-  assert.match(dashboard.headers.get('content-security-policy'), /script-src 'none'/);
+  assert.match(dashboard.headers.get('content-security-policy'), /script-src 'self'/);
   const dashboardHtml = await dashboard.text();
   assert.match(dashboardHtml, /稼働状況/);
+  assert.match(dashboardHtml, /src="\/admin\/assets\/admin\.js" defer/);
   assert.match(dashboardHtml, /href="\/admin\/settings"/);
   assert.doesNotMatch(dashboardHtml, /href="\/admin\/settings\/countdown"/);
+
+  const clientScript = await globalThis.fetch(`${origin}/admin/assets/admin.js`);
+  assert.equal(clientScript.status, 200);
+  assert.match(clientScript.headers.get('content-type'), /javascript/);
+  const clientScriptText = await clientScript.text();
+  assert.doesNotThrow(() => new Function(clientScriptText));
+  assert.match(clientScriptText, /addEventListener\('submit'/);
 
   const getAction = await globalThis.fetch(`${origin}/admin/actions/reload-config`, {
     headers: { cookie },

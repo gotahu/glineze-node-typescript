@@ -20,6 +20,7 @@ const layoutTemplate = `<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= it.title %> | Glineze 管理画面</title>
   <link rel="stylesheet" href="/admin/assets/pico.min.css">
+  <script src="/admin/assets/admin.js" defer></script>
 </head>
 <body>
   <header class="container">

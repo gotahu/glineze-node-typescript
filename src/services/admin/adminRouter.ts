@@ -16,6 +16,7 @@ import {
 } from '../../config';
 import { logger } from '../../utils/logger';
 import { AdminConsoleService, AdminOperationError } from './adminConsoleService';
+import { ADMIN_CLIENT_JS } from './adminClient';
 import { AdminLoginLinkService } from './adminLoginLinkService';
 import { AdminLoginTokenService } from './adminLoginTokenService';
 import {
@@ -66,7 +67,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'none'"],
+          scriptSrc: ["'self'"],
           styleSrc: ["'self'"],
           imgSrc: ["'self'"],
           connectSrc: ["'self'"],
@@ -84,6 +85,9 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
   });
   router.get('/assets/pico.min.css', (_req, res) => {
     res.type('text/css').sendFile(path.resolve(require.resolve('@picocss/pico/css/pico.min.css')));
+  });
+  router.get('/assets/admin.js', (_req, res) => {
+    res.type('text/javascript').send(ADMIN_CLIENT_JS);
   });
   router.use(
     session({
