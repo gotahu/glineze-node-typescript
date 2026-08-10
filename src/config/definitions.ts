@@ -7,7 +7,7 @@ export type ConfigCategory =
   | 'advanced'
   | 'sesame';
 
-export type ConfigInput = 'text' | 'textarea' | 'date' | 'url' | 'secret';
+export type ConfigInput = 'text' | 'textarea' | 'date' | 'url' | 'secret' | 'boolean';
 
 export type ConfigEffect = 'bot-profile' | 'practice-template' | 'sesame';
 
@@ -37,6 +37,41 @@ const notionId = z
       /^[0-9a-f]{32}$/i.test(value) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value),
     'Notion ID は32桁の16進数またはUUID形式で入力してください。'
   );
+
+const notionDatabaseId = z
+  .string()
+  .trim()
+  .transform((value, context) => {
+    const directId = value.match(
+      /^(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/i
+    )?.[0];
+    if (directId) return directId;
+
+    try {
+      const url = new URL(value);
+      const notionHost =
+        url.hostname === 'notion.com' ||
+        url.hostname.endsWith('.notion.com') ||
+        url.hostname === 'notion.so' ||
+        url.hostname.endsWith('.notion.so');
+      if (url.protocol === 'https:' && notionHost) {
+        for (const segment of url.pathname.split('/').reverse()) {
+          const match = segment.match(
+            /(?:^|-)([0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/i
+          );
+          if (match?.[1]) return match[1];
+        }
+      }
+    } catch {
+      // The validation issue below covers malformed URLs and plain invalid IDs.
+    }
+
+    context.addIssue({
+      code: 'custom',
+      message: 'Notion データベース ID またはデータベース URL を入力してください。',
+    });
+    return z.NEVER;
+  });
 
 const calendarDate = z
   .string()
@@ -99,8 +134,8 @@ export const CONFIG_DEFINITIONS = {
     schema: notifyDays,
   },
   countdown_message: {
-    label: '通知文',
-    description: 'カウントダウン通知へ追加する文章です。',
+    label: '通知本文',
+    description: 'カウントダウン通知として送信する本文です。',
     category: 'countdown',
     input: 'textarea',
     schema: nonEmptyText(2_000),
@@ -136,31 +171,39 @@ export const CONFIG_DEFINITIONS = {
   },
   practice_databaseid: {
     label: '練習データベース',
-    description: '練習予定を管理する Notion データベース ID です。',
+    description: '練習予定を管理する Notion データベース ID です。URLからも抽出できます。',
     category: 'advanced',
     input: 'text',
-    schema: notionId,
+    schema: notionDatabaseId,
   },
   facility_databaseid: {
     label: '施設データベース',
-    description: '施設情報を管理する Notion データベース ID です。',
+    description: '施設情報を管理する Notion データベース ID です。URLからも抽出できます。',
     category: 'advanced',
     input: 'text',
-    schema: notionId,
+    schema: notionDatabaseId,
   },
   shukin_databaseid: {
-    label: '出欠データベース',
-    description: '出欠情報を管理する Notion データベース ID です。',
+    label: '集金データベース',
+    description: '集金情報を管理する Notion データベース ID です。URLからも抽出できます。',
     category: 'advanced',
     input: 'text',
-    schema: notionId,
+    schema: notionDatabaseId,
   },
   discord_and_notion_pairs_databaseid: {
     label: 'Discord・Notion 対応データベース',
-    description: 'Discord ユーザーと Notion 団員を対応付けるデータベース ID です。',
+    description: 'Discord ユーザーと Notion 団員を対応付けるDBです。URLからも抽出できます。',
     category: 'advanced',
     input: 'text',
-    schema: notionId,
+    schema: notionDatabaseId,
+  },
+  sesame_enabled: {
+    label: 'Sesame 連携',
+    description: 'Sesame の状態取得と Discord への反映を有効化します。',
+    category: 'sesame',
+    input: 'boolean',
+    effect: 'sesame',
+    schema: z.enum(['true', 'false']),
   },
   sesame_app_api_url: {
     label: 'Sesame API URL',

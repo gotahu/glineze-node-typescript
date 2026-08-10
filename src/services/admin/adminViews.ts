@@ -3,6 +3,24 @@ import { AdminSettingField } from './adminConsoleService';
 
 const eta = new Eta({ autoEscape: true, cache: true });
 
+const PRACTICE_PLACEHOLDER_LABELS: Record<string, string> = {
+  accessText: 'アクセス',
+  dateLabel: '日付',
+  notionUrl: 'Notion URL',
+  pageId: 'ページID',
+  placeNames: '施設名',
+  placeText: '場所',
+  programText: '練習内容',
+  publicityNotice: '情宣案内',
+  publicityText: '情宣担当',
+  room: '部屋',
+  teachersNotice: '先生案内',
+  teachersText: '先生名',
+  timeText: '時間',
+  title: 'タイトル',
+  ttText: 'TT',
+};
+
 type PageOptions = {
   title: string;
   active?: string;
@@ -18,11 +36,13 @@ const layoutTemplate = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true}'>
   <title><%= it.title %> | Glineze 管理画面</title>
   <link rel="stylesheet" href="/admin/assets/pico.min.css">
   <link rel="stylesheet" href="/admin/assets/tabler-icons.css">
-  <link rel="stylesheet" href="/admin/assets/admin.css">
-  <script src="/admin/assets/admin.js" defer></script>
+  <link rel="stylesheet" href="/admin/assets/admin.css?v=20260807-3">
+  <script src="/admin/assets/htmx.min.js" defer></script>
+  <script src="/admin/assets/admin.js?v=20260807-3" defer></script>
 </head>
 <body class="<%= it.authenticated ? 'admin-shell' : 'auth-shell' %>">
   <header class="app-sidebar">
@@ -66,8 +86,8 @@ const layoutTemplate = `<!doctype html>
       <span class="sync-status"><i class="ti ti-circle-check" aria-hidden="true"></i>設定を読み込み済み</span>
       <% } %>
     </div>
-    <% if (it.notice) { %><aside class="flash success" role="status"><i class="ti ti-circle-check" aria-hidden="true"></i><span><%= it.notice %></span></aside><% } %>
-    <% if (it.error) { %><aside class="flash error" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i><span><%= it.error %></span></aside><% } %>
+    <% if (it.notice) { %><aside class="flash success" role="status"><i class="ti ti-circle-check" aria-hidden="true"></i><span><%= it.notice %></span><button type="button" data-dismiss-flash aria-label="通知を閉じる"><i class="ti ti-x" aria-hidden="true"></i></button></aside><% } %>
+    <% if (it.error) { %><aside class="flash error" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i><span><%= it.error %></span><button type="button" data-dismiss-flash aria-label="エラーを閉じる"><i class="ti ti-x" aria-hidden="true"></i></button></aside><% } %>
     <%~ it.content %>
   </main>
 </body>
@@ -142,9 +162,23 @@ export function renderSettingsForm(
             <small><%= field.description %></small>
           </div>
           <div class="setting-control">
+            <% if (field.key === 'countdown_message') { %>
+              <div class="placeholder-toolbar" aria-label="カウントダウンのプレースホルダー">
+                <span>プレースホルダーを挿入</span>
+                <button type="button" class="placeholder-chip" data-insert-placeholder="{{title}}" data-target="setting-countdown_message" disabled>イベント名 <code>{{title}}</code></button>
+                <button type="button" class="placeholder-chip" data-insert-placeholder="{{days}}" data-target="setting-countdown_message" disabled>残り日数 <code>{{days}}</code></button>
+              </div>
+            <% } %>
             <div class="control-line">
-              <% if (field.input === 'textarea') { %>
-                <textarea id="setting-<%= field.key %>" name="<%= field.key %>" required><%= field.value || '' %></textarea>
+              <% if (field.input === 'boolean') { %>
+                <input type="hidden" name="<%= field.key %>" value="false">
+                <label class="toggle-control" for="setting-<%= field.key %>">
+                  <input id="setting-<%= field.key %>" name="<%= field.key %>" type="checkbox" value="true" data-setting-toggle <%= field.value === 'true' ? 'checked' : '' %>>
+                  <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+                  <span class="toggle-state" data-toggle-state><%= field.value === 'true' ? '有効' : '無効' %></span>
+                </label>
+              <% } else if (field.input === 'textarea') { %>
+                <textarea id="setting-<%= field.key %>" name="<%= field.key %>" <% if (field.key === 'countdown_message') { %>data-valid-placeholders="title,days"<% } %> required readonly><%= field.value || '' %></textarea>
               <% } else { %>
                 <input
                   id="setting-<%= field.key %>"
@@ -154,7 +188,19 @@ export function renderSettingsForm(
                   placeholder="<%= field.secret && field.configured ? '設定済み（変更時のみ入力）' : '' %>"
                   <%= field.secret ? '' : 'required' %>
                   autocomplete="off"
+                  <% if (field.key === 'countdown_notify_days') { %>data-validate-notify-days aria-describedby="setting-validation-<%= field.key %>"<% } %>
+                  <% if (field.notionDatabase) { %>data-notion-database-id<% } %>
+                  readonly
                 >
+              <% } %>
+              <% if (field.input !== 'boolean') { %>
+                <button
+                  type="button"
+                  class="button compact secondary field-edit-button"
+                  data-edit-field
+                  aria-controls="setting-<%= field.key %>"
+                  aria-pressed="false"
+                ><i class="ti ti-pencil" aria-hidden="true"></i><span>編集</span></button>
               <% } %>
               <% if (field.discordChannel) { %>
                 <button
@@ -165,16 +211,50 @@ export function renderSettingsForm(
                   formnovalidate
                   name="_verify"
                   value="<%= field.key %>"
+                  hx-post="/admin/actions/verify-channel"
+                  hx-include="#settings-form"
+                  hx-target="#setting-feedback-<%= field.key %>"
+                  hx-select="#setting-feedback-<%= field.key %>"
+                  hx-swap="outerHTML"
+                >確認</button>
+              <% } else if (field.notionDatabase) { %>
+                <button
+                  type="submit"
+                  class="button compact secondary"
+                  formaction="/admin/actions/verify-notion-database"
+                  formmethod="post"
+                  formnovalidate
+                  name="_verify"
+                  value="<%= field.key %>"
+                  hx-post="/admin/actions/verify-notion-database"
+                  hx-include="#settings-form"
+                  hx-target="#setting-feedback-<%= field.key %>"
+                  hx-select="#setting-feedback-<%= field.key %>"
+                  hx-swap="outerHTML"
                 >確認</button>
               <% } %>
             </div>
-            <% if (it.fieldErrors[field.key]) { %><small class="field-message error" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i><%= it.fieldErrors[field.key] %></small><% } %>
-            <% if (it.channelChecks[field.key]) { %>
-              <small class="field-message <%= it.channelChecks[field.key].ok ? 'success' : 'error' %>" role="<%= it.channelChecks[field.key].ok ? 'status' : 'alert' %>"><i class="ti ti-<%= it.channelChecks[field.key].ok ? 'circle-check' : 'alert-circle' %>" aria-hidden="true"></i><%= it.channelChecks[field.key].message %></small>
-            <% } else if (field.discordChannel && field.configured) { %>
-              <small class="field-message neutral"><i class="ti ti-circle-dot" aria-hidden="true"></i>ID設定済み・未確認</small>
-            <% } else if (field.secret && field.configured) { %>
-              <small class="field-message success"><i class="ti ti-circle-check" aria-hidden="true"></i>設定済み</small>
+            <div id="setting-feedback-<%= field.key %>" class="setting-feedback">
+              <% if (it.fieldErrors[field.key]) { %><small class="field-message error" role="alert"><i class="ti ti-alert-circle" aria-hidden="true"></i><%= it.fieldErrors[field.key] %></small><% } %>
+              <% if (it.channelChecks[field.key]) { %>
+                <small class="field-message <%= it.channelChecks[field.key].ok ? 'success' : 'error' %>" role="<%= it.channelChecks[field.key].ok ? 'status' : 'alert' %>"><i class="ti ti-<%= it.channelChecks[field.key].ok ? 'circle-check' : 'alert-circle' %>" aria-hidden="true"></i><%= it.channelChecks[field.key].message %></small>
+              <% } else if ((field.discordChannel || field.notionDatabase) && field.configured) { %>
+                <small class="field-message neutral"><i class="ti ti-circle-dot" aria-hidden="true"></i>ID設定済み・未確認</small>
+              <% } else if (field.secret && field.configured) { %>
+                <small class="field-message success"><i class="ti ti-circle-check" aria-hidden="true"></i>設定済み</small>
+              <% } %>
+            </div>
+            <% if (field.notionDatabase) { %>
+              <small class="field-message success client-validation" data-notion-id-extracted-for="<%= field.key %>" role="status" hidden><i class="ti ti-link" aria-hidden="true"></i>URLからデータベースIDを抽出しました。</small>
+            <% } %>
+            <% if (field.key === 'countdown_notify_days') { %>
+              <small id="setting-validation-<%= field.key %>" class="field-message error client-validation" data-client-validation-for="<%= field.key %>" role="alert" hidden><i class="ti ti-alert-circle" aria-hidden="true"></i>0〜3650の整数をカンマ区切りで入力してください。</small>
+            <% } %>
+            <% if (field.key === 'countdown_message') { %>
+              <div class="message-preview compact-preview">
+                <div class="preview-heading"><span><i class="ti ti-message" aria-hidden="true"></i>プレビュー</span><small>現在の設定値で表示</small></div>
+                <pre><code data-message-preview data-preview-source="setting-countdown_message" data-preview-kind="countdown"></code></pre>
+              </div>
             <% } %>
           </div>
         </div>
@@ -195,6 +275,10 @@ export function renderPracticeTemplate(
   fieldErrors: Readonly<Record<string, string>> = {}
 ): string {
   const settings = renderSettingsForm('practice-template', fields, csrfToken, fieldErrors);
+  const placeholderOptions = data.placeholders.map((value) => ({
+    value,
+    label: PRACTICE_PLACEHOLDER_LABELS[value] ?? value,
+  }));
   return eta.renderString(
     `<%~ it.settings %>
     <div class="template-status-row">
@@ -206,12 +290,31 @@ export function renderPracticeTemplate(
         <i class="ti ti-refresh" aria-hidden="true"></i>再読込
       </button>
     </div>
-    <div class="preview-block">
-      <div class="preview-heading"><span><i class="ti ti-speakerphone" aria-hidden="true"></i>プレビュー</span><small>現在のテンプレートから生成</small></div>
-      <pre><code><%= it.data.preview %></code></pre>
+    <div class="setting-row textarea-row message-editor-row">
+      <div class="setting-copy">
+        <label for="practice-template-body">通知本文</label>
+        <small>練習連絡として送信する本文です。編集ボタンを押して変更します。</small>
+      </div>
+      <div class="setting-control">
+        <div class="placeholder-toolbar" aria-label="練習連絡のプレースホルダー">
+          <span>プレースホルダーを挿入</span>
+          <% it.placeholderOptions.forEach(function(item) { %>
+            <button type="button" class="placeholder-chip" data-insert-placeholder="{{<%= item.value %>}}" data-target="practice-template-body" disabled><%= item.label %> <code>{{<%= item.value %>}}</code></button>
+          <% }) %>
+        </div>
+        <div class="control-line">
+          <textarea id="practice-template-body" name="practice_template_body" data-valid-placeholders="<%= it.data.placeholders.join(',') %>" maxlength="20000" required readonly><%= it.data.preview %></textarea>
+          <button type="button" class="button compact secondary field-edit-button" data-edit-field aria-controls="practice-template-body" aria-pressed="false"><i class="ti ti-pencil" aria-hidden="true"></i><span>編集</span></button>
+        </div>
+        <small class="placeholder-note"><i class="ti ti-info-circle" aria-hidden="true"></i>項目はカーソル位置に挿入され、送信時に実際の内容へ置き換わります。</small>
+      </div>
     </div>
-    <details class="placeholder-help"><summary>利用可能なプレースホルダー</summary><p><%= it.data.placeholders.map(function(value) { return '{{' + value + '}}' }).join('、') %></p></details>`,
-    { data, settings, csrfToken }
+    <div class="preview-block message-preview">
+      <div class="preview-heading"><span><i class="ti ti-speakerphone" aria-hidden="true"></i>プレビュー</span><small>現在のテンプレートから生成</small></div>
+      <pre><code data-message-preview data-preview-source="practice-template-body" data-preview-kind="practice"></code></pre>
+    </div>
+    <details class="placeholder-help"><summary>利用可能なプレースホルダー</summary><p><%= it.placeholderOptions.map(function(item) { return item.label + ' {{' + item.value + '}}' }).join('、') %></p></details>`,
+    { data, settings, csrfToken, placeholderOptions }
   );
 }
 
@@ -254,7 +357,7 @@ export function renderAllSettings(sections: {
       </section>
       <div class="save-dock" data-save-dock hidden>
         <div class="save-dock-copy"><i class="ti ti-alert-circle" aria-hidden="true"></i><div><strong>未保存の変更があります</strong><small>変更内容を確認して保存してください。</small></div></div>
-        <div class="save-dock-actions"><button type="reset" class="button secondary">変更を破棄</button><button type="submit" class="button primary"><i class="ti ti-device-floppy" aria-hidden="true"></i>変更を保存</button></div>
+        <div class="save-dock-actions"><button type="reset" class="button secondary">変更を破棄</button><button type="submit" class="button primary" data-save-button><span class="button-spinner" aria-hidden="true"></span><i class="ti ti-device-floppy" aria-hidden="true"></i><span data-save-button-label>変更を保存</span></button></div>
       </div>
     </form>`,
     { sections }

@@ -50,6 +50,7 @@
     "express-rate-limit": "^8.6.2",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
+    "htmx.org": "^2.0.10",
     "memorystore": "^1.6.8",
     "node-cron": "^4.2.1",
     "tsconfig-paths": "^4.2.0",

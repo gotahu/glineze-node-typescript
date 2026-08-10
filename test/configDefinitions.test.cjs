@@ -32,6 +32,7 @@ test('defines every configuration key currently consumed by the application', ()
     'sesame_app_api_url',
     'sesame_device_publickey',
     'sesame_device_uuid',
+    'sesame_enabled',
     'sesame_message_when_loading',
     'sesame_message_when_locked',
     'sesame_message_when_unlocked',
@@ -53,6 +54,23 @@ test('normalizes shared countdown inputs and rejects invalid identifiers', () =>
     normalizeConfigValue('practice_databaseid', '1b21ea2409888007977ad23654285ece'),
     '1b21ea2409888007977ad23654285ece'
   );
+  assert.equal(
+    normalizeConfigValue(
+      'practice_databaseid',
+      'https://app.notion.com/p/chorglanze/70272343a6ae48888feeda84566c499e?v=a73fbc09bd324328991c7d49591d85d8&source=copy_link'
+    ),
+    '70272343a6ae48888feeda84566c499e'
+  );
+  assert.throws(
+    () =>
+      normalizeConfigValue(
+        'practice_databaseid',
+        'https://example.com/70272343a6ae48888feeda84566c499e?v=a73fbc09bd324328991c7d49591d85d8'
+      ),
+    ConfigValidationError
+  );
+  assert.equal(normalizeConfigValue('sesame_enabled', 'true'), 'true');
+  assert.throws(() => normalizeConfigValue('sesame_enabled', 'yes'), ConfigValidationError);
 });
 
 test('classifies secrets without exposing their values', () => {

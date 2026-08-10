@@ -10,7 +10,7 @@ export async function handleSesameStatusCommand(
 ) {
   try {
     const { sesame } = services;
-    if (!sesame) {
+    if (!sesame?.isEnabled()) {
       await message.reply('Sesame 連携は停止中です');
       return;
     }

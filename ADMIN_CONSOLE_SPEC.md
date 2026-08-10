@@ -87,7 +87,7 @@ Glineze の運用担当者が、Discord コマンドや Notion Configuration DB 
 | `bashotori_remind_threadid` | 場所取り通知の送信先 |
 | `discord_general_channelid` | 標準チャンネル |
 
-MVP では ID 入力とする。将来、Discord API から選択肢を取得するセレクト UI に拡張できる設計にする。
+ID 入力と確認ボタンを提供する。確認成功時は Discord 上の送信先を `サーバー名・チャンネル名` 形式で表示する。将来、Discord API から選択肢を取得するセレクト UI に拡張できる設計にする。
 
 ### 5.4 練習連絡テンプレート `/admin/settings/practice-template`
 
@@ -108,12 +108,13 @@ MVP では ID 入力とする。将来、Discord API から選択肢を取得す
 - `discord_and_notion_pairs_databaseid`
 - その他、型付き設定レジストリで `advanced` に分類した既存キー
 
-ID は UUID 表記揺れを許容しつつ、保存前に検証する。更新後の接続確認は MVP では必須とせず、設定再読込結果を表示する。
+`shukin_databaseid` は「集金データベース」と表示する。ID は UUID 表記揺れを許容し、Notion のデータベースURLが入力された場合はパスからDB IDを抽出する。`v` クエリはビューIDなのでDB IDとして扱わない。各データベースに確認ボタンを提供し、Notion API で存在とBotの閲覧権限を確認してデータベース名を表示する。
 
 ### 5.6 Sesame `/admin/settings/sesame`
 
-`SESAME_ENABLED=true` の場合のみ編集可能にする。
+起動時は `SESAME_ENABLED` を初期値として扱い、設定画面で保存した `sesame_enabled` を以後の有効状態として優先する。無効時も接続設定は編集可能にする。
 
+- `sesame_enabled`
 - `sesame_app_api_url`
 - `sesame_app_api_key`
 - `sesame_device_uuid`
@@ -122,7 +123,7 @@ ID は UUID 表記揺れを許容しつつ、保存前に検証する。更新�
 - `sesame_message_when_unlocked`
 - `sesame_message_when_loading`
 
-API Key と公開鍵は保存済みの値をレスポンスへ含めず、`設定済み` とだけ表示する。空欄で保存した場合は既存値を維持する。更新成功後に `SesameService.reloadConfiguration()` を実行する。
+API Key と公開鍵は保存済みの値をレスポンスへ含めず、`設定済み` とだけ表示する。空欄で保存した場合は既存値を維持する。更新成功後に `SesameService.reloadConfiguration()` を実行し、Discord コマンド、Cron、稼働状況表示へランタイムで反映する。既存の設定DBに `sesame_enabled` がない場合は初回保存時に作成する。
 
 ### 5.7 システム設定 `/admin/settings/system`
 

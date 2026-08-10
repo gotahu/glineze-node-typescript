@@ -22,6 +22,14 @@ type EventStatus = {
   daysLeft: number;
 };
 
+function renderCountdownMessage(template: string, title: string, days: number): string {
+  const values = { title, days: days.toString() };
+  return template.replace(/{{\s*(title|days)\s*}}|{\s*(title|days)\s*}/g, (_match, doubleKey, singleKey) => {
+    const key = (doubleKey ?? singleKey) as keyof typeof values;
+    return values[key];
+  });
+}
+
 /**
  * イベントの状態を計算する関数
  */
@@ -103,10 +111,7 @@ async function forceSendCountdownMessage(services: Services): Promise<void> {
   const { discord } = services;
   const daysLeft = calculateDiffBetweenTodayAndEventDate();
   const eventTitle = config.getConfig('countdown_title');
-  const message = config
-    .getConfig('countdown_message')
-    .replace('{days}', daysLeft.toString())
-    .replace('{title}', eventTitle);
+  const message = renderCountdownMessage(config.getConfig('countdown_message'), eventTitle, daysLeft);
 
   const channelId =
     config.getConfig('countdown_channelid') ?? config.getConfig('discord_general_channelid');
@@ -157,6 +162,7 @@ function updateBotProfile(discord: DiscordService): void {
 export {
   calculateDiffBetweenTodayAndEventDate,
   forceSendCountdownMessage,
+  renderCountdownMessage,
   sendCountdownMessage,
   updateBotProfile,
   updateChannelTopic,

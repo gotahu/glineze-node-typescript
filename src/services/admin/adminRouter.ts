@@ -34,10 +34,11 @@ type DashboardSnapshot = Parameters<typeof renderDashboard>[0];
 export type AdminRouterOptions = {
   tokenService: AdminLoginTokenService;
   consoleService: AdminConsoleService;
-  loginLinks: AdminLoginLinkService;
+  loginLinks?: AdminLoginLinkService;
   sessionSecret: string;
   sessionTtlMs: number;
   secureCookies?: boolean;
+  developmentAccess?: boolean;
   dashboard: () => DashboardSnapshot;
 };
 
@@ -48,6 +49,7 @@ const CATEGORY_TITLES: Record<ConfigCategory, string> = {
   advanced: '詳細設定',
   sesame: 'Sesame 設定',
 };
+const PRACTICE_TEMPLATE_BODY_FIELD = 'practice_template_body';
 
 export function createAdminRouter(options: AdminRouterOptions): Router {
   const router = Router();
@@ -100,10 +102,17 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
       );
   });
   router.get('/assets/admin.css', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.type('text/css').send(ADMIN_STYLES);
   });
   router.get('/assets/admin.js', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.type('text/javascript').send(ADMIN_CLIENT_JS);
+  });
+  router.get('/assets/htmx.min.js', (_req, res) => {
+    res
+      .type('text/javascript')
+      .sendFile(path.resolve(require.resolve('htmx.org/dist/htmx.min.js')));
   });
   router.use(
     session({
@@ -145,6 +154,11 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
   });
 
   router.use((req, res, next) => {
+    if (options.developmentAccess && isLoopbackAddress(req.socket.remoteAddress)) {
+      req.session.adminAuthenticatedAt ??= Date.now();
+      next();
+      return;
+    }
     if (!req.session.adminAuthenticatedAt) {
       res.status(401).type('html').send(renderUnauthorized());
       return;
@@ -156,7 +170,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
   router.get('/', (req, res) => {
     const csrfToken = generateToken(req);
     const reload = options.consoleService.getConfigReloadStatus();
-    const link = options.loginLinks.getStatus();
+    const link = options.loginLinks?.getStatus() ?? {};
     const content = renderDashboard(options.dashboard(), {
       configReloadAt: reload.at?.toISOString(),
       configReloadError: reload.error,
@@ -180,8 +194,13 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
 
   router.post('/settings', async (req, res) => {
     const input = bodyWithoutCsrf(req.body);
+    const practiceTemplateBody = input[PRACTICE_TEMPLATE_BODY_FIELD];
+    delete input[PRACTICE_TEMPLATE_BODY_FIELD];
     try {
       await options.consoleService.updateAllSettings(input);
+      if (typeof practiceTemplateBody === 'string') {
+        await options.consoleService.updatePracticeTemplate(practiceTemplateBody);
+      }
       logger.info(
         `管理画面から設定を一括更新しました: ${Object.keys(input).join(', ')}（actor: notion-admin-session）`
       );
@@ -191,7 +210,12 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
         error instanceof ConfigValidationError || error instanceof AdminOperationError ? 400 : 503;
       renderAllSettingsPage(req, res, options.consoleService, status, safeAdminError(error), {
         fieldErrors: error instanceof ConfigValidationError ? { [error.key]: error.message } : {},
-        submittedInput: input,
+        submittedInput: {
+          ...input,
+          ...(typeof practiceTemplateBody === 'string'
+            ? { [PRACTICE_TEMPLATE_BODY_FIELD]: practiceTemplateBody }
+            : {}),
+        },
       });
     }
   });
@@ -274,13 +298,51 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
         channelChecks: {
           [key]: {
             ok: true,
-            message: `確認できました: #${channel.name}（${channel.kind} / ${channel.id}）`,
+            message: `確認できました: ${channel.serverName}・${channel.name}`,
           },
         },
       });
     } catch (error) {
       const message = safeAdminError(error);
-      renderAllSettingsPage(req, res, options.consoleService, 400, message, {
+      const responseStatus = req.get('HX-Request') === 'true' ? 200 : 400;
+      renderAllSettingsPage(req, res, options.consoleService, responseStatus, message, {
+        submittedInput: bodyWithoutCsrf(req.body),
+        fieldErrors: error instanceof ConfigValidationError ? { [key]: error.message } : {},
+        channelChecks:
+          error instanceof ConfigValidationError ? {} : { [key]: { ok: false, message } },
+      });
+    }
+  });
+
+  router.post('/actions/verify-notion-database', async (req, res) => {
+    const rawKey = typeof req.body?._verify === 'string' ? req.body._verify : '';
+    if (!isConfigKey(rawKey)) {
+      renderAllSettingsPage(
+        req,
+        res,
+        options.consoleService,
+        400,
+        '確認する設定を特定できませんでした。'
+      );
+      return;
+    }
+
+    const key: ConfigKey = rawKey;
+    const input = typeof req.body?.[key] === 'string' ? req.body[key] : '';
+    try {
+      const database = await options.consoleService.verifyNotionDatabase(key, input);
+      const submittedInput = bodyWithoutCsrf(req.body);
+      submittedInput[key] = database.id;
+      renderAllSettingsPage(req, res, options.consoleService, 200, undefined, {
+        submittedInput,
+        channelChecks: {
+          [key]: { ok: true, message: `確認できました: ${database.name}` },
+        },
+      });
+    } catch (error) {
+      const message = safeAdminError(error);
+      const responseStatus = req.get('HX-Request') === 'true' ? 200 : 400;
+      renderAllSettingsPage(req, res, options.consoleService, responseStatus, message, {
         submittedInput: bodyWithoutCsrf(req.body),
         fieldErrors: error instanceof ConfigValidationError ? { [key]: error.message } : {},
         channelChecks:
@@ -397,6 +459,8 @@ function renderAllSettingsPage(
   const sesameFields = fieldsFor('sesame');
   const errors = state?.fieldErrors ?? {};
   const channelChecks = state?.channelChecks ?? {};
+  const practiceTemplate = consoleService.getPracticeTemplate();
+  const submittedPracticeTemplate = state?.submittedInput?.[PRACTICE_TEMPLATE_BODY_FIELD];
   const content = renderAllSettings({
     practiceDestination: renderSettingsForm(
       'notifications',
@@ -406,7 +470,13 @@ function renderAllSettingsPage(
       channelChecks
     ),
     practiceTemplate: renderPracticeTemplate(
-      consoleService.getPracticeTemplate(),
+      {
+        ...practiceTemplate,
+        preview:
+          typeof submittedPracticeTemplate === 'string'
+            ? submittedPracticeTemplate
+            : practiceTemplate.preview,
+      },
       templateFields,
       csrfToken,
       errors
@@ -419,11 +489,14 @@ function renderAllSettingsPage(
       errors,
       channelChecks
     ),
-    advanced: renderSettingsForm('advanced', fieldsFor('advanced'), csrfToken, errors),
-    sesame:
-      sesameFields.length > 0
-        ? renderSettingsForm('sesame', sesameFields, csrfToken, errors)
-        : '<p>Sesame 連携は停止中です。</p>',
+    advanced: renderSettingsForm(
+      'advanced',
+      fieldsFor('advanced'),
+      csrfToken,
+      errors,
+      channelChecks
+    ),
+    sesame: renderSettingsForm('sesame', sesameFields, csrfToken, errors),
     system: renderSystemSettings(consoleService.getSystemStatus(), csrfToken),
     csrfToken,
   });
@@ -455,7 +528,15 @@ function bodyWithoutCsrf(body: unknown): Record<string, string> {
   if (typeof body !== 'object' || body === null) return {};
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(body)) {
-    if (key !== '_csrf' && typeof value === 'string') result[key] = value;
+    if (key === '_csrf') continue;
+    if (typeof value === 'string') result[key] = value;
+    else if (Array.isArray(value)) {
+      for (let index = value.length - 1; index >= 0; index--) {
+        if (typeof value[index] !== 'string') continue;
+        result[key] = value[index];
+        break;
+      }
+    }
   }
   return result;
 }
@@ -480,6 +561,10 @@ function safeAdminError(error: unknown): string {
     return error.message;
   }
   return '管理画面の操作に失敗しました。';
+}
+
+function isLoopbackAddress(address: string | undefined): boolean {
+  return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 }
 
 function isCsrfError(error: unknown): boolean {

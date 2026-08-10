@@ -117,3 +117,41 @@ test('loads one validated code block and keeps the last good template after a ba
     '通知: 合奏 /'
   );
 });
+
+test('updates the single Notion code block after validating placeholders', async () => {
+  config.notionConfigs.set(PRACTICE_TEMPLATE_PAGE_ID_CONFIG_KEY, 'template-page');
+  const updates = [];
+  const client = {
+    blocks: {
+      children: {
+        list: async () => ({
+          results: [
+            {
+              object: 'block',
+              id: 'template-code-block',
+              type: 'code',
+              code: { rich_text: [text('通知: {{title}}')] },
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        }),
+      },
+      update: async (input) => updates.push(input),
+    },
+  };
+  const service = new PracticeTemplateService(client);
+  await service.reload();
+
+  await service.updateTemplate('練習日: {{dateLabel}}\n場所: {{placeText}}');
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].block_id, 'template-code-block');
+  assert.equal(
+    updates[0].code.rich_text.map((item) => item.text.content).join(''),
+    '練習日: {{dateLabel}}\n場所: {{placeText}}'
+  );
+  assert.equal(service.getTemplatePreview(), '練習日: {{dateLabel}}\n場所: {{placeText}}');
+
+  await assert.rejects(service.updateTemplate('壊れた {{unknown}}'), /未対応のプレースホルダー/);
+  assert.equal(updates.length, 1);
+});

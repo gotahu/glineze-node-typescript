@@ -66,6 +66,11 @@ export type PracticeTemplateReloadResult = {
   pageId?: string;
 };
 
+type PracticeTemplateCodeBlock = {
+  id: string;
+  content: string;
+};
+
 type RenderOptions = {
   placeRelations?: PageObjectResponse[];
 };
@@ -113,7 +118,7 @@ export class PracticeTemplateService {
     }
 
     try {
-      const template = await this.retrieveSingleCodeBlock(pageId);
+      const { content: template } = await this.retrieveSingleCodeBlock(pageId);
       this.validateTemplate(template);
       this.template = template;
       this.source = 'notion';
@@ -137,6 +142,36 @@ export class PracticeTemplateService {
       logger.error(result.message);
       return result;
     }
+  }
+
+  public async updateTemplate(template: string): Promise<PracticeTemplateReloadResult> {
+    this.validateTemplate(template);
+    const pageId = config.getAllConfigs().get(PRACTICE_TEMPLATE_PAGE_ID_CONFIG_KEY)?.trim();
+    if (!pageId) throw new Error('練習連絡テンプレートページが設定されていません');
+
+    const block = await this.retrieveSingleCodeBlock(pageId);
+    const chunks = template.match(/[\s\S]{1,2000}/g) ?? [];
+    await this.client.blocks.update({
+      block_id: block.id,
+      code: {
+        rich_text: chunks.map((content) => ({
+          type: 'text' as const,
+          text: { content },
+        })),
+      },
+    });
+
+    this.template = template;
+    this.source = 'notion';
+    this.templatePageId = pageId;
+    const result = {
+      source: 'notion' as const,
+      updated: true,
+      pageId,
+      message: `Notion の練習連絡テンプレートを更新しました（ページID: ${pageId}）。`,
+    };
+    logger.info(result.message);
+    return result;
   }
 
   public async renderPractice(
@@ -230,8 +265,8 @@ export class PracticeTemplateService {
     }
   }
 
-  private async retrieveSingleCodeBlock(pageId: string): Promise<string> {
-    const codeBlocks: string[] = [];
+  private async retrieveSingleCodeBlock(pageId: string): Promise<PracticeTemplateCodeBlock> {
+    const codeBlocks: PracticeTemplateCodeBlock[] = [];
     let cursor: string | undefined;
 
     do {
@@ -243,7 +278,10 @@ export class PracticeTemplateService {
 
       for (const block of response.results) {
         if (block.object === 'block' && 'type' in block && block.type === 'code') {
-          codeBlocks.push(block.code.rich_text.map((text) => text.plain_text).join(''));
+          codeBlocks.push({
+            id: block.id,
+            content: block.code.rich_text.map((text) => text.plain_text).join(''),
+          });
         }
       }
       cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;

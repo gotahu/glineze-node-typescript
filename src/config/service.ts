@@ -67,7 +67,11 @@ export class ConfigService {
     let updatedCount = 0;
     try {
       for (const [key, value] of normalized) {
-        await this.repository.update(key, value);
+        if (key === 'sesame_enabled' && !this.repository.pages.has(key)) {
+          await this.repository.create(key, value);
+        } else {
+          await this.repository.update(key, value);
+        }
         updatedCount++;
         if (isConfigKey(key)) {
           const definition = CONFIG_DEFINITIONS[key];

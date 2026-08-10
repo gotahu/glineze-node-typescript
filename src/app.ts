@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { config, configService } from './config';
 import { env } from './env';
 import { CronService } from './services/cron/CronService';
@@ -36,9 +37,8 @@ export const initializeServices = async () => {
     const notionService = new NotionService();
     await notionService.practiceTemplateService.reload();
 
-    // SesameService (disabled by default)
-    const sesameService = env.SESAME_ENABLED ? new SesameService() : undefined;
-    if (!sesameService) logger.info('Sesame integration is disabled');
+    // SesameService is always constructed so the admin setting can enable it at runtime.
+    const sesameService = new SesameService();
 
     // DiscordService
     const discordService = new DiscordService({
@@ -69,23 +69,31 @@ export const initializeServices = async () => {
     configService.setEffectHandlers({
       'bot-profile': () => updateBotProfile(discordService),
       'practice-template': () => notionService.practiceTemplateService.reload(),
-      sesame: () => sesameService?.reloadConfiguration(),
+      sesame: () => sesameService.reloadConfiguration(),
     });
 
+    const developmentAdminEnabled = env.NODE_ENV === 'development' && !env.ADMIN_ENABLED;
+    const adminEnabled = env.ADMIN_ENABLED || developmentAdminEnabled;
     let adminTokenService: AdminLoginTokenService | undefined;
     let adminLoginLinks: AdminLoginLinkService | undefined;
     let adminConsoleService: AdminConsoleService | undefined;
-    if (env.ADMIN_ENABLED) {
+    let adminSessionSecret: string | undefined;
+    if (adminEnabled) {
+      adminSessionSecret = developmentAdminEnabled
+        ? randomBytes(48).toString('base64url')
+        : env.ADMIN_AUTH_SECRET!;
       adminTokenService = new AdminLoginTokenService(
-        env.ADMIN_AUTH_SECRET!,
+        adminSessionSecret,
         env.ADMIN_TOKEN_TTL_HOURS * 60 * 60 * 1_000
       );
-      adminLoginLinks = new AdminLoginLinkService(
-        notionService.client,
-        adminTokenService,
-        env.ADMIN_NOTION_LOGIN_BLOCK_ID!,
-        env.ADMIN_BASE_URL!
-      );
+      if (!developmentAdminEnabled) {
+        adminLoginLinks = new AdminLoginLinkService(
+          notionService.client,
+          adminTokenService,
+          env.ADMIN_NOTION_LOGIN_BLOCK_ID!,
+          env.ADMIN_BASE_URL!
+        );
+      }
       adminConsoleService = new AdminConsoleService(configService, services, adminLoginLinks);
     }
 
@@ -95,14 +103,16 @@ export const initializeServices = async () => {
 
     // WebService
     new WebServerService(services, {
-      ...(adminTokenService && adminLoginLinks && adminConsoleService
+      ...(adminTokenService && adminConsoleService && adminSessionSecret
         ? {
             admin: {
               tokenService: adminTokenService,
               loginLinks: adminLoginLinks,
               consoleService: adminConsoleService,
-              sessionSecret: env.ADMIN_AUTH_SECRET!,
+              sessionSecret: adminSessionSecret!,
               sessionTtlMs: env.ADMIN_SESSION_TTL_HOURS * 60 * 60 * 1_000,
+              secureCookies: !developmentAdminEnabled,
+              developmentAccess: developmentAdminEnabled,
             },
           }
         : {}),

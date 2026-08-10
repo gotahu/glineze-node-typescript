@@ -17,9 +17,11 @@ const { AdminConsoleService } = require('../dist/services/admin/adminConsoleServ
 const { AdminLoginTokenService } = require('../dist/services/admin/adminLoginTokenService.js');
 const { WebServerService } = require('../dist/services/webapi/webServerService.js');
 
-function createSubject() {
+function createSubject(adminOverrides = {}) {
   const updates = [];
+  const templateUpdates = [];
   const channelFetches = [];
+  const notionDatabaseFetches = [];
   const store = new ConfigStore();
   const values = {
     countdown_title: '定期演奏会',
@@ -31,6 +33,10 @@ function createSubject() {
     bashotori_remind_threadid: '345678901234567890',
     discord_general_channelid: '456789012345678901',
     practice_announcement_template_page_id: '0123456789abcdef0123456789abcdef',
+    practice_databaseid: '11111111111111111111111111111111',
+    facility_databaseid: '22222222222222222222222222222222',
+    shukin_databaseid: '33333333333333333333333333333333',
+    discord_and_notion_pairs_databaseid: '44444444444444444444444444444444',
     sesame_app_api_url: 'https://example.com',
     sesame_app_api_key: 'stored-secret-must-never-appear',
     sesame_device_uuid: 'device-uuid',
@@ -44,6 +50,7 @@ function createSubject() {
     pages: new Map(),
     load: async () => ({ values: new Map(store.values), pages: new Map() }),
     update: async (key, value) => updates.push([key, value]),
+    create: async (key, value) => updates.push([key, value]),
   };
   const configs = new ConfigService(repository, store);
   const tokenService = new AdminLoginTokenService(
@@ -58,10 +65,22 @@ function createSubject() {
     configs,
     {
       notion: {
+        client: {
+          databases: {
+            retrieve: async ({ database_id }) => {
+              notionDatabaseFetches.push(database_id);
+              return { id: database_id, title: [{ plain_text: '練習データベース' }] };
+            },
+          },
+        },
         practiceTemplateService: {
           getStatus: () => ({ source: 'builtin', updated: false, message: '組み込み' }),
           getTemplatePreview: () => 'preview {{dateLabel}}',
           reload: async () => ({ source: 'builtin', updated: true, message: '再読込済み' }),
+          updateTemplate: async (body) => {
+            templateUpdates.push(body);
+            return { source: 'notion', updated: true, message: '更新済み' };
+          },
         },
       },
       discord: {
@@ -72,6 +91,7 @@ function createSubject() {
               channelFetches.push(id);
               return {
                 name: 'verified-channel',
+                guild: { name: 'Glanze Server' },
                 isSendable: () => true,
                 isThread: () => false,
               };
@@ -101,9 +121,18 @@ function createSubject() {
       loginLinks,
       sessionSecret: globalThis.process.env.ADMIN_AUTH_SECRET,
       sessionTtlMs: 60 * 60 * 1_000,
+      ...adminOverrides,
     },
   });
-  return { webServer, tokenService, updates, store, channelFetches };
+  return {
+    webServer,
+    tokenService,
+    updates,
+    templateUpdates,
+    store,
+    channelFetches,
+    notionDatabaseFetches,
+  };
 }
 
 async function authenticate(origin, tokenService) {
@@ -136,6 +165,21 @@ function extractCsrf(html) {
   return match[1];
 }
 
+test('allows the local settings page without a login token only in development access mode', async (t) => {
+  const { webServer } = createSubject({
+    developmentAccess: true,
+    secureCookies: false,
+    loginLinks: undefined,
+  });
+  t.after(async () => webServer.stop());
+  if (!webServer.server.listening) await once(webServer.server, 'listening');
+  const address = webServer.server.address();
+  const response = await globalThis.fetch(`http://127.0.0.1:${address.port}/admin/settings`);
+
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /<title>設定 \| Glineze 管理画面<\/title>/);
+});
+
 test('protects admin pages and exchanges a clean login URL for a secure session', async (t) => {
   const { webServer, tokenService } = createSubject();
   t.after(async () => webServer.stop());
@@ -161,20 +205,45 @@ test('protects admin pages and exchanges a clean login URL for a secure session'
   assert.match(dashboard.headers.get('content-security-policy'), /script-src 'self'/);
   const dashboardHtml = await dashboard.text();
   assert.match(dashboardHtml, /稼働状況/);
-  assert.match(dashboardHtml, /src="\/admin\/assets\/admin\.js" defer/);
+  assert.match(dashboardHtml, /src="\/admin\/assets\/htmx\.min\.js" defer/);
+  assert.match(dashboardHtml, /src="\/admin\/assets\/admin\.js\?v=[^"]+" defer/);
   assert.match(dashboardHtml, /href="\/admin\/settings"/);
   assert.doesNotMatch(dashboardHtml, /href="\/admin\/settings\/countdown"/);
 
   const clientScript = await globalThis.fetch(`${origin}/admin/assets/admin.js`);
   assert.equal(clientScript.status, 200);
   assert.match(clientScript.headers.get('content-type'), /javascript/);
+  assert.equal(clientScript.headers.get('cache-control'), 'no-store');
   const clientScriptText = await clientScript.text();
   assert.doesNotThrow(() => new Function(clientScriptText));
   assert.match(clientScriptText, /addEventListener\('submit'/);
   assert.match(clientScriptText, /const scrollPosition = window\.scrollY/);
   assert.match(clientScriptText, /function restoreScrollPosition\(scrollPosition\)/);
-  assert.match(clientScriptText, /root\.style\.scrollBehavior = 'auto'/);
+  assert.match(clientScriptText, /function setFieldEditing\(row, enabled/);
+  assert.match(clientScriptText, /function updateSaveDock\(form\)/);
+  assert.match(clientScriptText, /function resetSettingsForm\(form\)/);
+  assert.match(clientScriptText, /function extractNotionDatabaseId\(value\)/);
+  assert.match(clientScriptText, /function normalizeNotionDatabaseField\(field\)/);
+  assert.match(clientScriptText, /function setSubmitterBusy\(submitter, busy\)/);
+  assert.match(clientScriptText, /label\.textContent = busy \? '保存中…' : '変更を保存'/);
+  assert.match(clientScriptText, /function validateNotifyDays\(field\)/);
+  assert.match(clientScriptText, /field\.setCustomValidity\(valid \? '' : notifyDaysError\)/);
+  assert.match(clientScriptText, /warning\.className = 'invalid-placeholder'/);
+  assert.match(clientScriptText, /warning\.title = '未対応のプレースホルダー'/);
+  assert.match(clientScriptText, /function moveToSection\(url, historyMode = 'push'\)/);
+  assert.match(clientScriptText, /document\.readyState === 'loading'/);
+  assert.match(clientScriptText, /document\.addEventListener\('DOMContentLoaded', boot/);
+  assert.match(clientScriptText, /event\.preventDefault\(\);\s*resetSettingsForm\(event\.target\)/);
+  assert.match(clientScriptText, /submitter\?\.hasAttribute\('hx-post'\)/);
+  assert.doesNotMatch(clientScriptText, /applyChannelVerificationResult/);
+  assert.match(clientScriptText, /scrollingElement\.scrollTop = scrollPosition/);
   assert.match(clientScriptText, /window\.requestAnimationFrame/);
+
+  const htmxScript = await globalThis.fetch(`${origin}/admin/assets/htmx.min.js`);
+  assert.equal(htmxScript.status, 200);
+  assert.match(htmxScript.headers.get('content-type'), /javascript/);
+  const htmxScriptText = await htmxScript.text();
+  assert.doesNotThrow(() => new Function(htmxScriptText));
 
   const adminStyles = await globalThis.fetch(`${origin}/admin/assets/admin.css`);
   assert.equal(adminStyles.status, 200);
@@ -264,8 +333,9 @@ test('requires CSRF for changes and updates only authenticated category settings
   assert.equal(oversized.status, 413);
 });
 
-test('shows every setting on one page and verifies a channel ID through Discord', async (t) => {
-  const { webServer, tokenService, channelFetches, updates } = createSubject();
+test('shows every setting on one page and verifies Discord and Notion destinations', async (t) => {
+  const { webServer, tokenService, channelFetches, notionDatabaseFetches, updates } =
+    createSubject();
   t.after(async () => webServer.stop());
   if (!webServer.server.listening) await once(webServer.server, 'listening');
   const address = webServer.server.address();
@@ -280,9 +350,43 @@ test('shows every setting on one page and verifies a channel ID through Discord'
   assert.match(html, /練習連絡テンプレートページ/);
   assert.match(html, /id="countdown"/);
   assert.match(html, /id="advanced"/);
+  assert.match(html, /集金データベース/);
+  assert.doesNotMatch(html, /出欠データベース/);
+  assert.match(html, /id="sesame"/);
+  assert.match(html, /name="sesame_enabled"/);
+  assert.match(html, /data-setting-toggle checked/);
+  assert.match(html, /class="toggle-track"/);
+  assert.match(html, /name="sesame_app_api_url"/);
+  assert.match(html, /name="sesame_device_uuid"/);
   assert.match(html, /id="settings-form"/);
+  assert.match(html, /data-edit-field/);
+  assert.match(html, />編集<\/span>/);
+  assert.match(html, /readonly/);
+  assert.match(html, /name="practice_template_body"/);
+  assert.match(html, /data-insert-placeholder="{{dateLabel}}"/);
+  assert.match(html, /data-preview-kind="practice"/);
+  assert.match(html, /data-preview-kind="countdown"/);
+  assert.match(html, /data-valid-placeholders="title,days"/);
+  assert.match(html, /data-validate-notify-days/);
+  assert.match(html, /data-client-validation-for="countdown_notify_days"/);
+  assert.match(html, /data-valid-placeholders="accessText,dateLabel,/);
+  assert.match(html, /data-insert-placeholder="{{teachersText}}"/);
+  assert.doesNotMatch(html, /class="placeholder-menu"/);
   assert.match(html, /未保存の変更があります/);
   assert.match(html, /data-save-dock hidden/);
+  assert.match(html, /data-save-button/);
+  assert.match(html, /class="button-spinner"/);
+  assert.match(
+    html,
+    /name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true}'/
+  );
+  assert.match(html, /hx-post="\/admin\/actions\/verify-channel"/);
+  assert.match(html, /hx-include="#settings-form"/);
+  assert.match(html, /hx-target="#setting-feedback-practice_remind_threadid"/);
+  assert.match(html, /hx-select="#setting-feedback-practice_remind_threadid"/);
+  assert.match(html, /hx-post="\/admin\/actions\/verify-notion-database"/);
+  assert.match(html, /hx-target="#setting-feedback-practice_databaseid"/);
+  assert.match(html, /data-notion-database-id/);
 
   const csrf = extractCsrf(html);
   const verified = await globalThis.fetch(`${origin}/admin/actions/verify-channel`, {
@@ -296,25 +400,59 @@ test('shows every setting on one page and verifies a channel ID through Discord'
   });
   assert.equal(verified.status, 200);
   const verifiedHtml = await verified.text();
-  assert.match(verifiedHtml, /確認できました: #verified-channel/);
+  assert.match(verifiedHtml, /確認できました: Glanze Server・verified-channel/);
   assert.deepEqual(channelFetches, ['234567890123456789']);
 
+  const verifiedNotion = await globalThis.fetch(`${origin}/admin/actions/verify-notion-database`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new globalThis.URLSearchParams({
+      _csrf: csrf,
+      _verify: 'practice_databaseid',
+      practice_databaseid:
+        'https://app.notion.com/p/chorglanze/11111111111111111111111111111111?v=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    }),
+  });
+  assert.equal(verifiedNotion.status, 200);
+  assert.match(await verifiedNotion.text(), /確認できました: 練習データベース/);
+  assert.deepEqual(notionDatabaseFetches, ['11111111111111111111111111111111']);
+
+  const invalidHtmxRequest = await globalThis.fetch(`${origin}/admin/actions/verify-channel`, {
+    method: 'POST',
+    headers: {
+      cookie,
+      'content-type': 'application/x-www-form-urlencoded',
+      'HX-Request': 'true',
+    },
+    body: new globalThis.URLSearchParams({
+      _csrf: csrf,
+      _verify: 'practice_remind_threadid',
+      practice_remind_threadid: 'invalid',
+    }),
+  });
+  assert.equal(invalidHtmxRequest.status, 200);
+  assert.match(await invalidHtmxRequest.text(), /Discord ID は15〜22桁の数字で入力してください。/);
+
   const saveCsrf = extractCsrf(verifiedHtml);
+  const saveBody = new globalThis.URLSearchParams({
+    _csrf: saveCsrf,
+    countdown_title: '秋の演奏会',
+    practice_remind_threadid: '234567890123456789',
+  });
+  saveBody.append('sesame_enabled', 'false');
+  saveBody.append('sesame_enabled', 'true');
   const saved = await globalThis.fetch(`${origin}/admin/settings`, {
     method: 'POST',
     redirect: 'manual',
     headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
-    body: new globalThis.URLSearchParams({
-      _csrf: saveCsrf,
-      countdown_title: '秋の演奏会',
-      practice_remind_threadid: '234567890123456789',
-    }),
+    body: saveBody,
   });
   assert.equal(saved.status, 303);
   assert.equal(saved.headers.get('location'), '/admin/settings?result=saved');
   assert.deepEqual(updates, [
     ['countdown_title', '秋の演奏会'],
     ['practice_remind_threadid', '234567890123456789'],
+    ['sesame_enabled', 'true'],
   ]);
 });
 

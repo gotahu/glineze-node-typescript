@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { config } from '../../config';
+import { env } from '../../env';
 import {
   SesameAPIResponse,
   SesameDeviceStatus,
@@ -8,6 +9,7 @@ import {
 } from '../../types/types';
 import { logger } from '../../utils/logger';
 export class SesameService {
+  private enabled = false;
   private sesameApiUrl = '';
   private sesameApiToken = '';
   private sesameDeviceUUID = '';
@@ -28,6 +30,18 @@ export class SesameService {
   }
 
   public reloadConfiguration() {
+    const configuredEnabled = config.getAllConfigs().get('sesame_enabled');
+    this.enabled = configuredEnabled ? configuredEnabled === 'true' : env.SESAME_ENABLED;
+
+    if (!this.enabled) {
+      this.sesameApiUrl = '';
+      this.sesameApiToken = '';
+      this.sesameDeviceUUID = '';
+      this.sesamePublicKey = '';
+      logger.info('Sesame integration is disabled');
+      return;
+    }
+
     this.sesameApiUrl = config.getConfig('sesame_app_api_url');
     this.sesameApiToken = config.getConfig('sesame_app_api_key');
     this.sesameDeviceUUID = config.getConfig('sesame_device_uuid');
@@ -45,6 +59,10 @@ export class SesameService {
     this.loadSesameLockStatusMessage();
   }
 
+  public isEnabled(): boolean {
+    return this.enabled;
+  }
+
   public getSesameLockStatusMessage(status: SesameLockStatus): string {
     return this.lockStatusMessage[status];
   }
@@ -58,6 +76,7 @@ export class SesameService {
   }
 
   public async getSesameDeviceStatus(): Promise<SesameDeviceStatus> {
+    if (!this.enabled) throw new Error('Sesame integration is disabled');
     const history = await this.retrieveKeyHistory();
 
     if (history.length === 0) {

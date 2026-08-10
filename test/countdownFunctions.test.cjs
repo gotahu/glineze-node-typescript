@@ -6,6 +6,7 @@ const {
   calculateDiffBetweenTodayAndEventDate,
   forceSendCountdownMessage,
   sendCountdownMessage,
+  renderCountdownMessage,
 } = require('../dist/services/discord/functions/CountdownFunctions.js');
 
 function jstDateString(daysFromToday) {
@@ -63,6 +64,14 @@ test('formats and sends a forced countdown notification', async (t) => {
       channelId: 'countdown-channel',
     },
   ]);
+});
+
+test('renders both readable double-brace and legacy countdown placeholders', () => {
+  assert.equal(
+    renderCountdownMessage('{{title}}まであと{{days}}日', '定期演奏会', 8),
+    '定期演奏会まであと8日'
+  );
+  assert.equal(renderCountdownMessage('{title}: {days}', '定期演奏会', 8), '定期演奏会: 8');
 });
 
 test('only sends scheduled notifications on configured remaining days', async (t) => {

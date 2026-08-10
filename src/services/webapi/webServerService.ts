@@ -183,8 +183,7 @@ export class WebServerService {
       });
     }
 
-    if (env.ADMIN_ENABLED) {
-      if (!this.options.admin) throw new Error('Admin console dependencies are missing');
+    if (this.options.admin) {
       this.app.use(
         '/admin',
         createAdminRouter({
@@ -311,6 +310,7 @@ export class WebServerService {
   }
 
   private createServiceHealth(discordOnline: boolean): ServiceHealth[] {
+    const sesameEnabled = this.services.sesame?.isEnabled() ?? false;
     return [
       {
         id: 'discord',
@@ -339,10 +339,10 @@ export class WebServerService {
       {
         id: 'sesame',
         name: 'Sesame 連携',
-        state: env.SESAME_ENABLED ? (discordOnline ? 'operational' : 'degraded') : 'disabled',
-        label: env.SESAME_ENABLED ? (discordOnline ? '正常' : '確認中') : '停止',
-        detail: env.SESAME_ENABLED ? '定期更新' : '無効化済み',
-        meta: env.SESAME_ENABLED ? '5分間隔' : 'Feature disabled',
+        state: sesameEnabled ? (discordOnline ? 'operational' : 'degraded') : 'disabled',
+        label: sesameEnabled ? (discordOnline ? '正常' : '確認中') : '停止',
+        detail: sesameEnabled ? '定期更新' : '無効化済み',
+        meta: sesameEnabled ? '5分間隔' : 'Feature disabled',
       },
       {
         id: 'webhook',

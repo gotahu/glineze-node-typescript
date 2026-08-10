@@ -111,7 +111,7 @@ export class CronService {
       const { discord, sesame } = this.services;
       const sesameDiscordService = discord.sesameDiscordService;
 
-      if (!sesame || !sesameDiscordService) {
+      if (!sesame || !sesame.isEnabled() || !sesameDiscordService) {
         logger.info('Sesame status scheduler skipped because the integration is disabled');
         return;
       }

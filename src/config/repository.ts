@@ -62,6 +62,18 @@ export class ConfigRepository {
       properties: { value: createNotionValueProperty(page.valuePropertyType, value) },
     });
   }
+
+  public async create(key: string, value: string): Promise<void> {
+    const client = this.createClient(this.token);
+    const page = await client.pages.create({
+      parent: { database_id: this.databaseId },
+      properties: {
+        key: { title: [{ type: 'text', text: { content: key } }] },
+        value: { rich_text: [{ type: 'text', text: { content: value } }] },
+      },
+    });
+    this.pages.set(key, { pageId: page.id, valuePropertyType: 'rich_text' });
+  }
 }
 
 export function createNotionValueProperty(

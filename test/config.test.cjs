@@ -4,6 +4,7 @@ const test = require('node:test');
 const notionModulePath = require.resolve('@notionhq/client');
 const originalNotionModule = require(notionModulePath);
 const updateCalls = [];
+const createCalls = [];
 
 class FakeNotionClient {
   constructor(options) {
@@ -11,6 +12,10 @@ class FakeNotionClient {
     this.pages = {
       update: async (request) => {
         updateCalls.push(request);
+      },
+      create: async (request) => {
+        createCalls.push(request);
+        return { id: 'created-page' };
       },
     };
   }
@@ -30,6 +35,7 @@ function resetConfig() {
   config.notionConfigs.clear();
   config.configurationPages.clear();
   updateCalls.length = 0;
+  createCalls.length = 0;
 }
 
 test.beforeEach(resetConfig);
@@ -103,6 +109,20 @@ test('updates Notion before replacing the in-memory configuration value', async 
   ]);
   assert.equal(config.getConfig('countdown_title'), '新タイトル');
   await assert.rejects(config.setConfig('unknown', 'value'), /存在しないか、更新できない形式/);
+});
+
+test('creates the runtime Sesame toggle when upgrading an existing configuration database', async () => {
+  await config.setConfig('sesame_enabled', 'false');
+
+  assert.equal(createCalls.length, 1);
+  assert.deepEqual(createCalls[0].parent, {
+    database_id: config.notion.configurationDatabaseId,
+  });
+  assert.equal(config.getConfig('sesame_enabled'), 'false');
+  assert.deepEqual(config.configurationPages.get('sesame_enabled'), {
+    pageId: 'created-page',
+    valuePropertyType: 'rich_text',
+  });
 });
 
 test('maps supported Notion configuration property types', () => {
