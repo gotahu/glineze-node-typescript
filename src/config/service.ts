@@ -106,7 +106,10 @@ export class ConfigService {
     let updatedCount = 0;
     try {
       for (const [key, value] of normalized) {
-        if (key === 'sesame_enabled' && !this.repository.pages.has(key)) {
+        if (
+          (key === 'sesame_enabled' || key === 'reminder_databaseid') &&
+          !this.repository.pages.has(key)
+        ) {
           await this.repository.create(key, value);
         } else {
           await this.repository.update(key, value);

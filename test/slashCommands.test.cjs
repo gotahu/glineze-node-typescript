@@ -15,6 +15,7 @@ test('registers documented Discord application commands', () => {
   assert.deepEqual(
     [...commands.keys()],
     [
+      'remind',
       'config',
       'countdown',
       'reminders',
@@ -190,6 +191,29 @@ test('rejects slash commands from members without an authorized role', async () 
   assert.deepEqual(replies, [
     'このコマンドを実行するには「運営」「事務」「技術」のいずれかのロールが必要です。',
   ]);
+});
+
+test('allows regular guild members to open the ephemeral reminder dashboard', async () => {
+  const replies = [];
+  const defers = [];
+  const interaction = {
+    commandName: 'remind',
+    options: { getSubcommand: () => null },
+    deferReply: async (options) => defers.push(options),
+    inGuild: () => true,
+    guild: {},
+    member: { roles: { cache: new Map([['member-role', { name: '団員' }]]) } },
+    editReply: async (payload) => replies.push(payload),
+  };
+
+  await handleSlashCommand(interaction, {
+    notion: { reminderService: {} },
+    discord: {},
+  });
+
+  assert.equal(defers[0].flags !== undefined, true);
+  assert.match(replies[0].content, /リマインダー/);
+  assert.equal(replies[0].components.length, 1);
 });
 
 test('does not publish Discord permission defaults that would hide commands from authorized roles', () => {

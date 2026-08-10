@@ -25,6 +25,8 @@ export class CronService {
   private remindBashotoriStarted = false;
   private adminLoginLinkSchedulerStarted = false;
   private configSyncSchedulerStarted = false;
+  private reminderSchedulerStarted = false;
+  private reminderSchedulerRunning = false;
   private schedule!: CronSchedule;
 
   constructor(
@@ -54,6 +56,7 @@ export class CronService {
     this.startConfigSyncScheduler();
     this.startNotifyPractice();
     this.startRemindBashotori();
+    this.startReminderScheduler();
     if (this.adminLoginLinks) this.startAdminLoginLinkScheduler();
     logger.info('Cron スケジューラーを起動しました。');
   }
@@ -77,6 +80,35 @@ export class CronService {
       await configService.refresh();
     } catch (error) {
       logger.error(`Config sync failed: ${error}`);
+    }
+  }
+
+  private startReminderScheduler(): void {
+    if (this.reminderSchedulerStarted) {
+      logger.info('Reminder scheduler already started');
+      return;
+    }
+    this.reminderSchedulerStarted = true;
+    logger.info('Starting reminder scheduler');
+    this.schedule(
+      '* * * * *',
+      async () => {
+        await this.runReminderScheduler();
+      },
+      { timezone: 'Asia/Tokyo' }
+    );
+  }
+
+  public async runReminderScheduler(): Promise<void> {
+    const reminderService = this.services.notion?.reminderService;
+    if (!reminderService || this.reminderSchedulerRunning) return;
+    this.reminderSchedulerRunning = true;
+    try {
+      await reminderService.dispatchDue(this.services.discord.client);
+    } catch (error) {
+      logger.error(`Reminder scheduler failed: ${error}`);
+    } finally {
+      this.reminderSchedulerRunning = false;
     }
   }
 

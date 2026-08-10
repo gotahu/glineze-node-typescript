@@ -28,6 +28,7 @@ test('defines every configuration key currently consumed by the application', ()
     'practice_announcement_template_page_id',
     'practice_databaseid',
     'practice_remind_threadid',
+    'reminder_databaseid',
     'sesame_app_api_key',
     'sesame_app_api_url',
     'sesame_device_publickey',
@@ -53,6 +54,13 @@ test('normalizes shared countdown inputs and rejects invalid identifiers', () =>
   assert.equal(
     normalizeConfigValue('practice_databaseid', '1b21ea2409888007977ad23654285ece'),
     '1b21ea2409888007977ad23654285ece'
+  );
+  assert.equal(
+    normalizeConfigValue(
+      'reminder_databaseid',
+      'https://app.notion.com/p/50af38e4e9dd439e8592e8cdb8097412'
+    ),
+    '50af38e4e9dd439e8592e8cdb8097412'
   );
   assert.equal(
     normalizeConfigValue(

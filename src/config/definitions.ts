@@ -9,7 +9,7 @@ export type ConfigCategory =
 
 export type ConfigInput = 'text' | 'textarea' | 'date' | 'url' | 'secret' | 'boolean';
 
-export type ConfigEffect = 'bot-profile' | 'practice-template' | 'sesame';
+export type ConfigEffect = 'bot-profile' | 'practice-template' | 'sesame' | 'reminder';
 
 export type ConfigDefinition = {
   label: string;
@@ -188,6 +188,14 @@ export const CONFIG_DEFINITIONS = {
     description: '集金情報を管理する Notion データベース ID です。URLからも抽出できます。',
     category: 'advanced',
     input: 'text',
+    schema: notionDatabaseId,
+  },
+  reminder_databaseid: {
+    label: 'リマインダーデータベース',
+    description: '日時指定リマインダーを管理する Notion データベースです。URLからも抽出できます。',
+    category: 'advanced',
+    input: 'text',
+    effect: 'reminder',
     schema: notionDatabaseId,
   },
   discord_and_notion_pairs_databaseid: {

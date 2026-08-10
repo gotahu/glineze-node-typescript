@@ -125,6 +125,19 @@ test('creates the runtime Sesame toggle when upgrading an existing configuration
   });
 });
 
+test('creates the reminder database setting when upgrading an existing configuration database', async () => {
+  const databaseId = '50af38e4-e9dd-439e-8592-e8cdb8097412';
+
+  await config.setConfig('reminder_databaseid', databaseId);
+
+  assert.equal(createCalls.length, 1);
+  assert.equal(config.getConfig('reminder_databaseid'), databaseId);
+  assert.deepEqual(config.configurationPages.get('reminder_databaseid'), {
+    pageId: 'created-page',
+    valuePropertyType: 'rich_text',
+  });
+});
+
 test('maps supported Notion configuration property types', () => {
   assert.deepEqual(config.createNotionValueProperty('url', 'https://example.com'), {
     url: 'https://example.com',

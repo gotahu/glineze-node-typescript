@@ -70,6 +70,7 @@ export const initializeServices = async () => {
       'bot-profile': () => updateBotProfile(discordService),
       'practice-template': () => notionService.practiceTemplateService.reload(),
       sesame: () => sesameService.reloadConfiguration(),
+      reminder: () => notionService.reloadReminderService(),
     });
 
     const developmentAdminEnabled = env.NODE_ENV === 'development' && !env.ADMIN_ENABLED;

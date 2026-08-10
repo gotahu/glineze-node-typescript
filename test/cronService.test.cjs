@@ -73,6 +73,23 @@ test('registers the Sesame job only once when explicitly started', () => {
   );
 });
 
+test('registers the reminder worker once when the reminder database is configured', () => {
+  const scheduled = [];
+  const cron = new CronService({
+    discord: { client: {} },
+    notion: { reminderService: { dispatchDue: async () => {} } },
+  });
+  cron.schedule = (expression, task, options) => scheduled.push({ expression, task, options });
+
+  cron.startReminderScheduler();
+  cron.startReminderScheduler();
+
+  assert.deepEqual(
+    scheduled.map(({ expression, options }) => ({ expression, options })),
+    [{ expression: '* * * * *', options: { timezone: 'Asia/Tokyo' } }]
+  );
+});
+
 test('registers and contains the admin login-link rotation job', async () => {
   const scheduled = [];
   let rotations = 0;

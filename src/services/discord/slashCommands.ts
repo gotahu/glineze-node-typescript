@@ -18,10 +18,14 @@ import { handleReloadCommand } from './commands/ReloadCommand';
 import { handleSesameStatusCommand } from './commands/SesameCommand';
 import { handleUpdateBotProfileCommand } from './commands/UpdateBotProfileCommand';
 import { handleVersionCommand } from './commands/VersionCommand';
+import { showReminderDashboard } from './reminderInteractions';
 
 const AUTHORIZED_SLASH_COMMAND_ROLES = new Set(['運営', '事務', '技術']);
 
 const slashCommands = [
+  new SlashCommandBuilder()
+    .setName('remind')
+    .setDescription('日時を指定してチャンネルまたはスレッドへリマインドします'),
   new SlashCommandBuilder()
     .setName('config')
     .setDescription('Bot の設定を確認・変更します（運営・事務・技術ロール専用）')
@@ -487,7 +491,8 @@ export async function handleSlashCommand(
   services: Services
 ): Promise<void> {
   const requestedSubcommand = interaction.options.getSubcommand(false);
-  const authorized = hasAuthorizedSlashCommandRole(interaction);
+  const publicCommand = interaction.commandName === 'remind' && interaction.inGuild();
+  const authorized = publicCommand || hasAuthorizedSlashCommandRole(interaction);
   const ephemeral =
     !authorized ||
     [
@@ -497,6 +502,7 @@ export async function handleSlashCommand(
       'delete-channel',
       'update-bot-profile',
       'practice-template',
+      'remind',
     ].includes(interaction.commandName) ||
     (interaction.commandName === 'countdown' && requestedSubcommand === 'setup');
   await interaction.deferReply(ephemeral ? { flags: MessageFlags.Ephemeral } : {});
@@ -511,6 +517,10 @@ export async function handleSlashCommand(
 
     if (interaction.commandName === 'config') {
       await handleConfigCommand(interaction);
+      return;
+    }
+    if (interaction.commandName === 'remind') {
+      await showReminderDashboard(interaction, services);
       return;
     }
     if (interaction.commandName === 'reminders') {

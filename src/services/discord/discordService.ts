@@ -1,5 +1,13 @@
 import { env } from '../../env';
-import { ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, Partials } from 'discord.js';
+import {
+  ChannelType,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  Partials,
+} from 'discord.js';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { NotionService } from '../notion/notionService';
@@ -10,6 +18,11 @@ import { MessageHandler } from './messageHandler';
 import { SesameDiscordService } from './sesameDiscordService';
 import { handleThreadMembersUpdate } from './threadMember';
 import { handleConfigAutocomplete, handleSlashCommand, slashCommandData } from './slashCommands';
+import {
+  handleReminderButton,
+  handleReminderModal,
+  handleReminderSelect,
+} from './reminderInteractions';
 
 interface MessageContent {
   content: string | EmbedBuilder[];
@@ -108,11 +121,39 @@ export class DiscordService {
       })
       .on(Events.MessageCreate, this.messageHandler.handleMessageCreate.bind(this.messageHandler))
       .on(Events.InteractionCreate, async (interaction) => {
-        if (interaction.isAutocomplete()) {
-          if (interaction.commandName === 'config') await handleConfigAutocomplete(interaction);
-          return;
+        try {
+          if (interaction.isAutocomplete()) {
+            if (interaction.commandName === 'config') await handleConfigAutocomplete(interaction);
+            return;
+          }
+          if (interaction.isButton()) {
+            await handleReminderButton(interaction, this.services);
+            return;
+          }
+          if (interaction.isStringSelectMenu()) {
+            await handleReminderSelect(interaction, this.services);
+            return;
+          }
+          if (interaction.isModalSubmit()) {
+            await handleReminderModal(interaction, this.services);
+            return;
+          }
+          if (interaction.isChatInputCommand())
+            await handleSlashCommand(interaction, this.services);
+        } catch (error) {
+          logger.error(`Discord Interaction の処理に失敗しました: ${error}`);
+          if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: '操作中にエラーが発生しました。時間をおいてもう一度お試しください。',
+              flags: MessageFlags.Ephemeral,
+            });
+          } else if (interaction.isRepliable()) {
+            await interaction.editReply({
+              content: '操作中にエラーが発生しました。時間をおいてもう一度お試しください。',
+              components: [],
+            });
+          }
         }
-        if (interaction.isChatInputCommand()) await handleSlashCommand(interaction, this.services);
       })
       .on(Events.MessageReactionAdd, (reaction, user) =>
         handleReactionAdd(reaction, user, this.services)
