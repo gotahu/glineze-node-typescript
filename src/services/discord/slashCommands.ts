@@ -520,6 +520,8 @@ export async function handleSlashCommand(
 
     switch (interaction.commandName) {
       case 'countdown': {
+        // 別プロセスの管理画面で保存された設定も、応答前に必ず取り込む。
+        await configService.refresh();
         const subcommand = interaction.options.getSubcommand();
         if (subcommand === 'setup') {
           await handleCountdownSetup(interaction);

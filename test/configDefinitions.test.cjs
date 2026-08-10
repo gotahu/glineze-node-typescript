@@ -167,3 +167,37 @@ test('reports effect failures separately after persisting settings and runs rema
   assert.equal(updates.length, 2);
   assert.deepEqual(effects.sort(), ['bot-profile', 'practice-template']);
 });
+
+test('refreshes changed shared settings and applies each relevant effect once', async () => {
+  const effects = [];
+  const store = new ConfigStore();
+  store.values.set('countdown_title', '古い演奏会');
+  store.values.set('countdown_date', '2028-02-29');
+  store.values.set('sesame_enabled', 'false');
+  const repository = {
+    pages: new Map(),
+    load: async () => ({
+      values: new Map([
+        ['countdown_title', '新しい演奏会'],
+        ['countdown_date', '2028-03-01'],
+        ['sesame_enabled', 'true'],
+      ]),
+      pages: new Map(),
+    }),
+  };
+  const service = new ConfigService(repository, store);
+  service.setEffectHandlers({
+    'bot-profile': () => effects.push('bot-profile'),
+    sesame: () => effects.push('sesame'),
+  });
+
+  const changed = await service.refresh();
+
+  assert.deepEqual(changed.sort(), ['countdown_date', 'countdown_title', 'sesame_enabled']);
+  assert.equal(store.get('countdown_title'), '新しい演奏会');
+  assert.deepEqual(effects.sort(), ['bot-profile', 'sesame']);
+
+  effects.length = 0;
+  assert.deepEqual(await service.refresh(), []);
+  assert.deepEqual(effects, []);
+});

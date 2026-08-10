@@ -45,6 +45,20 @@ test('registers countdown and practice jobs once with the documented JST schedul
   );
 });
 
+test('registers the shared config sync job only once', () => {
+  const scheduled = [];
+  const cron = new CronService({ discord: {} });
+  cron.schedule = (expression, task, options) => scheduled.push({ expression, task, options });
+
+  cron.startConfigSyncScheduler();
+  cron.startConfigSyncScheduler();
+
+  assert.deepEqual(
+    scheduled.map(({ expression, options }) => ({ expression, options })),
+    [{ expression: '*/1 * * * *', options: undefined }]
+  );
+});
+
 test('registers the Sesame job only once when explicitly started', () => {
   const scheduled = [];
   const cron = new CronService({ discord: {} });

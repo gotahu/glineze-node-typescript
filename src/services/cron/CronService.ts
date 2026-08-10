@@ -1,6 +1,6 @@
 // src/services/cron/cronService.ts
 
-import { config } from '../../config';
+import { config, configService } from '../../config';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { sendCountdownMessage, updateBotProfile } from '../discord/functions/CountdownFunctions';
@@ -24,6 +24,7 @@ export class CronService {
   private notifyPracticeStarted = false;
   private remindBashotoriStarted = false;
   private adminLoginLinkSchedulerStarted = false;
+  private configSyncSchedulerStarted = false;
   private schedule!: CronSchedule;
 
   constructor(
@@ -50,10 +51,33 @@ export class CronService {
       logger.info('Sesame status scheduler is disabled');
     }
     this.startCountdownScheduler();
+    this.startConfigSyncScheduler();
     this.startNotifyPractice();
     this.startRemindBashotori();
     if (this.adminLoginLinks) this.startAdminLoginLinkScheduler();
     logger.info('Cron スケジューラーを起動しました。');
+  }
+
+  /** 共有 Notion 設定を各プロセスへ定期的に反映します。 */
+  private startConfigSyncScheduler(): void {
+    if (this.configSyncSchedulerStarted) {
+      logger.info('Config sync scheduler already started');
+      return;
+    }
+
+    this.configSyncSchedulerStarted = true;
+    logger.info('Starting config sync scheduler');
+    this.schedule('*/1 * * * *', async () => {
+      await this.runConfigSync();
+    });
+  }
+
+  public async runConfigSync(): Promise<void> {
+    try {
+      await configService.refresh();
+    } catch (error) {
+      logger.error(`Config sync failed: ${error}`);
+    }
   }
 
   private startAdminLoginLinkScheduler(): void {

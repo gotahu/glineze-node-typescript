@@ -45,6 +45,45 @@ export class ConfigService {
     }
   }
 
+  /**
+   * Notion の最新値を取り込み、変更された設定に対応する実行時処理を反映します。
+   * 複数プロセスで同じ設定データベースを共有する場合の同期に使用します。
+   */
+  public async refresh(): Promise<string[]> {
+    let snapshot: Awaited<ReturnType<ConfigRepository['load']>>;
+    try {
+      snapshot = await this.repository.load();
+    } catch (error) {
+      this.lastReloadAt = new Date();
+      this.lastReloadError = 'Notion から設定を再読込できませんでした。';
+      throw error;
+    }
+
+    const previous = new Map(this.store.getAll());
+    const changedKeys = new Set<string>();
+    for (const key of new Set([...previous.keys(), ...snapshot.values.keys()])) {
+      if (previous.get(key) !== snapshot.values.get(key)) changedKeys.add(key);
+    }
+
+    this.store.replace(snapshot.values);
+    this.lastReloadAt = new Date();
+    this.lastReloadError = undefined;
+
+    if (changedKeys.size === 0) return [];
+
+    const effects = new Set<ConfigEffect>();
+    for (const key of changedKeys) {
+      if (!isConfigKey(key)) continue;
+      const definition = CONFIG_DEFINITIONS[key];
+      const effect = 'effect' in definition ? definition.effect : undefined;
+      if (effect) effects.add(effect);
+    }
+
+    logger.info(`Config の変更を Notion から同期しました: ${[...changedKeys].join(', ')}`);
+    await this.runEffects(effects);
+    return [...changedKeys];
+  }
+
   public get(key: string): string {
     return this.store.get(key);
   }
@@ -88,6 +127,10 @@ export class ConfigService {
 
     for (const [key, value] of normalized) this.store.values.set(key, value);
     logger.info(`Config を更新しました: ${[...normalized.keys()].join(', ')}`);
+    await this.runEffects(effects);
+  }
+
+  private async runEffects(effects: ReadonlySet<ConfigEffect>): Promise<void> {
     const scheduledEffects = [...effects];
     const effectResults = await Promise.allSettled(
       scheduledEffects.map(async (effect) => {
