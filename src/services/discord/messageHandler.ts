@@ -1,11 +1,9 @@
 import axios from 'axios';
-import { ChannelType, DMChannel, Message, MessageType, TextChannel } from 'discord.js';
+import { ChannelType, DMChannel, Message, MessageType } from 'discord.js';
 import { env } from '../../env';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
 import { PartialMessage } from 'discord.js';
-import { remindPracticesToChannel } from '../notion/practiceFunctions';
-import { handleCommand } from './commands';
 import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
 import { replyShukinStatus } from './commands/ShukinCommand';
 import { relayMessage } from './functions/RelayFunction';
@@ -57,19 +55,7 @@ export class MessageHandler {
       logger.error(`DM relay failed: ${error}`);
     });
 
-    if (message.content.startsWith('!')) {
-      logger.info(`DM command handling started: message=${message.id}`);
-      const commandRecognized = await handleCommand(message, this.services);
-      logger.info(
-        `DM command handling finished: message=${message.id}, recognized=${commandRecognized}`
-      );
-      // コマンドが認識されなかった場合は、replyShukinStatusを呼び出す
-      if (!commandRecognized) {
-        await replyShukinStatus(notion, message);
-      }
-    } else {
-      await replyShukinStatus(notion, message);
-    }
+    await replyShukinStatus(notion, message);
 
     logger.info(`DM handling finished: message=${message.id}`);
   }
@@ -98,13 +84,6 @@ export class MessageHandler {
     ) {
       await handleNotifyPracticesCommand(notion, message);
       return;
-    }
-
-    await handleCommand(message, this.services);
-
-    if (message.content.startsWith('!bashotoriremind')) {
-      const channel = message.channel as TextChannel;
-      await remindPracticesToChannel(this.services, channel.id);
     }
 
     // メッセージにGLOBALIPが含まれている場合

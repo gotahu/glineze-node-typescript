@@ -535,9 +535,9 @@ export async function handleSlashCommand(
           await handleCountdownSetup(interaction);
           return;
         }
-        const legacySubcommand = subcommand === 'message' ? 'msg' : subcommand;
-        content = subcommand === 'info' ? '!countdown' : `!countdown ${legacySubcommand}`;
-        args = subcommand === 'info' ? [] : [legacySubcommand];
+        const internalSubcommand = subcommand === 'message' ? 'msg' : subcommand;
+        content = subcommand === 'info' ? '/countdown info' : `/countdown ${subcommand}`;
+        args = subcommand === 'info' ? [] : [internalSubcommand];
         handler = handleCountdownCommand;
         break;
       }
@@ -552,8 +552,7 @@ export async function handleSlashCommand(
           }
           args = [subcommand, 'confirm'];
         }
-        handler = (message, commandArgs) =>
-          handleBreakoutRoomCommand(message, commandArgs, undefined, true);
+        handler = handleBreakoutRoomCommand;
         break;
       }
       case 'delete-channel':
@@ -563,8 +562,7 @@ export async function handleSlashCommand(
         }
         args = [interaction.options.getChannel('channel', true).id];
         args.push('confirm');
-        handler = (message, commandArgs) =>
-          handleDeleteChannelCommand(message, commandArgs, undefined, true);
+        handler = handleDeleteChannelCommand;
         break;
       case 'reload':
         handler = handleReloadCommand;

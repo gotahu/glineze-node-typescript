@@ -2,19 +2,14 @@
 // ba remove
 // ba random
 
-import { Message, PermissionFlagsBits } from 'discord.js';
+import { Message } from 'discord.js';
 import {
   createBreakoutRooms,
   removeBreakoutRooms,
   randomBreakoutRooms,
 } from '../functions/BreakoutRoomFunctions';
 
-export async function handleBreakoutRoomCommand(
-  message: Message,
-  args: string[],
-  _services?: unknown,
-  skipMemberPermissionCheck = false
-) {
+export async function handleBreakoutRoomCommand(message: Message, args: string[]) {
   if (!message.guild) {
     return;
   }
@@ -36,32 +31,18 @@ export async function handleBreakoutRoomCommand(
     await createBreakoutRooms(message.guild, number);
     return;
   } else if (subCommand === 'remove') {
-    if (
-      !skipMemberPermissionCheck &&
-      !message.member?.permissions.has(PermissionFlagsBits.ManageChannels)
-    ) {
-      await message.reply({ content: 'この操作には「チャンネルの管理」権限が必要です' });
-      return;
-    }
     if (args[1] !== 'confirm') {
       await message.reply({
-        content: '全てのブレイクアウトルームを削除するには `!br remove confirm` を実行してください',
+        content: 'すべてのブレイクアウトルームを削除するには確認が必要です',
       });
       return;
     }
     await removeBreakoutRooms(message.guild);
     return;
   } else if (subCommand === 'random') {
-    if (
-      !skipMemberPermissionCheck &&
-      !message.member?.permissions.has(PermissionFlagsBits.MoveMembers)
-    ) {
-      await message.reply({ content: 'この操作には「メンバーを移動」権限が必要です' });
-      return;
-    }
     if (args.length !== 2 || args[1] !== 'confirm') {
       await message.reply({
-        content: 'メンバーを移動するには `!br random confirm` を実行してください',
+        content: 'メンバーを移動するには確認が必要です',
       });
       return;
     }

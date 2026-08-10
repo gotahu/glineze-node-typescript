@@ -15,8 +15,6 @@ export async function handleCountdownCommand(message: Message, args: string[], s
   // countdown send カウントダウンメッセージを送信する
   // countdown send以外の情報をすべて表示する
 
-  const messageContent = message.content;
-
   // カウントダウンの情報をすべて表示
   const daysLeft = calculateDiffBetweenTodayAndEventDate();
   const date = config.getConfig('countdown_date');
@@ -25,18 +23,10 @@ export async function handleCountdownCommand(message: Message, args: string[], s
   const channelId = config.getConfig('countdown_channelid');
   const sendChannel = channelId ?? config.getConfig('discord_general_channelid');
 
-  // !countdownコマンドの場合は全情報を表示
-  if (messageContent === '!countdown') {
+  // info サブコマンドの場合は全情報を表示
+  if (!args.length) {
     const response = `カウントダウンの情報\n日数: ${daysLeft}\n日付: ${date}\nメッセージ: ${msg}\nタイトル: ${title}\nチャンネル: ${sendChannel}`;
     await message.reply(response);
-    return;
-  }
-
-  // サブコマンドの存在確認
-  if (!args.length) {
-    await message.reply(
-      'サブコマンドを指定してください。\n使用可能なサブコマンド: send, days, date, msg, title, channel'
-    );
     return;
   }
 

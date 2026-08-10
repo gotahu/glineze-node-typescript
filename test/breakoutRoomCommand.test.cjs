@@ -1,12 +1,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { PermissionFlagsBits } = require('discord.js');
 const {
   handleBreakoutRoomCommand,
 } = require('../dist/services/discord/commands/BreakoutRoomCommand.js');
 
-function makeMessage(canManageChannels) {
+function makeMessage() {
   const deletedChannels = [];
   const replies = [];
   const channels = new Map([
@@ -34,14 +33,6 @@ function makeMessage(canManageChannels) {
     deletedChannels,
     message: {
       guild: { channels: { cache: channels } },
-      member: {
-        permissions: {
-          has: (permission) => {
-            assert.equal(permission, PermissionFlagsBits.ManageChannels);
-            return canManageChannels;
-          },
-        },
-      },
       reply: async (reply) => {
         replies.push(reply);
       },
@@ -50,30 +41,21 @@ function makeMessage(canManageChannels) {
   };
 }
 
-test('rejects breakout-room removal from a member without channel-management permission', async () => {
-  const { deletedChannels, message, replies } = makeMessage(false);
-
-  await handleBreakoutRoomCommand(message, ['remove', 'confirm']);
-
-  assert.deepEqual(deletedChannels, []);
-  assert.deepEqual(replies, [{ content: 'この操作には「チャンネルの管理」権限が必要です' }]);
-});
-
-test('requires explicit confirmation from an authorized member', async () => {
-  const { deletedChannels, message, replies } = makeMessage(true);
+test('requires explicit confirmation', async () => {
+  const { deletedChannels, message, replies } = makeMessage();
 
   await handleBreakoutRoomCommand(message, ['remove']);
 
   assert.deepEqual(deletedChannels, []);
   assert.deepEqual(replies, [
     {
-      content: '全てのブレイクアウトルームを削除するには `!br remove confirm` を実行してください',
+      content: 'すべてのブレイクアウトルームを削除するには確認が必要です',
     },
   ]);
 });
 
-test('preserves confirmed breakout-room removal for an authorized member', async () => {
-  const { deletedChannels, message, replies } = makeMessage(true);
+test('removes breakout rooms after confirmation', async () => {
+  const { deletedChannels, message, replies } = makeMessage();
 
   await handleBreakoutRoomCommand(message, ['remove', 'confirm']);
 

@@ -1,10 +1,12 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { Collection, PermissionFlagsBits } = require('discord.js');
-const { handleCommand } = require('../dist/services/discord/commands/index.js');
+const { Collection } = require('discord.js');
+const {
+  handleBreakoutRoomCommand,
+} = require('../dist/services/discord/commands/BreakoutRoomCommand.js');
 
-function makeMessage(canMoveMembers) {
+function makeMessage() {
   const moves = [];
   const replies = [];
   const breakoutRoom = {
@@ -37,15 +39,7 @@ function makeMessage(canMoveMembers) {
     ],
   ]);
   const voiceChannel = { members: voiceMembers };
-  const member = {
-    id: 'caller',
-    permissions: {
-      has: (permission) => {
-        assert.equal(permission, PermissionFlagsBits.MoveMembers);
-        return canMoveMembers;
-      },
-    },
-  };
+  const member = { id: 'caller' };
   const channels = new Collection([['breakout-room', breakoutRoom]]);
 
   return {
@@ -64,37 +58,21 @@ function makeMessage(canMoveMembers) {
   };
 }
 
-async function runCommand(message, content) {
-  message.content = content;
-  assert.equal(await handleCommand(message, {}), true);
-}
+test('requires exact confirmation before moving members', async () => {
+  for (const args of [['random'], ['random', 'Confirm'], ['random', 'confirm', 'extra']]) {
+    const { message, moves, replies } = makeMessage();
 
-test('rejects random breakout moves from a member without move-members permission', async () => {
-  const { message, moves, replies } = makeMessage(false);
-
-  await runCommand(message, '!br random confirm');
-
-  assert.deepEqual(moves, []);
-  assert.deepEqual(replies, [{ content: 'この操作には「メンバーを移動」権限が必要です' }]);
-});
-
-test('requires exact confirmation from a member authorized to move members', async () => {
-  for (const command of ['!br random', '!br random Confirm', '!br random confirm extra']) {
-    const { message, moves, replies } = makeMessage(true);
-
-    await runCommand(message, command);
+    await handleBreakoutRoomCommand(message, args);
 
     assert.deepEqual(moves, []);
-    assert.deepEqual(replies, [
-      { content: 'メンバーを移動するには `!br random confirm` を実行してください' },
-    ]);
+    assert.deepEqual(replies, [{ content: 'メンバーを移動するには確認が必要です' }]);
   }
 });
 
-test('preserves confirmed random breakout moves for an authorized member', async () => {
-  const { message, moves, replies } = makeMessage(true);
+test('moves members after confirmation', async () => {
+  const { message, moves, replies } = makeMessage();
 
-  await runCommand(message, '!br random confirm');
+  await handleBreakoutRoomCommand(message, ['random', 'confirm']);
 
   assert.deepEqual(
     moves.toSorted(),
