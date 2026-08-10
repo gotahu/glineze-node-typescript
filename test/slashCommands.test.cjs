@@ -103,7 +103,10 @@ function createPracticeNotifyInteraction(subcommand, overrides = {}) {
       },
       deferReply: async () => {},
       inGuild: () => true,
-      memberPermissions: { has: () => true },
+      guild: {},
+      member: {
+        roles: { cache: new Map([['authorized-role', { name: '運営' }]]) },
+      },
       editReply: async (content) => replies.push(content),
     },
   };
@@ -176,6 +179,25 @@ test('reports a missing Notion announcement without sending a failure-looking me
   ]);
 });
 
+test('rejects slash commands from members without an authorized role', async () => {
+  const sends = [];
+  const { interaction, replies } = createPracticeNotifyInteraction('current');
+  interaction.member.roles.cache = new Map([['other-role', { name: '団員' }]]);
+
+  await handleSlashCommand(interaction, createPracticeNotifyServices(sends));
+
+  assert.deepEqual(sends, []);
+  assert.deepEqual(replies, [
+    'このコマンドを実行するには「運営」「事務」「技術」のいずれかのロールが必要です。',
+  ]);
+});
+
+test('does not publish Discord permission defaults that would hide commands from authorized roles', () => {
+  for (const command of slashCommandData) {
+    assert.equal(command.default_member_permissions, undefined, command.name);
+  }
+});
+
 test('previews the cached practice template without sending it to a channel', async () => {
   const replies = [];
   const interaction = {
@@ -186,7 +208,10 @@ test('previews the cached practice template without sending it to a channel', as
     },
     deferReply: async () => {},
     inGuild: () => true,
-    memberPermissions: { has: () => true },
+    guild: {},
+    member: {
+      roles: { cache: new Map([['authorized-role', { name: '技術' }]]) },
+    },
     editReply: async (content) => replies.push(content),
     followUp: async (content) => replies.push(content.content),
   };

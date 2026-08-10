@@ -5,7 +5,6 @@ import {
   GuildMember,
   Message,
   MessageFlags,
-  PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
 import { CONFIG_DEFINITIONS, config, configService } from '../../config';
@@ -20,11 +19,12 @@ import { handleSesameStatusCommand } from './commands/SesameCommand';
 import { handleUpdateBotProfileCommand } from './commands/UpdateBotProfileCommand';
 import { handleVersionCommand } from './commands/VersionCommand';
 
+const AUTHORIZED_SLASH_COMMAND_ROLES = new Set(['運営', '事務', '技術']);
+
 const slashCommands = [
   new SlashCommandBuilder()
     .setName('config')
-    .setDescription('Bot の設定を確認・変更します（管理者専用）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDescription('Bot の設定を確認・変更します（運営・事務・技術ロール専用）')
     .addSubcommand((command) =>
       command.setName('list').setDescription('設定キーと現在値の一覧を表示します')
     )
@@ -86,7 +86,7 @@ const slashCommands = [
     .addSubcommand((command) =>
       command
         .setName('setup')
-        .setDescription('イベント情報をまとめて設定します（管理者専用）')
+        .setDescription('イベント情報をまとめて設定します')
         .addStringOption((option) =>
           option
             .setName('date')
@@ -128,8 +128,7 @@ const slashCommands = [
     ),
   new SlashCommandBuilder()
     .setName('reminders')
-    .setDescription('練習連絡と場所取り通知の送信先を設定します（管理者専用）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDescription('練習連絡と場所取り通知の送信先を設定します')
     .addSubcommand((command) =>
       command
         .setName('setup')
@@ -196,8 +195,7 @@ const slashCommands = [
     ),
   new SlashCommandBuilder()
     .setName('delete-channel')
-    .setDescription('指定したチャンネルを削除します（チャンネル管理権限が必要）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
+    .setDescription('指定したチャンネルを削除します')
     .addChannelOption((option) =>
       option.setName('channel').setDescription('削除するチャンネル').setRequired(true)
     )
@@ -206,20 +204,17 @@ const slashCommands = [
     ),
   new SlashCommandBuilder()
     .setName('reload')
-    .setDescription('Notion から Bot 設定を再読み込みします（管理者専用）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDescription('Notion から Bot 設定を再読み込みします'),
   new SlashCommandBuilder().setName('sesame').setDescription('Sesame の現在の施錠状態を表示します'),
   new SlashCommandBuilder()
     .setName('version')
     .setDescription('稼働中の Bot バージョンを表示します'),
   new SlashCommandBuilder()
     .setName('update-bot-profile')
-    .setDescription('カウントダウンに合わせて Bot のプロフィールを更新します')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+    .setDescription('カウントダウンに合わせて Bot のプロフィールを更新します'),
   new SlashCommandBuilder()
     .setName('practice-template')
-    .setDescription('練習連絡テンプレートの確認・再読み込みを行います（管理者専用）')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDescription('練習連絡テンプレートの確認・再読み込みを行います')
     .addSubcommand((command) =>
       command
         .setName('preview')
@@ -263,12 +258,10 @@ const slashCommands = [
               ChannelType.PrivateThread
             )
         )
-    )
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+    ),
   new SlashCommandBuilder()
     .setName('practice-remind')
-    .setDescription('このチャンネルへ場所取りのリマインドを送信します')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+    .setDescription('このチャンネルへ場所取りのリマインドを送信します'),
 ];
 
 export const slashCommandData = slashCommands.map((command) => command.toJSON());
@@ -472,12 +465,31 @@ function createMessageAdapter(interaction: ChatInputCommandInteraction, content:
   };
 }
 
+function hasAuthorizedSlashCommandRole(
+  interaction: ChatInputCommandInteraction | AutocompleteInteraction
+): boolean {
+  if (!interaction.inGuild() || !interaction.guild || !interaction.member) return false;
+
+  const memberRoles = interaction.member.roles;
+  if (Array.isArray(memberRoles)) {
+    return memberRoles.some((roleId) =>
+      AUTHORIZED_SLASH_COMMAND_ROLES.has(interaction.guild!.roles.cache.get(roleId)?.name ?? '')
+    );
+  }
+
+  return [...memberRoles.cache.values()].some((role) =>
+    AUTHORIZED_SLASH_COMMAND_ROLES.has(role.name)
+  );
+}
+
 export async function handleSlashCommand(
   interaction: ChatInputCommandInteraction,
   services: Services
 ): Promise<void> {
   const requestedSubcommand = interaction.options.getSubcommand(false);
+  const authorized = hasAuthorizedSlashCommandRole(interaction);
   const ephemeral =
+    !authorized ||
     [
       'config',
       'reminders',
@@ -490,13 +502,9 @@ export async function handleSlashCommand(
   await interaction.deferReply(ephemeral ? { flags: MessageFlags.Ephemeral } : {});
 
   try {
-    const requiredPermission = getRequiredPermission(interaction);
-    if (
-      requiredPermission &&
-      (!interaction.inGuild() || !interaction.memberPermissions?.has(requiredPermission))
-    ) {
+    if (!authorized) {
       await interaction.editReply(
-        'このコマンドは必要な権限を持つメンバーがサーバー内で実行してください。'
+        'このコマンドを実行するには「運営」「事務」「技術」のいずれかのロールが必要です。'
       );
       return;
     }
@@ -544,7 +552,8 @@ export async function handleSlashCommand(
           }
           args = [subcommand, 'confirm'];
         }
-        handler = handleBreakoutRoomCommand;
+        handler = (message, commandArgs) =>
+          handleBreakoutRoomCommand(message, commandArgs, undefined, true);
         break;
       }
       case 'delete-channel':
@@ -554,7 +563,8 @@ export async function handleSlashCommand(
         }
         args = [interaction.options.getChannel('channel', true).id];
         args.push('confirm');
-        handler = handleDeleteChannelCommand;
+        handler = (message, commandArgs) =>
+          handleDeleteChannelCommand(message, commandArgs, undefined, true);
         break;
       case 'reload':
         handler = handleReloadCommand;
@@ -617,36 +627,11 @@ export async function handleSlashCommand(
   }
 }
 
-function getRequiredPermission(interaction: ChatInputCommandInteraction): bigint | undefined {
-  switch (interaction.commandName) {
-    case 'config':
-    case 'reminders':
-    case 'reload':
-    case 'practice-template':
-      return PermissionFlagsBits.Administrator;
-    case 'countdown':
-      return interaction.options.getSubcommand() === 'setup'
-        ? PermissionFlagsBits.Administrator
-        : undefined;
-    case 'delete-channel':
-      return PermissionFlagsBits.ManageChannels;
-    case 'update-bot-profile':
-      return PermissionFlagsBits.ManageGuild;
-    case 'practice-remind':
-    case 'practice-notify':
-      return PermissionFlagsBits.ManageMessages;
-    case 'breakout': {
-      const subcommand = interaction.options.getSubcommand();
-      return subcommand === 'random'
-        ? PermissionFlagsBits.MoveMembers
-        : PermissionFlagsBits.ManageChannels;
-    }
-    default:
-      return undefined;
-  }
-}
-
 export async function handleConfigAutocomplete(interaction: AutocompleteInteraction) {
+  if (!hasAuthorizedSlashCommandRole(interaction)) {
+    await interaction.respond([]);
+    return;
+  }
   const focused = interaction.options.getFocused().toLowerCase();
   const choices = [...config.getAllConfigs().keys()]
     .filter((key) => key.toLowerCase().includes(focused))

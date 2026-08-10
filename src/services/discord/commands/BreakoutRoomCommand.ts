@@ -9,7 +9,12 @@ import {
   randomBreakoutRooms,
 } from '../functions/BreakoutRoomFunctions';
 
-export async function handleBreakoutRoomCommand(message: Message, args: string[]) {
+export async function handleBreakoutRoomCommand(
+  message: Message,
+  args: string[],
+  _services?: unknown,
+  skipMemberPermissionCheck = false
+) {
   if (!message.guild) {
     return;
   }
@@ -31,7 +36,10 @@ export async function handleBreakoutRoomCommand(message: Message, args: string[]
     await createBreakoutRooms(message.guild, number);
     return;
   } else if (subCommand === 'remove') {
-    if (!message.member?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    if (
+      !skipMemberPermissionCheck &&
+      !message.member?.permissions.has(PermissionFlagsBits.ManageChannels)
+    ) {
       await message.reply({ content: 'この操作には「チャンネルの管理」権限が必要です' });
       return;
     }
@@ -44,7 +52,10 @@ export async function handleBreakoutRoomCommand(message: Message, args: string[]
     await removeBreakoutRooms(message.guild);
     return;
   } else if (subCommand === 'random') {
-    if (!message.member?.permissions.has(PermissionFlagsBits.MoveMembers)) {
+    if (
+      !skipMemberPermissionCheck &&
+      !message.member?.permissions.has(PermissionFlagsBits.MoveMembers)
+    ) {
       await message.reply({ content: 'この操作には「メンバーを移動」権限が必要です' });
       return;
     }

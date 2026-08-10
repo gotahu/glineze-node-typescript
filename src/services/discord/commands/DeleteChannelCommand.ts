@@ -1,9 +1,17 @@
 import { Message, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../../../utils/logger';
 
-export async function handleDeleteChannelCommand(message: Message, args: string[]) {
+export async function handleDeleteChannelCommand(
+  message: Message,
+  args: string[],
+  _services?: unknown,
+  skipMemberPermissionCheck = false
+) {
   try {
-    if (!message.member?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    if (
+      !skipMemberPermissionCheck &&
+      !message.member?.permissions.has(PermissionFlagsBits.ManageChannels)
+    ) {
       await message.reply('この操作には「チャンネルの管理」権限が必要です');
       return;
     }
