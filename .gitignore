@@ -74,12 +74,9 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+# dotenv environment variable files (may contain credentials)
+.env*
+!.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -134,7 +131,30 @@ dist
 # webpack, bundle output
 bundle/*
 
-# npm
-package-lock.json
+# Local OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Browser and end-to-end test artifacts
+playwright-report/
+test-results/
+.playwright/
+
+# Local admin-console QA captures
+/admin-settings-*.png
+/admin-settings-*.jpg
+/audit-settings-*/*.png
+/audit-settings-*/*.jpg
+
+# Legacy generated outputs
 app.js
 src_project_summary.txt
