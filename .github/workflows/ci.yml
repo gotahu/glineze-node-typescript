@@ -18,7 +18,7 @@ jobs:
     name: Lint, typecheck, and test
     runs-on: ubuntu-latest
     # Repository policy only permits selected actions, so keep this job action-free.
-    container: node:23.4.0-bookworm
+    container: node:24.19.0-bookworm
     timeout-minutes: 15
     env:
       NODE_ENV: test
