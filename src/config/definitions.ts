@@ -1,11 +1,7 @@
 import { z } from 'zod';
 
 export type ConfigCategory =
-  | 'countdown'
-  | 'notifications'
-  | 'practice-template'
-  | 'advanced'
-  | 'sesame';
+  'countdown' | 'notifications' | 'practice-template' | 'advanced' | 'sesame';
 
 export type ConfigInput = 'text' | 'textarea' | 'date' | 'url' | 'secret' | 'boolean';
 
