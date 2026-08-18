@@ -37,7 +37,7 @@
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
     "@hapi/iron": "^7.0.1",
-    "@notionhq/client": "^5.24.0",
+    "@notionhq/client": "^5.25.2",
     "@picocss/pico": "^2.1.1",
     "@tabler/icons-webfont": "^3.46.0",
     "axios": "^1.15.2",
