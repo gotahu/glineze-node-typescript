@@ -5,6 +5,7 @@ const { config } = require('../dist/config.js');
 const { CronService } = require('../dist/services/cron/CronService.js');
 const countdownFunctions = require('../dist/services/discord/functions/CountdownFunctions.js');
 const practiceFunctions = require('../dist/services/notion/practiceFunctions.js');
+const allMembersRole = require('../dist/services/discord/allMembersRole.js');
 const { logger } = require('../dist/utils/logger.js');
 
 function patch(t, object, key, value) {
@@ -88,6 +89,29 @@ test('registers the reminder worker once when the reminder database is configure
     scheduled.map(({ expression, options }) => ({ expression, options })),
     [{ expression: '* * * * *', options: { timezone: 'Asia/Tokyo' } }]
   );
+});
+
+test('runs the all-members role sync at startup and registers the daily JST job once', async (t) => {
+  const scheduled = [];
+  let syncs = 0;
+  patch(t, allMembersRole, 'synchronizeAllMembersRole', async () => {
+    syncs++;
+  });
+  const cron = new CronService({ discord: { client: {} } });
+  cron.schedule = (expression, task, options) => scheduled.push({ expression, task, options });
+
+  cron.startAllMembersRoleScheduler();
+  cron.startAllMembersRoleScheduler();
+  await new Promise((resolve) => globalThis.setImmediate(resolve));
+
+  assert.equal(syncs, 1);
+  assert.deepEqual(
+    scheduled.map(({ expression, options }) => ({ expression, options })),
+    [{ expression: '0 4 * * *', options: { timezone: 'Asia/Tokyo' } }]
+  );
+
+  await scheduled[0].task();
+  assert.equal(syncs, 2);
 });
 
 test('registers and contains the admin login-link rotation job', async () => {

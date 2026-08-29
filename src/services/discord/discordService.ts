@@ -23,6 +23,7 @@ import {
   handleReminderModal,
   handleReminderSelect,
 } from './reminderInteractions';
+import { handleAllMembersRoleForNewMember } from './allMembersRole';
 
 interface MessageContent {
   content: string | EmbedBuilder[];
@@ -158,6 +159,7 @@ export class DiscordService {
       .on(Events.MessageReactionAdd, (reaction, user) =>
         handleReactionAdd(reaction, user, this.services)
       )
+      .on(Events.GuildMemberAdd, handleAllMembersRoleForNewMember)
       .on(Events.ThreadMembersUpdate, handleThreadMembersUpdate)
       .on(Events.MessageUpdate, (oldMsg, newMsg) =>
         this.messageHandler.handleMessageUpdate(oldMsg, newMsg)
