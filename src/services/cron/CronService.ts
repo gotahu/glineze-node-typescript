@@ -7,6 +7,7 @@ import { sendCountdownMessage, updateBotProfile } from '../discord/functions/Cou
 import { notifyPractice, remindPracticesToChannel } from '../notion/practiceFunctions';
 import { env } from '../../env';
 import { AdminLoginLinkService } from '../admin/adminLoginLinkService';
+import { synchronizeAllMembersRole } from '../discord/allMembersRole';
 
 type CronSchedule = (
   expression: string,
@@ -27,6 +28,8 @@ export class CronService {
   private configSyncSchedulerStarted = false;
   private reminderSchedulerStarted = false;
   private reminderSchedulerRunning = false;
+  private allMembersRoleSchedulerStarted = false;
+  private allMembersRoleSchedulerRunning = false;
   private schedule!: CronSchedule;
 
   constructor(
@@ -57,6 +60,7 @@ export class CronService {
     this.startNotifyPractice();
     this.startRemindBashotori();
     this.startReminderScheduler();
+    this.startAllMembersRoleScheduler();
     if (this.adminLoginLinks) this.startAdminLoginLinkScheduler();
     logger.info('Cron スケジューラーを起動しました。');
   }
@@ -109,6 +113,37 @@ export class CronService {
       logger.error(`Reminder scheduler failed: ${error}`);
     } finally {
       this.reminderSchedulerRunning = false;
+    }
+  }
+
+  /** 「全員」ロールを起動時と毎日4時に全サーバーメンバーへ同期します。 */
+  private startAllMembersRoleScheduler(): void {
+    if (this.allMembersRoleSchedulerStarted) {
+      logger.info('All-members role scheduler already started');
+      return;
+    }
+
+    this.allMembersRoleSchedulerStarted = true;
+    logger.info('Starting all-members role scheduler');
+    void this.runAllMembersRoleSync();
+    this.schedule(
+      '0 4 * * *',
+      async () => {
+        await this.runAllMembersRoleSync();
+      },
+      { timezone: 'Asia/Tokyo' }
+    );
+  }
+
+  public async runAllMembersRoleSync(): Promise<void> {
+    if (this.allMembersRoleSchedulerRunning) return;
+    this.allMembersRoleSchedulerRunning = true;
+    try {
+      await synchronizeAllMembersRole(this.services.discord.client);
+    } catch (error) {
+      logger.error(`All-members role scheduler failed: ${error}`);
+    } finally {
+      this.allMembersRoleSchedulerRunning = false;
     }
   }
 

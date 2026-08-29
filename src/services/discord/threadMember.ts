@@ -63,6 +63,7 @@ function createReactionCollector(replyMessage: Message, lastMessage: Message) {
   return replyMessage.createReactionCollector({
     filter,
     time: REACTION_WAIT_TIME,
+    max: 1,
   });
 }
 
@@ -70,9 +71,11 @@ async function handleMemberDeletion(
   thread: AnyThreadChannel,
   members: ReadonlyCollection<Snowflake, ThreadMember>
 ) {
-  await thread.send(`現在追加された ${members.size} 人のメンバーを削除します。`);
   logger.info('スレッドのメンバーを誤って追加したことを検知しました。ユーザーの削除を行います。');
-  await removeThreadMembers(thread, members);
+  await Promise.all([
+    thread.send(`現在追加された ${members.size} 人のメンバーを削除します。`),
+    removeThreadMembers(thread, members),
+  ]);
   await thread.send('メンバーの削除が完了しました。');
 }
 
@@ -80,21 +83,20 @@ async function removeThreadMembers(
   thread: AnyThreadChannel,
   members: ReadonlyCollection<Snowflake, ThreadMember>
 ) {
-  for (const member of members.values()) {
-    if (!member.partial) {
+  await Promise.all(
+    [...members.values()].map(async (member) => {
+      const displayName = member.partial ? member.id : member.user?.displayName || member.id;
       try {
+        // ThreadMember の完全なユーザー情報がなくても、ID があれば削除できる。
         await thread.members.remove(member.id);
-        logger.info(
-          `メンバー ${member.user?.displayName || 'unknown'} をスレッドから削除しました。`,
-          {
-            debug: true,
-          }
-        );
-      } catch {
-        logger.error(`メンバー ${member.user?.displayName || 'unknown'} の削除に失敗しました。`);
+        logger.info(`メンバー ${displayName} をスレッドから削除しました。`, {
+          debug: true,
+        });
+      } catch (error) {
+        logger.error(`メンバー ${displayName} の削除に失敗しました。`, { error });
       }
-    }
-  }
+    })
+  );
 }
 
 export { handleThreadMembersUpdate, removeThreadMembers };
