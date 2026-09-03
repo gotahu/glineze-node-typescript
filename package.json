@@ -40,7 +40,7 @@
     "@notionhq/client": "^5.26.0",
     "@picocss/pico": "^2.1.1",
     "@tabler/icons-webfont": "^3.46.0",
-    "axios": "^1.15.2",
+    "axios": "^1.20.0",
     "csrf-sync": "^4.2.1",
     "date-fns": "^4.4.0",
     "discord.js": "^14.26.3",
@@ -54,6 +54,6 @@
     "memorystore": "^1.6.8",
     "node-cron": "^4.6.0",
     "tsconfig-paths": "^4.2.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.1"
   }
 }
