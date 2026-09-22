@@ -39,7 +39,7 @@
     "@hapi/iron": "^7.0.1",
     "@notionhq/client": "^5.26.0",
     "@picocss/pico": "^2.1.1",
-    "@tabler/icons-webfont": "^3.46.0",
+    "@tabler/icons-webfont": "^3.47.0",
     "axios": "^1.20.0",
     "csrf-sync": "^4.2.1",
     "date-fns": "^4.4.0",
@@ -54,6 +54,6 @@
     "memorystore": "^1.6.8",
     "node-cron": "^4.6.0",
     "tsconfig-paths": "^4.2.0",
-    "zod": "^4.5.4"
+    "zod": "^4.6.5"
   }
 }
