@@ -30,6 +30,15 @@ test('keeps the admin console disabled without requiring admin credentials', () 
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('accepts an optional Discord log channel and rejects malformed channel IDs', () => {
+  assert.equal(evaluateEnv({}).status, 0);
+  const valid = evaluateEnv({ DISCORD_LOG_CHANNEL_ID: '123456789012345678' });
+  assert.equal(valid.status, 0, valid.stderr);
+  const invalid = evaluateEnv({ DISCORD_LOG_CHANNEL_ID: 'not-a-channel-id' });
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr, /DISCORD_LOG_CHANNEL_ID/);
+});
+
 test('requires complete HTTPS admin configuration only when enabled', () => {
   const missing = evaluateEnv({ ADMIN_ENABLED: 'true' });
   assert.equal(missing.status, 1);

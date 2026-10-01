@@ -22,18 +22,28 @@ jobs:
     environment: production
 
     steps:
+      - name: Validate deployment configuration
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+          TS_TAGS: ${{ secrets.TS_TAGS }}
+        run: |
+          : "${COOLIFY_URL:?Set the COOLIFY_URL repository or production environment secret}"
+          : "${COOLIFY_APP_UUID:?Set the COOLIFY_APP_UUID repository or production environment secret}"
+          : "${TS_TAGS:?Set the TS_TAGS repository or production environment secret}"
+
       - name: Join the tailnet
         uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           audience: ${{ secrets.TS_AUDIENCE }}
-          tags: tag:github-actions-oshigla
+          tags: ${{ secrets.TS_TAGS }}
 
       - name: Trigger glineze deployment
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
-          COOLIFY_URL: https://shin-vps.tail5e9310.ts.net
-          COOLIFY_APP_UUID: nutycxtdmjtsqikvswk7wkcd
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
         run: |
           curl \
             --fail-with-body \

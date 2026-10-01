@@ -135,6 +135,7 @@ bundle/*
 .DS_Store
 Thumbs.db
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
@@ -149,11 +150,19 @@ playwright-report/
 test-results/
 .playwright/
 
-# Local admin-console QA captures
+# Local work notes and admin-console QA artifacts
+/REFACTORING.md
+/design-qa.md
+/audit-settings-*/
 /admin-settings-*.png
 /admin-settings-*.jpg
-/audit-settings-*/*.png
-/audit-settings-*/*.jpg
+
+# Local agent settings and credentials
+.agents/
+.codex/
+.aws/
+*.pem
+*.key
 
 # Legacy generated outputs
 app.js

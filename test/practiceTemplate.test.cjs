@@ -35,14 +35,14 @@ test('renders a practice announcement from direct and related Notion properties'
     },
   };
   const service = new PracticeTemplateService(client);
-  const place = titlePage('place-1', '名古屋市青少年文化センター（アートピア）', {
+  const place = titlePage('place-1', '練習施設A', {
     アクセス: {
       type: 'rich_text',
       rich_text: [text('• 地下鉄「栄」から徒歩7分\n'), text('• 市バスから徒歩2分')],
     },
   });
   const practice = {
-    id: '3a01ea24-0988-8041-95c4-c1ce005638bb',
+    id: '01234567-89ab-4cde-8f01-23456789abcd',
     properties: {
       タイトル: { type: 'title', title: [text('合奏')] },
       時間フォーマット: {
@@ -53,7 +53,7 @@ test('renders a practice announcement from direct and related Notion properties'
       練習内容: { type: 'rich_text', rich_text: [] },
       先生方: {
         type: 'multi_select',
-        multi_select: [{ id: 'teacher-1', name: '伊東先生', color: 'blue' }],
+        multi_select: [{ id: 'teacher-1', name: '講師A先生', color: 'blue' }],
       },
       情宣: { type: 'relation', relation: [{ id: publicity.id }] },
     },
@@ -65,11 +65,11 @@ test('renders a practice announcement from direct and related Notion properties'
 
   assert.match(rendered, /## 8\/5\(水\) 練習連絡/);
   assert.match(rendered, /AM\(9:00-12:00\)で実施します/);
-  assert.match(rendered, /名古屋市青少年文化センター（アートピア）\nリハ室/);
+  assert.match(rendered, /練習施設A\nリハ室/);
   assert.match(rendered, /• 地下鉄「栄」から徒歩7分\n• 市バスから徒歩2分/);
-  assert.match(rendered, /＊伊東先生がいらっしゃいます。/);
+  assert.match(rendered, /＊講師A先生がいらっしゃいます。/);
   assert.match(rendered, /＊渉外（広報担当）/);
-  assert.match(rendered, /https:\/\/notion\.so\/chorglanze\/3a01ea240988804195c4c1ce005638bb/);
+  assert.match(rendered, /https:\/\/notion\.so\/0123456789ab4cde8f0123456789abcd/);
 });
 
 test('loads one validated code block and keeps the last good template after a bad reload', async () => {

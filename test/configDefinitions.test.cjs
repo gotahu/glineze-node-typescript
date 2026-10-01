@@ -52,28 +52,28 @@ test('normalizes shared countdown inputs and rejects invalid identifiers', () =>
     ConfigValidationError
   );
   assert.equal(
-    normalizeConfigValue('practice_databaseid', '1b21ea2409888007977ad23654285ece'),
-    '1b21ea2409888007977ad23654285ece'
+    normalizeConfigValue('practice_databaseid', '0123456789abcdef0123456789abcdef'),
+    '0123456789abcdef0123456789abcdef'
   );
   assert.equal(
     normalizeConfigValue(
       'reminder_databaseid',
-      'https://app.notion.com/p/50af38e4e9dd439e8592e8cdb8097412'
+      'https://app.notion.com/p/11111111111111111111111111111111'
     ),
-    '50af38e4e9dd439e8592e8cdb8097412'
+    '11111111111111111111111111111111'
   );
   assert.equal(
     normalizeConfigValue(
       'practice_databaseid',
-      'https://app.notion.com/p/chorglanze/70272343a6ae48888feeda84566c499e?v=a73fbc09bd324328991c7d49591d85d8&source=copy_link'
+      'https://app.notion.com/p/example-workspace/22222222222222222222222222222222?v=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&source=copy_link'
     ),
-    '70272343a6ae48888feeda84566c499e'
+    '22222222222222222222222222222222'
   );
   assert.throws(
     () =>
       normalizeConfigValue(
         'practice_databaseid',
-        'https://example.com/70272343a6ae48888feeda84566c499e?v=a73fbc09bd324328991c7d49591d85d8'
+        'https://example.com/22222222222222222222222222222222?v=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
       ),
     ConfigValidationError
   );
@@ -167,7 +167,7 @@ test('reports effect failures separately after persisting settings and runs rema
   await assert.rejects(
     service.updateMany({
       countdown_title: '保存済み',
-      practice_announcement_template_page_id: '1b21ea2409888007977ad23654285ece',
+      practice_announcement_template_page_id: '0123456789abcdef0123456789abcdef',
     }),
     (error) => error instanceof ConfigEffectError && error.failedEffects.includes('bot-profile')
   );

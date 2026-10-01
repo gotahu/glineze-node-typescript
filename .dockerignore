@@ -1,0 +1,7 @@
+# Include only files required to install dependencies and build the application.
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!src/
+!src/**
