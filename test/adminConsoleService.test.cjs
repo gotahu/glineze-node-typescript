@@ -113,12 +113,12 @@ test('verifies that a Notion database exists and returns its name', async () => 
   const { subject } = createSubject({}, undefined, notionClient);
 
   assert.deepEqual(
-    await subject.verifyNotionDatabase('practice_databaseid', '1b21ea2409888007977ad23654285ece'),
-    { id: '1b21ea2409888007977ad23654285ece', name: '練習DB' }
+    await subject.verifyNotionDatabase('practice_databaseid', '0123456789abcdef0123456789abcdef'),
+    { id: '0123456789abcdef0123456789abcdef', name: '練習DB' }
   );
-  assert.deepEqual(requested, ['1b21ea2409888007977ad23654285ece']);
+  assert.deepEqual(requested, ['0123456789abcdef0123456789abcdef']);
   await assert.rejects(
-    subject.verifyNotionDatabase('countdown_title', '1b21ea2409888007977ad23654285ece'),
+    subject.verifyNotionDatabase('countdown_title', '0123456789abcdef0123456789abcdef'),
     /Notion データベース ID ではありません/
   );
 });

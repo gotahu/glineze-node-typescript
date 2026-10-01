@@ -410,7 +410,7 @@ test('shows every setting on one page and verifies Discord and Notion destinatio
       _csrf: csrf,
       _verify: 'practice_databaseid',
       practice_databaseid:
-        'https://app.notion.com/p/chorglanze/11111111111111111111111111111111?v=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'https://app.notion.com/p/example-workspace/11111111111111111111111111111111?v=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     }),
   });
   assert.equal(verifiedNotion.status, 200);

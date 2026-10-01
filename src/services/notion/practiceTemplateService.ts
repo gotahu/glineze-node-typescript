@@ -222,7 +222,7 @@ export class PracticeTemplateService {
         in: tz('Asia/Tokyo'),
         locale: ja,
       }),
-      notionUrl: `https://notion.so/chorglanze/${pageId}`,
+      notionUrl: `https://notion.so/${pageId}`,
       pageId,
       placeNames: placeNames.join('\n'),
       placeText,

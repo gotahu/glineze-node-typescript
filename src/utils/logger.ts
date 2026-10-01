@@ -14,7 +14,7 @@ export class Logger extends EventEmitter {
   public static getInstance(): Logger {
     if (!Logger.instance) {
       Logger.instance = new Logger({
-        loggerChannelId: '1273731421663395973',
+        loggerChannelId: env.DISCORD_LOG_CHANNEL_ID || '',
         lineNotifyToken: env.LINE_NOTIFY_VOID_TOKEN || '',
         enableDebugOutput: env.NODE_ENV !== 'production',
       });
@@ -40,6 +40,7 @@ export class Logger extends EventEmitter {
   }
 
   private emitDiscordLog(logMessage: LogMessage): void {
+    if (!this.config.loggerChannelId) return;
     // Instead of using DiscordService directly, emit an event so app.ts can handle it
     this.emit('discordLog', logMessage);
   }

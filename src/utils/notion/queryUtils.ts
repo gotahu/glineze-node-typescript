@@ -42,7 +42,7 @@ export async function queryAllDatabasePages(
     if (error instanceof APIResponseError) {
       if (error.status === 404) {
         throw new Error(
-          `Notion データベースが見つかりません: ${databaseId}\nデータベースが存在しないか、BOT にデータベースを読み書きする権限が与えられていない可能性があります。\nhttps://www.notion.so/chorglanze/1b21ea2409888007977ad23654285ece?pvs=4 をご覧ください。`,
+          `Notionデータベースが見つかりません: ${databaseId}\nデータベースが存在しないか、Botに読み書きの権限がない可能性があります。データベースIDとIntegrationの共有設定を確認してください。`,
           { cause: error }
         );
       }

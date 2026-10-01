@@ -14,6 +14,10 @@ const envSchema = z
     PORT: z.coerce.number().default(10000),
     DISCORD_BOT_TOKEN: z.string().min(1),
     DISCORD_RELAY_WEBHOOK: z.string().url(),
+    DISCORD_LOG_CHANNEL_ID: z
+      .string()
+      .regex(/^\d{17,20}$/)
+      .optional(),
     NOTION_TOKEN: z.string().min(1),
     NOTION_CONFIGURATION_DATABASEID: z.string().min(1),
     SESAME_ENABLED: booleanEnvironmentVariable,
