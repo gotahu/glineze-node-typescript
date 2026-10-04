@@ -307,7 +307,7 @@ export const STATUS_PAGE_HTML = `<!doctype html>
         if (document.hidden) {
           if (timer) window.clearTimeout(timer);
           timer = null;
-        } else {
+        } else if (elements.autoRefresh.checked) {
           refresh();
         }
       });

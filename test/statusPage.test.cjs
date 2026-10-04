@@ -142,6 +142,11 @@ test('stops automatic refresh and pauses scheduling while the page is hidden', a
   elements['auto-refresh'].listeners.change();
   assert.equal(timers.size, 0);
   assert.equal(elements['refresh-interval'].disabled, true);
+  document.hidden = true;
+  document.listeners.visibilitychange();
+  document.hidden = false;
+  document.listeners.visibilitychange();
+  assert.equal(requests.length, 1);
   elements['auto-refresh'].checked = true;
   elements['refresh-interval'].value = '30000';
   elements['auto-refresh'].listeners.change();
