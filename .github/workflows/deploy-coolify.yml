@@ -17,7 +17,9 @@ concurrency:
 
 jobs:
   deploy:
-    name: Trigger Coolify build
+    name: Deploy and verify Coolify application
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     environment: production
 
@@ -40,6 +42,7 @@ jobs:
           tags: ${{ secrets.TS_TAGS }}
 
       - name: Trigger glineze deployment
+        id: deploy
         env:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
@@ -53,8 +56,99 @@ jobs:
             --retry-all-errors \
             --connect-timeout 10 \
             --max-time 60 \
+            --output "${RUNNER_TEMP}/coolify-deployment.json" \
             --request POST \
             "${COOLIFY_URL}/api/v1/deploy" \
             --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
             --header "Content-Type: application/json" \
             --data "{\"uuid\":\"${COOLIFY_APP_UUID}\",\"force\":false}"
+
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          response = json.loads((Path(os.environ['RUNNER_TEMP']) / 'coolify-deployment.json').read_text())
+          deployments = response.get('deployments', [])
+          if len(deployments) != 1:
+              raise SystemExit('Expected exactly one Coolify deployment.')
+          deployment_uuid = deployments[0].get('deployment_uuid', '')
+          if not re.fullmatch(r'[A-Za-z0-9_-]+', deployment_uuid):
+              raise SystemExit('Coolify did not return a valid deployment UUID.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'deployment_uuid={deployment_uuid}\n')
+          print(f'Queued deployment: {deployment_uuid}')
+          PYTHON
+
+      - name: Verify deployment and application health
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+          DEPLOYMENT_UUID: ${{ steps.deploy.outputs.deployment_uuid }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          base_url = os.environ['COOLIFY_URL'].rstrip('/')
+          headers = {'Authorization': 'Bearer ' + os.environ['COOLIFY_TOKEN'], 'Accept': 'application/json'}
+
+          def get_resource(path):
+              request = urllib.request.Request(base_url + '/api/v1/' + path, headers=headers)
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  if error.code in (401, 403):
+                      raise SystemExit('Coolify token cannot read deployment status.') from None
+                  print(f'Coolify status request failed (HTTP {error.code}); retrying.')
+              except urllib.error.URLError:
+                  print('Coolify status request could not connect; retrying.')
+              return None
+
+          for attempt in range(90):
+              deployment = get_resource('deployments/' + os.environ['DEPLOYMENT_UUID'])
+              if deployment:
+                  state = deployment.get('status')
+                  if state in ('failed', 'cancelled-by-user', 'cancelled'):
+                      raise SystemExit('Coolify deployment failed or was cancelled.')
+                  if state == 'finished':
+                      if deployment.get('commit') != os.environ['GITHUB_SHA']:
+                          raise SystemExit('Coolify deployed a different commit than this workflow.')
+                      print('Coolify finished deploying commit ' + os.environ['GITHUB_SHA'])
+                      break
+                  print(f'Waiting for Coolify deployment (attempt {attempt + 1}/90).')
+              time.sleep(10)
+          else:
+              raise SystemExit('Timed out waiting for Coolify deployment.')
+
+          for attempt in range(12):
+              application = get_resource('applications/' + os.environ['COOLIFY_APP_UUID'])
+              if application:
+                  state = application.get('status', '')
+                  if state.startswith('running') and 'unhealthy' not in state:
+                      domains = [item.strip() for item in (application.get('fqdn') or '').split(',') if item.strip()]
+                      if not domains:
+                          print('Application is running; no public domain is configured.')
+                          break
+                      public_url = urllib.parse.urlsplit(domains[0])
+                      if public_url.scheme not in ('http', 'https') or not public_url.netloc or public_url.username or public_url.password:
+                          raise SystemExit('Application domain is not a valid HTTP origin.')
+                      origin = urllib.parse.urlunsplit((public_url.scheme, public_url.netloc, '', '', ''))
+                      try:
+                          with urllib.request.urlopen(origin + '/health', timeout=30) as response:
+                              if response.status == 200:
+                                  print('Application health check passed: ' + origin + '/health')
+                                  break
+                      except (urllib.error.HTTPError, urllib.error.URLError):
+                          print('Application health endpoint is not ready; retrying.')
+              time.sleep(10)
+          else:
+              raise SystemExit('Application did not become healthy after deployment.')
+          PYTHON

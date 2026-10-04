@@ -94,6 +94,8 @@ npm run lint
 npm test
 ```
 
+GitHub Actionsのデプロイ処理は、Coolifyで対象コミットのデプロイが完了した後、アプリケーションの稼働状態と、公開ドメインがある場合は`/health`のHTTP 200を確認します。ビルド失敗、別コミットの反映、起動確認の失敗はワークフローの失敗として表示されます。
+
 ## 9. 画面デザイン
 
 管理画面は[デジタル庁デザインシステム（DADS）](https://design.digital.go.jp/dads/)の配色、文字サイズ、余白と操作部品の指針に沿って設計しています。[公式HTML実装例](https://github.com/digital-go-jp/design-system-example-components-html)を参照し、EtaのHTMLと専用CSSで実装しています。スタイルは`src/services/admin/adminStyles.ts`、画面構造は`adminViews.ts`、操作は`adminClient.ts`で管理します。
