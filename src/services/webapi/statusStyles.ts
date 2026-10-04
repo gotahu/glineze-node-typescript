@@ -31,7 +31,7 @@ button, select, input { font: inherit; }
 a { color: var(--blue); text-underline-offset: .2em; }
 a:hover { color: var(--blue-hover); text-decoration-thickness: 2px; }
 :focus-visible { outline: 3px solid #1a1a1a; outline-offset: 2px; box-shadow: 0 0 0 5px #ffd43d; }
-.skip-link { position: absolute; top: -100px; left: 16px; z-index: 10; padding: 12px 20px; background: #ffd43d; color: #1a1a1a; }
+.skip-link { position: fixed; top: -100px; left: 16px; z-index: 10; padding: 12px 20px; background: #ffd43d; color: #1a1a1a; }
 .skip-link:focus { top: 8px; }
 .site-header { border-bottom: 1px solid var(--subtle-line); }
 .header-inner, .shell { width: min(100% - 64px, 1120px); margin: 0 auto; }
