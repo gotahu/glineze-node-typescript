@@ -1,6 +1,14 @@
 export const ADMIN_CLIENT_JS = String.raw`(() => {
   const adminPath = '/admin';
   const nativeSubmissions = new WeakSet();
+  const mobileNavigation = window.matchMedia('(max-width: 760px)');
+
+  function initializeNavigation() {
+    const menu = document.querySelector('.settings-menu');
+    if (menu instanceof HTMLDetailsElement) menu.open = !mobileNavigation.matches;
+  }
+
+  mobileNavigation.addEventListener('change', initializeNavigation);
 
   function isAdminLink(link) {
     const url = new URL(link.href, window.location.href);
@@ -35,15 +43,25 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     return field.matches('input[type="checkbox"]') ? String(field.checked) : field.value;
   }
 
+  function clearVerificationFeedback(field) {
+    if (!field.closest('.setting-row')?.querySelector('button[hx-post]')) return;
+    const feedback = document.getElementById('setting-feedback-' + field.name);
+    for (const message of feedback?.querySelectorAll('[role="alert"], [role="status"]') || []) {
+      message.remove();
+    }
+    field.removeAttribute('aria-invalid');
+  }
+
   function restoreSettingFieldValue(field, value) {
     if (field.matches('input[type="checkbox"]')) field.checked = value === 'true';
     else field.value = value;
+    clearVerificationFeedback(field);
     updateToggleState(field);
   }
 
   function updateToggleState(field) {
     if (!field?.matches('[data-setting-toggle]')) return;
-    const state = field.closest('.toggle-control')?.querySelector('[data-toggle-state]');
+    const state = field.closest('.checkbox-control')?.querySelector('[data-toggle-state]');
     if (state) state.textContent = field.checked ? '有効' : '無効';
   }
 
@@ -180,7 +198,10 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     const button = row.querySelector('[data-edit-field]');
     if (!(form instanceof HTMLFormElement) || !field || !button) return;
 
-    if (restoreValue) field.value = field.dataset.initialValue || '';
+    if (restoreValue) {
+      field.value = field.dataset.initialValue || '';
+      clearVerificationFeedback(field);
+    }
     validateNotifyDays(field);
     field.readOnly = !enabled;
     for (const placeholderButton of row.querySelectorAll('[data-insert-placeholder]')) {
@@ -192,6 +213,8 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     const label = button.querySelector('span');
     if (icon) icon.className = 'ti ' + (enabled ? 'ti-x' : 'ti-pencil');
     if (label) label.textContent = enabled ? 'キャンセル' : '編集';
+    const fieldLabel = row.querySelector('.setting-copy label')?.firstChild?.textContent?.trim() || '通知本文';
+    button.setAttribute('aria-label', fieldLabel + (enabled ? 'の編集をキャンセル' : 'を編集'));
     if (enabled) field.focus({ preventScroll: true });
     updateMessagePreview(field);
     updateSaveDock(form);
@@ -261,6 +284,8 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     else if (nextFooter) document.body.append(nextFooter);
 
     document.title = parsed.title;
+    document.body.className = parsed.body.className;
+    initializeNavigation();
     if (historyMode === 'push') window.history.pushState({}, '', url);
     if (historyMode === 'replace') window.history.replaceState({}, '', url);
 
@@ -286,6 +311,10 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     } else if (historyMode === 'replace') {
       window.history.replaceState({}, '', targetUrl.href);
     }
+    if (mobileNavigation.matches) {
+      const menu = document.querySelector('.settings-menu');
+      if (menu instanceof HTMLDetailsElement) menu.open = false;
+    }
     target.setAttribute('tabindex', '-1');
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: 'start' });
@@ -300,6 +329,7 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('text/html')) throw new Error('HTML以外の応答を受信しました。');
     replacePage(await response.text(), response.url || url, historyMode);
+    initializeSettingsForm(document.querySelector('#settings-form'));
   }
 
   document.addEventListener('click', (event) => {
@@ -411,14 +441,15 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
         const nextSettingsForm = document.querySelector('#settings-form');
         if (nextSettingsForm instanceof HTMLFormElement) {
           initializeSettingsForm(nextSettingsForm);
-          if (!savesAllSettings) {
+          const settingsSaved = savesAllSettings && response.ok;
+          if (!settingsSaved) {
             for (const [name, initialValue] of initialFieldValues) {
               const field = nextSettingsForm.querySelector('[name="' + CSS.escape(name) + '"]');
               if (field) field.dataset.initialValue = initialValue;
             }
           }
           if (!savesAllSettings && hadUnsavedChanges) restoreUnsavedValues(data);
-          if (!savesAllSettings) {
+          if (!settingsSaved) {
             for (const name of editingFieldNames) {
               const field = nextSettingsForm.querySelector('[name="' + CSS.escape(name) + '"]');
               const row = field?.closest('.setting-row');
@@ -439,6 +470,7 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
   document.addEventListener('input', (event) => {
     const field = event.target;
     if (field instanceof HTMLElement && field.closest('#settings-form') && field.getAttribute('name') !== '_csrf') {
+      clearVerificationFeedback(field);
       normalizeNotionDatabaseField(field);
       validateNotifyDays(field);
       updateToggleState(field);
@@ -464,12 +496,22 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     }
   });
 
+  document.addEventListener('htmx:afterSwap', (event) => {
+    const target = event.detail?.target;
+    if (!(target instanceof HTMLElement) || !target.id.startsWith('setting-feedback-')) return;
+    const feedback = document.getElementById(target.id);
+    if (!feedback) return;
+    const field = document.getElementById(feedback.id.replace('setting-feedback-', 'setting-'));
+    field?.setAttribute('aria-invalid', String(Boolean(feedback.querySelector('.field-message.error'))));
+  });
+
   window.addEventListener('popstate', () => {
     if (window.location.hash && moveToSection(window.location.href, 'none')) return;
     loadPage(window.location.href, 'none').catch(() => window.location.reload());
   });
 
   function boot() {
+    initializeNavigation();
     initializeSettingsForm(document.querySelector('#settings-form'));
     if (window.location.hash) window.requestAnimationFrame(() => moveToSection(window.location.href, 'none'));
   }

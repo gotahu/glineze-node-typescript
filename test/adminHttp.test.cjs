@@ -355,7 +355,9 @@ test('shows every setting on one page and verifies Discord and Notion destinatio
   assert.match(html, /id="sesame"/);
   assert.match(html, /name="sesame_enabled"/);
   assert.match(html, /data-setting-toggle checked/);
-  assert.match(html, /class="toggle-track"/);
+  assert.match(html, /class="checkbox-control"/);
+  assert.doesNotMatch(html, /class="toggle-track"/);
+  assert.match(html, /変更は「変更を保存」を押すと反映されます。/);
   assert.match(html, /name="sesame_app_api_url"/);
   assert.match(html, /name="sesame_device_uuid"/);
   assert.match(html, /id="settings-form"/);
