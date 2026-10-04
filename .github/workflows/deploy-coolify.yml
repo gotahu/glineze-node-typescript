@@ -83,7 +83,7 @@ jobs:
           print(f'Queued deployment: {deployment_uuid}')
           PYTHON
 
-      - name: Verify deployed admin assets and application health
+      - name: Verify public page, admin assets and application health
         env:
           GLINEZE_PUBLIC_URL: ${{ vars.GLINEZE_PUBLIC_URL }}
         run: |
@@ -101,19 +101,21 @@ jobs:
           origin = urllib.parse.urlunsplit((public_url.scheme, public_url.netloc, '', '', ''))
           revision = os.environ['GITHUB_SHA']
           public_headers = {'User-Agent': 'Glineze-Deployment-Verifier/1.0', 'Cache-Control': 'no-cache'}
-          source_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/{revision}/src/services/admin/adminStyles.ts"
+          source_root = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/{revision}/src/services/"
           for attempt in range(6):
               try:
-                  with urllib.request.urlopen(source_url, timeout=30) as response:
-                      source = response.read().decode('utf-8')
-                  expected_css = source.split('String.raw`', 1)[1].rsplit('`;', 1)[0].encode('utf-8')
-                  expected_digest = hashlib.sha256(expected_css).hexdigest()
+                  expected_digests = {}
+                  for name, path in [('admin', 'admin/adminStyles.ts'), ('public', 'webapi/statusStyles.ts')]:
+                      with urllib.request.urlopen(source_root + path, timeout=30) as response:
+                          source = response.read().decode('utf-8')
+                      expected_css = source.split('String.raw`', 1)[1].rsplit('`;', 1)[0].encode('utf-8')
+                      expected_digests[name] = hashlib.sha256(expected_css).hexdigest()
                   break
               except (urllib.error.HTTPError, urllib.error.URLError):
                   print('Waiting for the revision source to be available.')
                   time.sleep(10)
           else:
-              raise SystemExit('Cannot retrieve the admin styles for the deployed revision.')
+              raise SystemExit('Cannot retrieve the page styles for the deployed revision.')
 
           for attempt in range(90):
               try:
@@ -126,14 +128,20 @@ jobs:
                   )
                   with urllib.request.urlopen(asset_request, timeout=15) as response:
                       actual_digest = hashlib.sha256(response.read()).hexdigest()
-                  if healthy and actual_digest == expected_digest:
-                      print('Application health and deployed admin styles verified for commit ' + revision)
+                  public_request = urllib.request.Request(origin + '/?v=' + revision, headers=public_headers)
+                  with urllib.request.urlopen(public_request, timeout=15) as response:
+                      public_html = response.read().decode('utf-8')
+                  public_css = public_html.partition('<style>')[2].partition('</style>')[0].encode('utf-8')
+                  public_digest = hashlib.sha256(public_css).hexdigest()
+                  if healthy and actual_digest == expected_digests['admin'] and public_digest == expected_digests['public']:
+                      print('Application health, public page and admin styles verified for commit ' + revision)
+                      print('Public URL: ' + origin)
                       print('Admin URL: ' + origin + '/admin')
                       break
-                  print(f'Waiting for the new admin styles (attempt {attempt + 1}/90).')
+                  print(f'Waiting for the new public page and admin styles (attempt {attempt + 1}/90).')
               except (urllib.error.HTTPError, urllib.error.URLError):
                   print(f'Waiting for application health and admin assets (attempt {attempt + 1}/90).')
               time.sleep(10)
           else:
-              raise SystemExit('The application did not serve the expected admin styles with a healthy response.')
+              raise SystemExit('The application did not serve the expected public page and admin styles with a healthy response.')
           PYTHON
