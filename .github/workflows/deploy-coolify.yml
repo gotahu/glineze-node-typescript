@@ -29,10 +29,12 @@ jobs:
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
           COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
           TS_TAGS: ${{ secrets.TS_TAGS }}
+          GLINEZE_PUBLIC_URL: ${{ vars.GLINEZE_PUBLIC_URL }}
         run: |
           : "${COOLIFY_URL:?Set the COOLIFY_URL repository or production environment secret}"
           : "${COOLIFY_APP_UUID:?Set the COOLIFY_APP_UUID repository or production environment secret}"
           : "${TS_TAGS:?Set the TS_TAGS repository or production environment secret}"
+          : "${GLINEZE_PUBLIC_URL:?Set the GLINEZE_PUBLIC_URL repository or production environment variable}"
 
       - name: Join the tailnet
         uses: tailscale/github-action@v4
@@ -81,74 +83,55 @@ jobs:
           print(f'Queued deployment: {deployment_uuid}')
           PYTHON
 
-      - name: Verify deployment and application health
+      - name: Verify deployed admin assets and application health
         env:
-          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
-          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
-          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
-          DEPLOYMENT_UUID: ${{ steps.deploy.outputs.deployment_uuid }}
+          GLINEZE_PUBLIC_URL: ${{ vars.GLINEZE_PUBLIC_URL }}
         run: |
           python3 - <<'PYTHON'
-          import json
+          import hashlib
           import os
           import time
           import urllib.error
           import urllib.parse
           import urllib.request
 
-          base_url = os.environ['COOLIFY_URL'].rstrip('/')
-          headers = {'Authorization': 'Bearer ' + os.environ['COOLIFY_TOKEN'], 'Accept': 'application/json'}
-
-          def get_resource(path):
-              request = urllib.request.Request(base_url + '/api/v1/' + path, headers=headers)
+          public_url = urllib.parse.urlsplit(os.environ['GLINEZE_PUBLIC_URL'])
+          if public_url.scheme not in ('http', 'https') or not public_url.netloc or public_url.username or public_url.password:
+              raise SystemExit('GLINEZE_PUBLIC_URL must be a valid HTTP URL without credentials.')
+          origin = urllib.parse.urlunsplit((public_url.scheme, public_url.netloc, '', '', ''))
+          revision = os.environ['GITHUB_SHA']
+          source_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/{revision}/src/services/admin/adminStyles.ts"
+          for attempt in range(6):
               try:
-                  with urllib.request.urlopen(request, timeout=30) as response:
-                      return json.load(response)
-              except urllib.error.HTTPError as error:
-                  if error.code in (401, 403):
-                      raise SystemExit('Coolify token cannot read deployment status.') from None
-                  print(f'Coolify status request failed (HTTP {error.code}); retrying.')
-              except urllib.error.URLError:
-                  print('Coolify status request could not connect; retrying.')
-              return None
+                  with urllib.request.urlopen(source_url, timeout=30) as response:
+                      source = response.read().decode('utf-8')
+                  expected_css = source.split('String.raw`', 1)[1].rsplit('`;', 1)[0].encode('utf-8')
+                  expected_digest = hashlib.sha256(expected_css).hexdigest()
+                  break
+              except (urllib.error.HTTPError, urllib.error.URLError):
+                  print('Waiting for the revision source to be available.')
+                  time.sleep(10)
+          else:
+              raise SystemExit('Cannot retrieve the admin styles for the deployed revision.')
 
           for attempt in range(90):
-              deployment = get_resource('deployments/' + os.environ['DEPLOYMENT_UUID'])
-              if deployment:
-                  state = deployment.get('status')
-                  if state in ('failed', 'cancelled-by-user', 'cancelled'):
-                      raise SystemExit('Coolify deployment failed or was cancelled.')
-                  if state == 'finished':
-                      if deployment.get('commit') != os.environ['GITHUB_SHA']:
-                          raise SystemExit('Coolify deployed a different commit than this workflow.')
-                      print('Coolify finished deploying commit ' + os.environ['GITHUB_SHA'])
+              try:
+                  with urllib.request.urlopen(origin + '/health', timeout=15) as response:
+                      healthy = response.status == 200
+                  asset_request = urllib.request.Request(
+                      origin + '/admin/assets/admin.css?v=' + revision,
+                      headers={'Cache-Control': 'no-cache'},
+                  )
+                  with urllib.request.urlopen(asset_request, timeout=15) as response:
+                      actual_digest = hashlib.sha256(response.read()).hexdigest()
+                  if healthy and actual_digest == expected_digest:
+                      print('Application health and deployed admin styles verified for commit ' + revision)
+                      print('Admin URL: ' + origin + '/admin')
                       break
-                  print(f'Waiting for Coolify deployment (attempt {attempt + 1}/90).')
+                  print(f'Waiting for the new admin styles (attempt {attempt + 1}/90).')
+              except (urllib.error.HTTPError, urllib.error.URLError):
+                  print(f'Waiting for application health and admin assets (attempt {attempt + 1}/90).')
               time.sleep(10)
           else:
-              raise SystemExit('Timed out waiting for Coolify deployment.')
-
-          for attempt in range(12):
-              application = get_resource('applications/' + os.environ['COOLIFY_APP_UUID'])
-              if application:
-                  state = application.get('status', '')
-                  if state.startswith('running') and 'unhealthy' not in state:
-                      domains = [item.strip() for item in (application.get('fqdn') or '').split(',') if item.strip()]
-                      if not domains:
-                          print('Application is running; no public domain is configured.')
-                          break
-                      public_url = urllib.parse.urlsplit(domains[0])
-                      if public_url.scheme not in ('http', 'https') or not public_url.netloc or public_url.username or public_url.password:
-                          raise SystemExit('Application domain is not a valid HTTP origin.')
-                      origin = urllib.parse.urlunsplit((public_url.scheme, public_url.netloc, '', '', ''))
-                      try:
-                          with urllib.request.urlopen(origin + '/health', timeout=30) as response:
-                              if response.status == 200:
-                                  print('Application health check passed: ' + origin + '/health')
-                                  break
-                      except (urllib.error.HTTPError, urllib.error.URLError):
-                          print('Application health endpoint is not ready; retrying.')
-              time.sleep(10)
-          else:
-              raise SystemExit('Application did not become healthy after deployment.')
+              raise SystemExit('The application did not serve the expected admin styles with a healthy response.')
           PYTHON

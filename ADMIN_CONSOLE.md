@@ -94,7 +94,7 @@ npm run lint
 npm test
 ```
 
-GitHub Actionsのデプロイ処理は、Coolifyで対象コミットのデプロイが完了した後、アプリケーションの稼働状態と、公開ドメインがある場合は`/health`のHTTP 200を確認します。ビルド失敗、別コミットの反映、起動確認の失敗はワークフローの失敗として表示されます。
+GitHub Actionsのデプロイ処理は、Coolifyへの投入後、公開URLの`/health`がHTTP 200を返し、配信される管理画面のCSSが対象コミットの内容と一致するまで待ちます。Coolifyトークンの読み取り権限は不要です。GitHub Actionsの変数`GLINEZE_PUBLIC_URL`に本番の公開URLを設定してください。起動しない場合や管理画面に変更が反映されない場合は、ワークフローが失敗します。
 
 ## 9. 画面デザイン
 
