@@ -100,6 +100,7 @@ jobs:
               raise SystemExit('GLINEZE_PUBLIC_URL must be a valid HTTP URL without credentials.')
           origin = urllib.parse.urlunsplit((public_url.scheme, public_url.netloc, '', '', ''))
           revision = os.environ['GITHUB_SHA']
+          public_headers = {'User-Agent': 'Glineze-Deployment-Verifier/1.0', 'Cache-Control': 'no-cache'}
           source_url = f"https://raw.githubusercontent.com/{os.environ['GITHUB_REPOSITORY']}/{revision}/src/services/admin/adminStyles.ts"
           for attempt in range(6):
               try:
@@ -116,11 +117,12 @@ jobs:
 
           for attempt in range(90):
               try:
-                  with urllib.request.urlopen(origin + '/health', timeout=15) as response:
+                  health_request = urllib.request.Request(origin + '/health', headers=public_headers)
+                  with urllib.request.urlopen(health_request, timeout=15) as response:
                       healthy = response.status == 200
                   asset_request = urllib.request.Request(
                       origin + '/admin/assets/admin.css?v=' + revision,
-                      headers={'Cache-Control': 'no-cache'},
+                      headers=public_headers,
                   )
                   with urllib.request.urlopen(asset_request, timeout=15) as response:
                       actual_digest = hashlib.sha256(response.read()).hexdigest()
