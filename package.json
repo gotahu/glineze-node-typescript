@@ -11,7 +11,8 @@
     "dev": "npm run start:dev",
     "lint": "eslint src test",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test test/*.test.cjs"
+    "test": "npm run build && node --test test/*.test.cjs",
+    "test:browser": "npm run build && node --test test/browser/*.test.cjs"
   },
   "author": "",
   "license": "ISC",
@@ -28,6 +29,7 @@
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
+    "playwright-core": "^1.63.0",
     "prettier": "^3.9.8",
     "ts-loader": "^9.6.2",
     "ts-node": "^10.9.2",
