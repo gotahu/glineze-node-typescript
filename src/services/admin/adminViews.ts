@@ -41,7 +41,7 @@ const layoutTemplate = `<!doctype html>
   <link rel="stylesheet" href="/admin/assets/tabler-icons.css">
   <link rel="stylesheet" href="/admin/assets/admin.css?v=20261004-dads-1">
   <script src="/admin/assets/htmx.min.js" defer></script>
-  <script src="/admin/assets/admin.js?v=20261004-dads-1" defer></script>
+  <script src="/admin/assets/admin.js?v=20261006-async-1" defer></script>
 </head>
 <body class="<%= it.authenticated ? 'admin-shell' : 'auth-shell' %>">
   <a class="skip-link" href="#main-content">本文へ移動</a>
@@ -301,6 +301,7 @@ export function renderSettingsForm(
                   hx-target="#setting-feedback-<%= field.key %>"
                   hx-select="#setting-feedback-<%= field.key %>"
                   hx-swap="outerHTML"
+                  hx-disabled-elt="this"
                 >確認</button>
               <% } else if (field.notionDatabase) { %>
                 <button
@@ -317,6 +318,7 @@ export function renderSettingsForm(
                   hx-target="#setting-feedback-<%= field.key %>"
                   hx-select="#setting-feedback-<%= field.key %>"
                   hx-swap="outerHTML"
+                  hx-disabled-elt="this"
                 >確認</button>
               <% } %>
             </div>

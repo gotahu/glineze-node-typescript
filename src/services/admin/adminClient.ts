@@ -1,6 +1,6 @@
 export const ADMIN_CLIENT_JS = String.raw`(() => {
   const adminPath = '/admin';
-  const nativeSubmissions = new WeakSet();
+  const pendingSubmissions = new WeakSet();
   const mobileNavigation = window.matchMedia('(max-width: 760px)');
 
   function initializeNavigation() {
@@ -33,6 +33,22 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     if (!submitter.matches('[data-save-button]')) return;
     const label = submitter.querySelector('[data-save-button-label]');
     if (label) label.textContent = busy ? '保存中…' : '変更を保存';
+  }
+
+  function showRequestError(source) {
+    const feedback = source?.hasAttribute('hx-post')
+      ? document.querySelector(source.getAttribute('hx-target'))
+      : null;
+    const message = document.createElement(feedback ? 'small' : 'aside');
+    message.className = feedback ? 'field-message error' : 'flash error';
+    message.setAttribute('role', 'alert');
+    message.textContent = '通信に失敗しました。操作結果を確認してから、再度お試しください。';
+    if (feedback) feedback.replaceChildren(message);
+    else {
+      document.querySelector('[data-request-error]')?.remove();
+      message.setAttribute('data-request-error', '');
+      document.querySelector('.page-heading')?.after(message);
+    }
   }
 
   function getSettingFields(form) {
@@ -283,6 +299,11 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     else if (currentFooter) currentFooter.remove();
     else if (nextFooter) document.body.append(nextFooter);
 
+    // DOM replaced outside htmx must be processed before its buttons can issue requests.
+    for (const element of [nextHeader, nextMain, nextFooter]) {
+      if (element) window.htmx.process(element);
+    }
+
     document.title = parsed.title;
     document.body.className = parsed.body.className;
     initializeNavigation();
@@ -381,25 +402,26 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     }
 
     event.preventDefault();
-    loadPage(link.href, 'push').catch(() => window.location.assign(link.href));
+    loadPage(link.href, 'push').catch(() => showRequestError());
   });
 
   document.addEventListener('submit', (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
-    if (nativeSubmissions.has(form)) {
-      nativeSubmissions.delete(form);
+    const submitter = event.submitter;
+    if (submitter?.hasAttribute('hx-post')) {
+      event.preventDefault();
       return;
     }
 
-    const submitter = event.submitter;
-    if (submitter?.hasAttribute('hx-post')) return;
     const action = submitter?.formAction || form.action;
     const method = (submitter?.formMethod || form.method || 'get').toUpperCase();
     const url = new URL(action, window.location.href);
     if (url.origin !== window.location.origin || !url.pathname.startsWith(adminPath)) return;
 
     event.preventDefault();
+    if (pendingSubmissions.has(form)) return;
+    pendingSubmissions.add(form);
     const scrollPosition = window.scrollY;
     const data = new FormData(form);
     if (submitter?.name) data.set(submitter.name, submitter.value);
@@ -460,10 +482,10 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
           updateAllMessagePreviews(nextSettingsForm);
         }
       })
-      .catch(() => {
+      .catch(() => showRequestError(submitter))
+      .finally(() => {
         setSubmitterBusy(submitter, false);
-        nativeSubmissions.add(form);
-        form.requestSubmit(submitter || undefined);
+        pendingSubmissions.delete(form);
       });
   });
 
@@ -505,9 +527,13 @@ export const ADMIN_CLIENT_JS = String.raw`(() => {
     field?.setAttribute('aria-invalid', String(Boolean(feedback.querySelector('.field-message.error'))));
   });
 
+  for (const eventName of ['htmx:sendError', 'htmx:timeout', 'htmx:responseError']) {
+    document.addEventListener(eventName, (event) => showRequestError(event.detail?.elt));
+  }
+
   window.addEventListener('popstate', () => {
     if (window.location.hash && moveToSection(window.location.href, 'none')) return;
-    loadPage(window.location.href, 'none').catch(() => window.location.reload());
+    loadPage(window.location.href, 'none').catch(() => showRequestError());
   });
 
   function boot() {

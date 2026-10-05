@@ -77,6 +77,7 @@ export function createAdminRouter(options: AdminRouterOptions): Router {
           baseUri: ["'none'"],
           formAction: ["'self'"],
           frameAncestors: ["'none'"],
+          upgradeInsecureRequests: options.secureCookies === false ? null : [],
         },
       },
       referrerPolicy: { policy: 'no-referrer' },

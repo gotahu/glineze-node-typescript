@@ -177,6 +177,7 @@ test('allows the local settings page without a login token only in development a
   const response = await globalThis.fetch(`http://127.0.0.1:${address.port}/admin/settings`);
 
   assert.equal(response.status, 200);
+  assert.doesNotMatch(response.headers.get('content-security-policy'), /upgrade-insecure-requests/);
   assert.match(await response.text(), /<title>設定 \| Glineze 管理画面<\/title>/);
 });
 
@@ -203,6 +204,7 @@ test('protects admin pages and exchanges a clean login URL for a secure session'
   assert.equal(dashboard.headers.get('cache-control'), 'no-store');
   assert.equal(dashboard.headers.get('referrer-policy'), 'no-referrer');
   assert.match(dashboard.headers.get('content-security-policy'), /script-src 'self'/);
+  assert.match(dashboard.headers.get('content-security-policy'), /upgrade-insecure-requests/);
   const dashboardHtml = await dashboard.text();
   assert.match(dashboardHtml, /稼働状況/);
   assert.match(dashboardHtml, /src="\/admin\/assets\/htmx\.min\.js" defer/);
