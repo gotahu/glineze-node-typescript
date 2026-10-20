@@ -39,23 +39,23 @@
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
     "@hapi/iron": "^7.0.1",
-    "@notionhq/client": "^5.27.0",
+    "@notionhq/client": "^5.27.1",
     "@picocss/pico": "^2.1.1",
-    "@tabler/icons-webfont": "^3.48.0",
+    "@tabler/icons-webfont": "^3.49.0",
     "axios": "^1.20.0",
     "csrf-sync": "^4.2.1",
     "date-fns": "^4.4.0",
     "discord.js": "^14.26.3",
-    "dotenv": "^18.0.5",
+    "dotenv": "^18.0.8",
     "eta": "^4.6.0",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
     "htmx.org": "^2.0.11",
     "memorystore": "^1.6.8",
     "node-cron": "^4.6.0",
     "tsconfig-paths": "^4.2.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   }
 }
