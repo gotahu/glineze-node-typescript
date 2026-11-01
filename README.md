@@ -29,6 +29,10 @@ npm run lint
 npm test
 ```
 
+ビルドと型チェックにはTypeScript 7を使います。ESLintとts-nodeは従来のコンパイラAPIを必要とするため、[Microsoftが案内する併用構成](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)に従い、`@typescript/native`にTypeScript 7、`typescript`に公式のTypeScript 6互換パッケージをnpmエイリアスで割り当てています。`tsc`は7系、`tsc6`と開発起動は6系を使用します。
+
+ESLint関連の間接依存であるminimatchは、[11.0.1未満に影響するDoSの修正](https://github.com/advisories/GHSA-g3hv-75wg-m249)を取り込むため、`overrides`で11系を指定しています。ESLintとtypescript-eslintの依存指定が11系に対応したら、この指定を削除できます。
+
 `npm test`はビルド後にテストを実行します。本番起動には次のコマンドを使用してください。
 
 ```sh
