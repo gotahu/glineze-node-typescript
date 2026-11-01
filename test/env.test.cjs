@@ -1,11 +1,16 @@
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
+const { mkdtempSync, rmSync, writeFileSync } = require('node:fs');
+const { tmpdir } = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
 const envModule = path.resolve(globalThis.process.cwd(), 'dist/env.js');
 
-function evaluateEnv(overrides) {
+function evaluateEnv(
+  overrides,
+  { cwd = '/tmp', code = `require(${JSON.stringify(envModule)})` } = {}
+) {
   const childEnv = {
     PATH: globalThis.process.env.PATH,
     NODE_ENV: 'test',
@@ -18,12 +23,36 @@ function evaluateEnv(overrides) {
     ADMIN_ENABLED: 'false',
     ...overrides,
   };
-  return spawnSync(globalThis.process.execPath, ['-e', `require(${JSON.stringify(envModule)})`], {
-    cwd: '/tmp',
+  return spawnSync(globalThis.process.execPath, ['-e', code], {
+    cwd,
     env: childEnv,
     encoding: 'utf8',
   });
 }
+
+test('loads quoted .env values without overriding externally supplied environment variables', (t) => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'glineze-env-'));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  writeFileSync(
+    path.join(cwd, '.env'),
+    'DISCORD_BOT_TOKEN=file-token\nNOTION_TOKEN="file-token # quoted"\nNOTION_CONFIGURATION_DATABASEID=file-database\n'
+  );
+
+  const result = evaluateEnv(
+    { NOTION_TOKEN: undefined, NOTION_CONFIGURATION_DATABASEID: undefined },
+    {
+      cwd,
+      code: `const { env } = require(${JSON.stringify(envModule)}); console.log(JSON.stringify({ discordToken: env.DISCORD_BOT_TOKEN, notionToken: env.NOTION_TOKEN, databaseId: env.NOTION_CONFIGURATION_DATABASEID }));`,
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    discordToken: 'test-only-token',
+    notionToken: 'file-token # quoted',
+    databaseId: 'file-database',
+  });
+});
 
 test('keeps the admin console disabled without requiring admin credentials', () => {
   const result = evaluateEnv({ ADMIN_ENABLED: 'false' });
