@@ -1,8 +1,10 @@
 import {
   ChannelType,
   Client,
+  escapeMarkdown,
   Guild,
   Message,
+  MessageType,
   TextChannel,
   ThreadAutoArchiveDuration,
   ThreadChannel,
@@ -12,6 +14,36 @@ import { logger } from '../../../utils/logger';
 import { getWebhookInChannel } from './WebhookFunctions';
 
 const parentChannelMap = new Map<string, TextChannel>();
+const WEBHOOK_CONTENT_LIMIT = 2000;
+
+function formatRelayContent(message: Message) {
+  const { content, guild, mentions, client } = message;
+  // Prefer a shorter ID when a display name would push the relay over the webhook limit.
+  let remaining = WEBHOOK_CONTENT_LIMIT - content.length;
+
+  return content.replace(/<(@[!&]?|#)(\d{17,20})>/g, (match, type, id) => {
+    let name: string | undefined;
+    if (type === '#') {
+      const channel = mentions.channels.get(id);
+      name =
+        (channel && 'name' in channel ? channel.name : undefined) ??
+        mentions.crosspostedChannels.get(id)?.name;
+    } else if (type === '@&') {
+      name = guild?.roles.cache.get(id)?.name;
+    } else {
+      name =
+        guild?.members.cache.get(id)?.displayName ??
+        mentions.users.get(id)?.displayName ??
+        client.users.cache.get(id)?.displayName;
+    }
+
+    const prefix = type === '#' ? '#' : '@';
+    const display = name && `${prefix}${escapeMarkdown(name).replaceAll('<', '\\<')}`;
+    const text = display && display.length - match.length <= remaining ? display : `${prefix}${id}`;
+    remaining += match.length - text.length;
+    return text;
+  });
+}
 
 function generateParentChannelName(message: Message) {
   const { guild, channel } = message;
@@ -158,9 +190,16 @@ async function getThreadChannel(message: Message): Promise<ThreadChannel | null>
 }
 
 export async function relayMessage(message: Message) {
-  const { content, author } = message;
+  if (
+    message.type === MessageType.ThreadCreated ||
+    message.type === MessageType.ThreadStarterMessage
+  ) {
+    return;
+  }
 
   try {
+    const { author } = message;
+    const content = formatRelayContent(message);
     const threadChannel = await getThreadChannel(message);
     if (!threadChannel) return;
 
@@ -168,7 +207,8 @@ export async function relayMessage(message: Message) {
 
     if (threadChannel) {
       const options = {
-        content: content,
+        content,
+        allowedMentions: { parse: [], repliedUser: false },
         username: author.globalName ?? message.author.username,
         avatarURL: author.displayAvatarURL(),
         threadId: threadChannel.id,

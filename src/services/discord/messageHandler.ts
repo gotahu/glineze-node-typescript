@@ -1,9 +1,8 @@
 import axios from 'axios';
-import { ChannelType, DMChannel, Message, MessageType } from 'discord.js';
+import { ChannelType, DMChannel, Message, MessageType, PartialMessage } from 'discord.js';
 import { env } from '../../env';
 import { Services } from '../../types/types';
 import { logger } from '../../utils/logger';
-import { PartialMessage } from 'discord.js';
 import { handleNotifyPracticesCommand } from './commands/PracticeCommand';
 import { replyShukinStatus } from './commands/ShukinCommand';
 import { relayMessage } from './functions/RelayFunction';
@@ -110,10 +109,17 @@ export class MessageHandler {
     newMessage: Message | PartialMessage
   ): Promise<void> {
     if (newMessage.guild?.id === env.DISCORD_VOID_GUILD_ID) return;
+    if (newMessage.channel?.type !== ChannelType.GuildText) return;
 
-    if (newMessage.channel.type === ChannelType.GuildText) {
+    // MessageUpdate also fires for metadata changes such as thread state and link previews.
+    const editedAt = newMessage.editedTimestamp;
+    if (editedAt === null || editedAt <= (oldMessage.editedTimestamp ?? 0)) return;
+
+    try {
       const fullMsg = newMessage.partial ? await newMessage.fetch() : newMessage;
       await relayMessage(fullMsg);
+    } catch (error) {
+      logger.error(`message update handling failed: ${error}`);
     }
   }
 }
